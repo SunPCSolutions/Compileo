@@ -1,3 +1,0 @@
-"""
-Project storage package.
-"""
