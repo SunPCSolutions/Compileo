@@ -15,7 +15,7 @@ Imagine you have several thick textbooks and want to create a specialized datase
 3.  **Extract** every mention of treatments, dosages, and contraindications with high precision.
 4.  **Consolidate** this into one unified, high-quality Q&A dataset for training or study.
 
-### 🕹️ One Engine, Three Ways to Work
+### 🕹️ Three Ways to Work
 Compileo is designed for every workflow:
 *   **Web GUI**: A user-friendly Streamlit interface with a 7-step guided wizard.
 *   **REST API**: Seamlessly integrate dataset generation into your own applications.
