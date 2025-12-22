@@ -1,0 +1,3230 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/chunkgui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Chunk Module GUI Usage Guide - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#chunk-module-gui-usage-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Chunk Module GUI Usage Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#chunking-strategy-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunking Strategy Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessing-document-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Document Processing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Accessing Document Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Navigation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunk-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunk Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interface-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-configuration-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Configuration (Default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-assisted-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ai-assisted-configuration-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Configuration Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="AI-Assisted Configuration Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#streamlined-design-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streamlined Design Principles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-describe-your-chunking-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Describe Your Chunking Goal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-choose-document-and-parsed-file-for-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Choose Document and Parsed File for Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-extract-examples-with-text-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Extract Examples with Text Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Extract Examples with Text Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#direct-text-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct Text Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-selected-text-to-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding Selected Text to Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#selection-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selection Tips
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-build-example-collection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Build Example Collection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-get-ai-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Get AI Recommendations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-recommendation-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Recommendation Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tips-for-better-ai-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tips for Better AI Recommendations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tips for Better AI Recommendations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goal-description-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal Description Tips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-quality-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Quality Tips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-selection-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Selection Tips
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#character-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Character-Based Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Character-Based Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visual-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visual Feedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#semantic-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semantic Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Semantic Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#advanced-universal-cross-file-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ Advanced Universal Cross-File Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prompt-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-prompt-techniques" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Prompt Techniques
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tips-for-better-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tips for Better Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema-Based Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema-Based Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rule Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pattern-rules-regex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Rules (Regex)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delimiter-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delimiter Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combine-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combine Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-validation-and-auto-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Validation and Auto-Correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delimiter-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delimiter-Based Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delimiter-Based Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enhanced-delimiter-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enhanced Delimiter Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Enhanced Delimiter Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-select-common-delimiters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Select (Common Delimiters)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-delimiter-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Delimiter Field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smart-combination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Smart Combination
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#token-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Token-Based Chunking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Token-Based Chunking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#token-estimation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Token Estimation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Processing Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-by-step-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step-by-Step Process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#batch-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy-selection-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy Selection Guide
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quality-assurance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quality Assurance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-other-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Other Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-generation-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Generation Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taxonomy-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taxonomy Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarking Connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="chunk-module-gui-usage-guide">Chunk Module GUI Usage Guide</h1>
+<p>The Compileo GUI provides an intuitive web interface for document chunking with multiple strategies. This guide covers how to use the chunking features through the Streamlit-based web application.</p>
+<h2 id="chunking-strategy-options">Chunking Strategy Options</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>graph TD
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    A[Document Processing Tab] --&gt; B[Select Chunk Strategy]
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    B --&gt; C{Strategy Choice}
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    C --&gt; D[Character]
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    C --&gt; E[Semantic]
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    C --&gt; F[Schema]
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    C --&gt; G[Delimiter]
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    C --&gt; H[Token]
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    D --&gt; D1[Chunk Size Slider&lt;br/&gt;500-2000 chars]
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    D --&gt; D2[Overlap Slider&lt;br/&gt;0-500 chars]
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    E --&gt; E1[Prompt Text Area&lt;br/&gt;Custom AI instructions]
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    F --&gt; F1[Schema Text Area&lt;br/&gt;JSON rule definition]
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    G --&gt; G1[Delimiter Multi-Select&lt;br/&gt;Common separators]
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    H --&gt; H1[Chunk Size Slider&lt;br/&gt;256-2048 tokens]
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    H --&gt; H2[Overlap Slider&lt;br/&gt;0-512 tokens]
+</code></pre></div>
+<h2 id="accessing-document-processing">Accessing Document Processing</h2>
+<h3 id="navigation">Navigation</h3>
+<ol>
+<li>Launch the Compileo GUI: <code>streamlit run src/compileo/features/gui/main.py</code></li>
+<li>Navigate to the <strong>Document Processing</strong> tab in the sidebar</li>
+<li>Select your target project from the dropdown</li>
+</ol>
+<h3 id="chunk-management">Chunk Management</h3>
+<p>The chunk management interface is available in the <strong>Document Processing</strong> tab under the <strong>"📑 View &amp; Manage Chunks"</strong> tab.</p>
+<p><strong>Features:</strong>
+- View all chunks for a document with detailed metadata (ID, index, token count)
+- Expandable sections with full content preview, displaying chunk indices and token counts (e.g., <code>Chunk 1 (Tokens: ~150)</code>) instead of internal IDs
+- <strong>Flexible chunk deletion</strong> using simple index numbers (no UUIDs required):
+  - Single chunks: <code>1</code>
+  - Multiple chunks: <code>1, 3, 5</code>
+  - Ranges: <code>1-10</code>
+  - Combinations: <code>1-5, 8, 10-12</code>
+- Bulk document chunk deletion with confirmation
+- Refresh button for data reloading</p>
+<h3 id="interface-overview">Interface Overview</h3>
+<p>The Document Processing tab provides three main sections:
+- <strong>Parse Documents Tab</strong>: Upload and parse documents to markdown
+- <strong>Configure &amp; Chunk Documents Tab</strong>: Configure chunking strategies and process documents
+- <strong>View &amp; Manage Chunks Tab</strong>: View, inspect, and delete chunks</p>
+<h3 id="configuration-modes">Configuration Modes</h3>
+<p>The Configure &amp; Chunk Documents tab offers two configuration approaches:</p>
+<h4 id="manual-configuration-default">Manual Configuration (Default)</h4>
+<ul>
+<li><strong>Strategy Selection</strong>: Choose from character, semantic, schema, delimiter, or token strategies</li>
+<li><strong>Parameter Configuration</strong>: Set strategy-specific parameters manually</li>
+<li><strong>Direct Processing</strong>: Immediate chunking with your chosen settings</li>
+</ul>
+<h4 id="ai-assisted-configuration">AI-Assisted Configuration</h4>
+<ul>
+<li><strong>Goal Description</strong>: Describe your chunking objective (required)</li>
+<li><strong>Document Preview</strong>: Browse document content with pagination</li>
+<li><strong>Page-Aware Copy</strong>: Extract examples from specific pages</li>
+<li><strong>AI Recommendations</strong>: Get intelligent strategy suggestions</li>
+<li><strong>Refined Processing</strong>: Apply AI-recommended parameters</li>
+</ul>
+<h2 id="ai-assisted-configuration-workflow">AI-Assisted Configuration Workflow</h2>
+<p>The AI-assisted configuration provides intelligent chunking recommendations based on your document structure and goals.</p>
+<h3 id="streamlined-design-principles">Streamlined Design Principles</h3>
+<ul>
+<li><strong>No Redundancy</strong>: Single document preview serves both browsing and example extraction</li>
+<li><strong>Compact Layout</strong>: Example collection shown as editable summary, not verbose expandable sections</li>
+<li><strong>Progressive Disclosure</strong>: Simple workflow with optional advanced features</li>
+<li><strong>Contextual Actions</strong>: Copy buttons work on current page without complex page selection</li>
+<li><strong>Side-by-Side Selection</strong>: Document and parsed file selectors in compact single row for efficient navigation</li>
+<li><strong>File-Specific Content</strong>: Full parsed file content loading with GUI pagination for large document chunks</li>
+<li><strong>Seamless Switching</strong>: Instant content updates when changing between parsed files within a document</li>
+</ul>
+<h3 id="step-1-describe-your-chunking-goal">Step 1: Describe Your Chunking Goal</h3>
+<p><strong>Required Field</strong>: Describe what you want to achieve with chunking.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&quot;I want to split the document at every chapter, but each chapter has a different name and format&quot;
+</code></pre></div>
+<p><strong>Examples of Good Goals:</strong>
+- "Split medical records at patient visit boundaries"
+- "Divide legal documents at clause and section breaks"
+- "Chunk research papers at methodology, results, and discussion sections"
+- "Split technical documentation at feature and API boundaries"</p>
+<h3 id="step-2-choose-document-and-parsed-file-for-analysis">Step 2: Choose Document and Parsed File for Analysis</h3>
+<ol>
+<li><strong>Select Document</strong>: Choose a parsed document from the dropdown in the compact selection row</li>
+<li><strong>Select Parsed File</strong>: Choose a specific parsed file chunk from the automatically loaded dropdown</li>
+<li><strong>Browse Content</strong>: Use pagination controls to navigate through the full parsed file content (10,000 characters per page)</li>
+<li><strong>View Metrics</strong>: See total characters, words, and lines for the selected parsed file</li>
+<li><strong>Switch Files</strong>: Change between different parsed files within the same document seamlessly</li>
+<li><strong>Select Target Documents</strong>: Choose which documents to apply the final chunking configuration to</li>
+</ol>
+<h3 id="step-3-extract-examples-with-text-selection">Step 3: Extract Examples with Text Selection</h3>
+<p>Use the <strong>interactive text selection</strong> to extract relevant examples from specific pages:</p>
+<h4 id="direct-text-selection">Direct Text Selection</h4>
+<ul>
+<li><strong>Click and drag</strong> to select any portion of text in the content preview area</li>
+<li><strong>Real-time feedback</strong> shows your current selection in a dedicated field</li>
+<li><strong>Header highlighting</strong> automatically emphasizes potential headers (markdown # headers, ALL CAPS lines)</li>
+<li><strong>Flexible selection</strong> allows choosing any text portion (headers, sections, samples, or custom selections)</li>
+</ul>
+<h4 id="adding-selected-text-to-examples">Adding Selected Text to Examples</h4>
+<ul>
+<li><strong>"Copy Selected Text to Examples"</strong> button adds your current selection to the example collection</li>
+<li><strong>Character count</strong> shows the size of your selection</li>
+<li><strong>Multiple selections</strong> can be added from different pages</li>
+<li><strong>Clear selection</strong> button removes current selection without adding to examples</li>
+</ul>
+<h4 id="selection-tips">Selection Tips</h4>
+<ul>
+<li><strong>Headers first</strong>: Start by selecting document headers as they provide the best guidance for AI chunking</li>
+<li><strong>Multiple examples</strong>: Collect examples from different parts of the document for better AI understanding</li>
+<li><strong>Precise selection</strong>: Select exactly the text you want the AI to learn from</li>
+<li><strong>Context matters</strong>: Include surrounding context when selecting examples to show boundary patterns</li>
+</ul>
+<h3 id="step-4-build-example-collection">Step 4: Build Example Collection</h3>
+<ol>
+<li><strong>Navigate Pages</strong>: Use pagination to browse different sections of the document</li>
+<li><strong>Select Text</strong>: Click and drag to select meaningful text portions (focus on headers and boundary patterns)</li>
+<li><strong>Add to Examples</strong>: Click "Copy Selected Text to Examples" to add your selection</li>
+<li><strong>Review Collection</strong>: See all collected examples in an expandable list</li>
+<li><strong>Remove if Needed</strong>: Use individual remove buttons to refine your example collection</li>
+</ol>
+<p><strong>Example Collection Summary:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>📚 Collected Examples (3 items)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>• Example 1 (47 chars): # Introduction
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>This chapter covers the basic concepts
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>• Example 2 (38 chars): ## Methods
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>The methodology section explains our approach
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>• Example 3 (52 chars): Each chapter begins with a level 1 header followed by content
+</code></pre></div></p>
+<h3 id="step-5-get-ai-recommendations">Step 5: Get AI Recommendations</h3>
+<ol>
+<li><strong>Click "Analyze &amp; Recommend"</strong>: AI analyzes your goal, document content, and collected examples</li>
+<li><strong>Review Recommendations</strong>: AI suggests optimal chunking strategy and parameters</li>
+<li><strong>Accept or Modify</strong>: Use AI-recommended settings or make adjustments</li>
+<li><strong>Process Documents</strong>: Apply the configuration to your selected target documents</li>
+</ol>
+<h3 id="ai-recommendation-examples">AI Recommendation Examples</h3>
+<p><strong>For Chapter-Based Splitting:</strong>
+- <strong>Strategy</strong>: Schema-based
+- <strong>Rules</strong>: <code>[{"type": "pattern", "value": "^# "}, {"type": "delimiter", "value": "\n\n"}]</code>
+- <strong>Combine</strong>: <code>"any"</code></p>
+<p><strong>For Semantic Document Splitting:</strong>
+- <strong>Strategy</strong>: Semantic
+- <strong>Prompt</strong>: Custom prompt based on your goal and examples
+- <strong>Model</strong>: Recommended AI model for your content type</p>
+<h3 id="tips-for-better-ai-recommendations">Tips for Better AI Recommendations</h3>
+<h4 id="goal-description-tips">Goal Description Tips</h4>
+<ul>
+<li><strong>Be Specific</strong>: "Split at chapter boundaries" vs "Split at every chapter, where chapters start with '# Chapter X:'"</li>
+<li><strong>Include Context</strong>: Mention document type (medical, legal, technical)</li>
+<li><strong>Specify Patterns</strong>: Reference actual formatting patterns you observe</li>
+</ul>
+<h4 id="example-quality-tips">Example Quality Tips</h4>
+<ul>
+<li><strong>Focus on Headers</strong>: Select document headers first as they provide the clearest chunking guidance</li>
+<li><strong>Include Context</strong>: When selecting text, include surrounding context to show boundary patterns</li>
+<li><strong>Multiple Examples</strong>: Collect examples from different parts of the document for comprehensive AI understanding</li>
+<li><strong>Precise Selection</strong>: Select exactly the text that demonstrates your desired chunking behavior</li>
+<li><strong>Variety</strong>: Show different types of content boundaries and structural elements</li>
+</ul>
+<h4 id="document-selection-tips">Document Selection Tips</h4>
+<ul>
+<li><strong>Representative Sample</strong>: Choose a document that represents your typical content</li>
+<li><strong>Complete Parsing</strong>: Ensure documents are fully parsed before AI analysis</li>
+<li><strong>Content Quality</strong>: Use well-structured source documents for better analysis</li>
+</ul>
+<h2 id="character-based-chunking">Character-Based Chunking</h2>
+<p>Split documents by character count with configurable overlap. Perfect for simple, fast processing.</p>
+<h3 id="how-to-use">How to Use</h3>
+<ol>
+<li><strong>Select Strategy</strong>: Choose "Character" from the chunk strategy dropdown</li>
+<li><strong>Configure Parameters</strong>:</li>
+<li><strong>Chunk Size</strong>: Use the slider to set characters per chunk (500-2000 recommended)</li>
+<li><strong>Overlap</strong>: Set character overlap between chunks (10-20% of chunk size)</li>
+<li><strong>Upload Documents</strong>: Drag and drop PDF, DOCX, TXT, MD, CSV, JSON, or XML files</li>
+<li><strong>Choose Parser</strong>: Select appropriate document parser (pypdf for PDFs, unstructured for Office docs)</li>
+<li><strong>Process</strong>: Click the "Process Documents" button</li>
+</ol>
+<h3 id="example-configuration">Example Configuration</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Chunk Strategy: Character
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Chunk Size: 1000 characters
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Overlap: 100 characters
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>Parser: pypdf
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>Files: medical_report.pdf
+</code></pre></div>
+<h3 id="when-to-use">When to Use</h3>
+<ul>
+<li><strong>Large Document Sets</strong>: Process many documents quickly</li>
+<li><strong>Memory Constraints</strong>: Predictable memory usage</li>
+<li><strong>Simple Requirements</strong>: When semantic understanding isn't needed</li>
+<li><strong>Testing</strong>: Deterministic results for validation</li>
+</ul>
+<h3 id="visual-feedback">Visual Feedback</h3>
+<ul>
+<li>Progress bar shows upload and processing status</li>
+<li>Real-time chunk count updates</li>
+<li>Success confirmation with processing statistics</li>
+</ul>
+<h2 id="semantic-chunking">Semantic Chunking</h2>
+<p>Use AI to intelligently split documents based on meaning and context with custom prompts. Supports multi-file documents with <strong>dynamic cross-file chunking</strong> for guaranteed boundary integrity.</p>
+<h3 id="advanced-universal-cross-file-support">✅ Advanced Universal Cross-File Support</h3>
+<p>The GUI automatically handles multi-file documents using <strong>universal forwarding logic</strong> that ensures semantic coherence across file boundaries:</p>
+<ul>
+<li><strong>Universal Forwarding Rules</strong>: All chunking strategies use the same simple rule - if content remains at the end, forward it to the next file</li>
+<li><strong>Strategy-Agnostic Detection</strong>: Removed complex per-strategy incomplete chunk detection code</li>
+<li><strong>Automatic Content Spacing</strong>: Intelligent space insertion between forwarded content and main content prevents word concatenation</li>
+<li><strong>Memory-Based State Management</strong>: Simplified ChunkState object maintains forwarded content between file processing</li>
+</ul>
+<p><strong>Automatic Processing:</strong> Cross-file chunking is automatically applied to multi-file documents. The system dynamically forwards incomplete chunks as overlap content to subsequent files.</p>
+<p><strong>Benefits:</strong>
+- Improved semantic chunking quality at file boundaries
+- Better search results with reduced duplication
+- More coherent chunks for AI processing
+- Simplified architecture with universal forwarding rules
+- All 5 chunking strategies (character, token, semantic, schema, delimiter) use identical logic</p>
+<h3 id="how-to-use_1">How to Use</h3>
+<ol>
+<li><strong>Select Strategy</strong>: Choose "Semantic" from the chunk strategy dropdown</li>
+<li><strong>Craft Your Prompt</strong>: Use the text area to provide custom instructions for the AI</li>
+<li><strong>Upload Documents</strong>: Select documents requiring semantic understanding</li>
+<li><strong>Choose AI Model</strong>: Select from available models (Gemini, Grok, Ollama)</li>
+<li><strong>Process</strong>: Click "Process Documents"</li>
+</ol>
+<h3 id="prompt-examples">Prompt Examples</h3>
+<p><strong>Medical Textbooks (Recommended):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>This is a medical textbook that is structured as follows: disease / condition and discussion about it, then another disease / condition and discussion about it. Split should occur at the end of each discussion and before next disease / condition title.
+</code></pre></div></p>
+<p><strong>Medical Documents:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Split this medical document at natural section boundaries, ensuring each chunk contains complete clinical information about a single condition, symptom, or treatment. Pay special attention to maintaining the integrity of diagnostic criteria and treatment protocols.
+</code></pre></div></p>
+<p><strong>Legal Documents:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Divide this legal document at section boundaries, keeping each complete legal clause, definition, or contractual obligation in a single chunk. Preserve the logical flow of legal arguments and obligations.
+</code></pre></div></p>
+<p><strong>Technical Documentation:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Split this technical document at logical boundaries, ensuring each chunk contains complete explanations of single concepts, algorithms, or procedures. Keep code examples with their explanations.
+</code></pre></div></p>
+<p><strong>Research Papers:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Divide this research paper at meaningful section boundaries, keeping complete methodologies, results, and discussions intact. Ensure each chunk represents a coherent scientific contribution.
+</code></pre></div></p>
+<h3 id="advanced-prompt-techniques">Advanced Prompt Techniques</h3>
+<p><strong>Role-Playing:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>You are a medical editor. Split this clinical document at natural breaks where one medical topic ends and another begins. Ensure each chunk tells a complete clinical story.
+</code></pre></div></p>
+<p><strong>Chain-of-Thought:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Think step-by-step: 1) Identify topic changes, 2) Find natural break points, 3) Ensure content completeness, 4) Split at optimal boundaries. Split this document accordingly.
+</code></pre></div></p>
+<p><strong>Specific Instructions:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Split at section headers, but also consider content flow. If a section header appears mid-explanation, keep the explanation with its header. Prioritize content coherence over strict header boundaries.
+</code></pre></div></p>
+<h3 id="when-to-use_1">When to Use</h3>
+<ul>
+<li><strong>Complex Documents</strong>: Content requiring AI understanding</li>
+<li><strong>Domain Expertise</strong>: Specialized knowledge needed for splitting</li>
+<li><strong>Quality Requirements</strong>: When semantic coherence is critical</li>
+<li><strong>Custom Logic</strong>: Unique splitting requirements</li>
+</ul>
+<h3 id="tips-for-better-results">Tips for Better Results</h3>
+<ul>
+<li><strong>Be Specific</strong>: Include domain context and desired behavior</li>
+<li><strong>Provide Examples</strong>: Reference specific patterns in your documents</li>
+<li><strong>Test Iteratively</strong>: Try different prompts and refine based on results</li>
+<li><strong>Balance Detail</strong>: Too vague = poor splits, too specific = inflexible</li>
+</ul>
+<h2 id="schema-based-chunking">Schema-Based Chunking</h2>
+<p>Apply custom rules combining patterns and delimiters for precise document splitting control.</p>
+<h3 id="how-to-use_2">How to Use</h3>
+<ol>
+<li><strong>Select Strategy</strong>: Choose "Schema" from the chunk strategy dropdown</li>
+<li><strong>Define Schema</strong>: Use the text area to create JSON rules for splitting</li>
+<li><strong>Upload Documents</strong>: Select documents matching your schema patterns</li>
+<li><strong>Choose Parser</strong>: Select parser that preserves your target patterns</li>
+<li><strong>Process</strong>: Click "Process Documents"</li>
+</ol>
+<h3 id="schema-structure">Schema Structure</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">      </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;# [A-Z]+&quot;</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\\n\\n&quot;</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="rule-types">Rule Types</h3>
+<h4 id="pattern-rules-regex">Pattern Rules (Regex)</h4>
+<p>Match specific text patterns using regular expressions. <strong>Note: Regex now supports multiline mode! Use <code>^</code> to match the start of any line, not just the start of the document.</strong></p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^# &quot;</span><span class="p">}</span>
+</code></pre></div>
+- <code>^#</code>: Markdown headers at the start of a line
+- <code>^[0-9]+\.</code>: Numbered sections at the start of a line
+- <code>&lt;chapter&gt;</code>: XML/HTML tags
+- <code>^[A-Z][A-Z\s]+$</code>: ALL CAPS section headers</p>
+<h4 id="delimiter-rules">Delimiter Rules</h4>
+<p>Split on exact string matches:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\n\n&quot;</span><span class="p">}</span>
+</code></pre></div>
+- <code>\n\n</code>: Double line breaks
+- <code>---</code>: Horizontal rules
+- <code>&lt;hr&gt;</code>: HTML horizontal rules
+- <code>\f</code>: Page breaks</p>
+<h3 id="combine-options">Combine Options</h3>
+<p><strong>"any"</strong>: Split when any rule matches
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^# &quot;</span><span class="p">},</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\n\n&quot;</span><span class="p">}</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>"all"</strong>: Split only when all rules match at the same position
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^# &quot;</span><span class="p">},</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\n\n&quot;</span><span class="p">}</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all&quot;</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="schema-examples">Schema Examples</h3>
+<p><strong>Markdown Documents:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^## &quot;</span><span class="p">},</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\n\n&quot;</span><span class="p">}</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Structured Text:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^SECTION [0-9]+&quot;</span><span class="p">},</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;---&quot;</span><span class="p">}</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">}</span><span class="err">```</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="err">**XML/HTML</span><span class="p">:</span><span class="err">**</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="err">```jso</span><span class="kc">n</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="p">{</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;div class=\&quot;chapter\&quot;&gt;&quot;</span><span class="p">},</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;section&gt;&quot;</span><span class="p">}</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="when-to-use_2">When to Use</h3>
+<ul>
+<li><strong>Structured Documents</strong>: Known formatting patterns</li>
+<li><strong>Custom Formats</strong>: Proprietary document structures</li>
+<li><strong>Precise Control</strong>: Exact splitting behavior required</li>
+<li><strong>Multi-Criteria</strong>: Complex rules combining patterns and delimiters</li>
+</ul>
+<h3 id="schema-validation-and-auto-correction">Schema Validation and Auto-Correction</h3>
+<p>The GUI provides robust validation and automatic correction for schema definitions:
+- <strong>JSON Syntax</strong>: Checks for valid JSON structure.
+- <strong>Auto-Correction</strong>: Automatically fixes common JSON syntax errors in regex patterns (e.g., unescaped <code>\s</code>, <code>\n</code>) and literal control characters, ensuring the schema is always parseable.
+- <strong>Required Fields</strong>: Ensures <code>rules</code> and <code>combine</code> are present.
+- <strong>Rule Validation</strong>: Verifies rule types and values.
+- <strong>Error Messages</strong>: Clear feedback for fixing truly invalid schema issues.</p>
+<h2 id="delimiter-based-chunking">Delimiter-Based Chunking</h2>
+<p>Simple splitting on specified delimiter strings with size controls. Enhanced with dual-input interface for maximum flexibility.</p>
+<h3 id="how-to-use_3">How to Use</h3>
+<ol>
+<li><strong>Select Strategy</strong>: Choose "Delimiter" from the chunk strategy dropdown</li>
+<li><strong>Choose Delimiters</strong>: Use the dual-input interface:</li>
+<li><strong>Quick Select</strong>: Choose from common delimiters with descriptive labels</li>
+<li><strong>Custom Delimiter</strong>: Enter any custom delimiter pattern</li>
+<li><strong>Configure Size</strong>: Set chunk size and overlap parameters</li>
+<li><strong>Upload Documents</strong>: Select documents with clear delimiter patterns</li>
+<li><strong>Process</strong>: Click "Process Documents"</li>
+</ol>
+<h3 id="enhanced-delimiter-interface">Enhanced Delimiter Interface</h3>
+<p>The delimiter strategy now provides two input methods for maximum flexibility:</p>
+<h4 id="quick-select-common-delimiters">Quick Select (Common Delimiters)</h4>
+<p>Choose from pre-configured delimiters with clear descriptions:
+- <strong># (Markdown headers)</strong>: Split at markdown headers (default)
+- <strong>--- (Horizontal rule)</strong>: Split at horizontal rules
+- <strong>### (H3 headers)</strong>: Split at level 3 markdown headers
+- <strong>## (H2 headers)</strong>: Split at level 2 markdown headers
+- <strong>\n\n (Double newline)</strong>: Split at paragraph breaks
+- <strong>\n (Single newline)</strong>: Split at line breaks
+- <strong>. </strong>: Split at sentence endings
+- <strong>! </strong>: Split at exclamation marks
+- <strong>? </strong>: Split at question marks</p>
+<h4 id="custom-delimiter-field">Custom Delimiter Field</h4>
+<p>Enter any delimiter pattern you need:
+- <strong>Markdown headers</strong>: <code>#</code>, <code>##</code>, <code>###</code>
+- <strong>HTML/XML tags</strong>: <code>&lt;div&gt;</code>, <code>&lt;/section&gt;</code>, <code>&lt;chapter&gt;</code>
+- <strong>Custom patterns</strong>: <code>SECTION:</code>, <code>CHAPTER</code>, <code>---</code>
+- <strong>Regex patterns</strong>: Any string pattern</p>
+<h4 id="smart-combination">Smart Combination</h4>
+<ul>
+<li><strong>Automatic merging</strong>: Combines quick-select and custom delimiters</li>
+<li><strong>Duplicate removal</strong>: Eliminates duplicate delimiters while preserving order</li>
+<li><strong>User feedback</strong>: Shows selected delimiter count and validation messages</li>
+</ul>
+<h3 id="configuration-options">Configuration Options</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>Chunk Strategy: Delimiter
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>Quick Select: # (Markdown headers), --- (Horizontal rule)
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>Custom Delimiter: &lt;section&gt;
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>Combined Delimiters: [&#39;#&#39;, &#39;---&#39;, &#39;&lt;section&gt;&#39;]
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>Chunk Size: 1000 characters
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>Overlap: 100 characters
+</code></pre></div>
+<h3 id="when-to-use_3">When to Use</h3>
+<ul>
+<li><strong>Simple Structures</strong>: Documents with clear separator patterns</li>
+<li><strong>Known Formats</strong>: Consistent delimiter usage</li>
+<li><strong>Quick Processing</strong>: Fast chunking for basic requirements</li>
+<li><strong>Text Files</strong>: Plain text with obvious breaks</li>
+</ul>
+<h2 id="token-based-chunking">Token-Based Chunking</h2>
+<p>Traditional token counting with overlap for LLM compatibility.</p>
+<h3 id="how-to-use_4">How to Use</h3>
+<ol>
+<li><strong>Select Strategy</strong>: Choose "Token" from the chunk strategy dropdown</li>
+<li><strong>Configure Parameters</strong>:</li>
+<li><strong>Chunk Size</strong>: Set token count per chunk (256-2048 recommended)</li>
+<li><strong>Overlap</strong>: Set token overlap between chunks (10-25% of chunk size)</li>
+<li><strong>Upload Documents</strong>: Select documents for LLM processing</li>
+<li><strong>Choose Parser</strong>: Select appropriate document parser</li>
+<li><strong>Process</strong>: Click "Process Documents"</li>
+</ol>
+<h3 id="token-estimation">Token Estimation</h3>
+<ul>
+<li><strong>English Text</strong>: ~4 characters per token</li>
+<li><strong>Code</strong>: ~2-3 characters per token</li>
+<li><strong>Mathematical</strong>: ~1-2 characters per token</li>
+</ul>
+<h3 id="example-configuration_1">Example Configuration</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>Chunk Strategy: Token
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>Chunk Size: 512 tokens
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>Overlap: 50 tokens
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>Parser: gemini
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>Files: research_paper.pdf
+</code></pre></div>
+<h3 id="when-to-use_4">When to Use</h3>
+<ul>
+<li><strong>LLM Input</strong>: Prepare documents for language model processing</li>
+<li><strong>API Limits</strong>: Respect token limits of AI services</li>
+<li><strong>Embeddings</strong>: Create chunks for vector embeddings</li>
+<li><strong>Legacy Compatibility</strong>: Existing token-based workflows</li>
+</ul>
+<h2 id="processing-workflow">Processing Workflow</h2>
+<h3 id="step-by-step-process">Step-by-Step Process</h3>
+<ol>
+<li><strong>Project Selection</strong></li>
+<li>Choose existing project or create new one</li>
+<li>
+<p>Verify project permissions and space</p>
+</li>
+<li>
+<p><strong>Document Upload</strong></p>
+</li>
+<li>Drag and drop multiple files</li>
+<li>Automatic file type detection</li>
+<li>Progress indicators for large uploads</li>
+<li>
+<p>Support for batch processing</p>
+</li>
+<li>
+<p><strong>Strategy Configuration</strong></p>
+</li>
+<li>Select chunking strategy from dropdown</li>
+<li>Dynamic form fields appear based on selection</li>
+<li>Real-time validation and helpful hints</li>
+<li>
+<p>Preview of expected behavior</p>
+</li>
+<li>
+<p><strong>Parser Selection</strong></p>
+</li>
+<li>Choose appropriate document parser</li>
+<li>Consider document type and complexity</li>
+<li>
+<p>Balance speed vs. accuracy</p>
+</li>
+<li>
+<p><strong>Processing Execution</strong></p>
+</li>
+<li>Click "Process Documents" to start</li>
+<li>Real-time progress monitoring</li>
+<li>Job status updates and estimated completion</li>
+<li>
+<p>Error handling and retry options</p>
+</li>
+<li>
+<p><strong>Results Review</strong></p>
+</li>
+<li>View processing statistics</li>
+<li>Check chunk quality and count</li>
+<li>Download results or proceed to next steps</li>
+<li>Error logs and troubleshooting information</li>
+</ol>
+<h3 id="progress-monitoring">Progress Monitoring</h3>
+<p>The GUI provides comprehensive progress tracking:</p>
+<ul>
+<li><strong>Upload Progress</strong>: File-by-file upload status</li>
+<li><strong>Processing Status</strong>: Current operation and completion percentage</li>
+<li><strong>Job Management</strong>: Background job tracking with unique IDs</li>
+<li><strong>Error Reporting</strong>: Clear error messages with suggested fixes</li>
+<li><strong>Results Summary</strong>: Chunk counts, processing time, and quality metrics</li>
+</ul>
+<h3 id="error-handling">Error Handling</h3>
+<p><strong>Common Issues and Solutions:</strong></p>
+<ul>
+<li><strong>Invalid Schema</strong>: Check JSON syntax and required fields</li>
+<li><strong>Unsupported File Type</strong>: Verify file format compatibility</li>
+<li><strong>API Key Missing</strong>: Configure AI service credentials in Settings</li>
+<li><strong>Large File Timeout</strong>: Use character strategy or increase timeout</li>
+<li><strong>Memory Issues</strong>: Reduce chunk size or process in batches</li>
+</ul>
+<h2 id="advanced-features">Advanced Features</h2>
+<h3 id="batch-processing">Batch Processing</h3>
+<p>Process multiple documents simultaneously:</p>
+<ol>
+<li>Upload several files at once</li>
+<li>Configure chunking strategy once</li>
+<li>Process all documents with same settings</li>
+<li>Monitor collective progress</li>
+<li>Review batch results</li>
+</ol>
+<h3 id="strategy-comparison">Strategy Comparison</h3>
+<p>Test different strategies on the same document:</p>
+<ol>
+<li>Process same document with different strategies</li>
+<li>Compare chunk counts and quality</li>
+<li>Analyze processing time differences</li>
+<li>Choose optimal strategy for your use case</li>
+</ol>
+<h3 id="custom-workflows">Custom Workflows</h3>
+<p>Combine chunking with other Compileo features:</p>
+<ol>
+<li><strong>Chunk → Extract</strong>: Use chunks for selective taxonomy extraction</li>
+<li><strong>Chunk → Generate</strong>: Feed chunks to dataset generation</li>
+<li><strong>Chunk → Quality</strong>: Analyze chunk quality metrics</li>
+<li><strong>Chunk → Benchmark</strong>: Test chunking impact on model performance</li>
+</ol>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="strategy-selection-guide">Strategy Selection Guide</h3>
+<table>
+<thead>
+<tr>
+<th>Document Type</th>
+<th>Recommended Strategy</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple text files</td>
+<td>Character</td>
+<td>Fast, predictable, no AI required</td>
+</tr>
+<tr>
+<td>Markdown docs</td>
+<td>Schema</td>
+<td>Precise control with header patterns</td>
+</tr>
+<tr>
+<td>Legal documents</td>
+<td>Semantic</td>
+<td>Complex clause and obligation boundaries</td>
+</tr>
+<tr>
+<td>Medical records</td>
+<td>Semantic</td>
+<td>Clinical context and diagnosis integrity</td>
+</tr>
+<tr>
+<td>Research papers</td>
+<td>Semantic</td>
+<td>Methodological and discussion coherence</td>
+</tr>
+<tr>
+<td>Structured data</td>
+<td>Delimiter</td>
+<td>Known separators and formatting</td>
+</tr>
+<tr>
+<td>Code repositories</td>
+<td>Token</td>
+<td>LLM processing compatibility</td>
+</tr>
+<tr>
+<td>Mixed content</td>
+<td>Schema</td>
+<td>Flexible rule combinations</td>
+</tr>
+</tbody>
+</table>
+<h3 id="performance-optimization">Performance Optimization</h3>
+<ul>
+<li><strong>Large Documents</strong>: Use character strategy for speed</li>
+<li><strong>Many Documents</strong>: Process in batches to manage memory</li>
+<li><strong>AI Strategies</strong>: Choose appropriate models for your needs</li>
+<li><strong>Quality vs Speed</strong>: Balance requirements with processing time</li>
+</ul>
+<h3 id="quality-assurance">Quality Assurance</h3>
+<ul>
+<li><strong>Test Small First</strong>: Try strategies on sample documents</li>
+<li><strong>Validate Results</strong>: Check chunk boundaries and content integrity</li>
+<li><strong>Iterate Prompts</strong>: Refine semantic prompts based on results</li>
+<li><strong>Monitor Metrics</strong>: Track processing time and chunk quality</li>
+</ul>
+<h2 id="integration-with-other-features">Integration with Other Features</h2>
+<h3 id="dataset-generation-workflow">Dataset Generation Workflow</h3>
+<ol>
+<li><strong>Chunk Documents</strong> → Select appropriate chunking strategy</li>
+<li><strong>Review Chunks</strong> → Verify quality and boundaries</li>
+<li><strong>Generate Dataset</strong> → Use chunks as input for dataset creation</li>
+<li><strong>Quality Check</strong> → Analyze dataset quality metrics</li>
+<li><strong>Iterate</strong> → Refine chunking strategy if needed</li>
+</ol>
+<h3 id="taxonomy-integration">Taxonomy Integration</h3>
+<ol>
+<li><strong>Process Documents</strong> → Create high-quality chunks</li>
+<li><strong>Generate Taxonomy</strong> → Use chunks for AI taxonomy creation</li>
+<li><strong>Selective Extraction</strong> → Apply taxonomy to chunks</li>
+<li><strong>Refine Taxonomy</strong> → Improve based on extraction results</li>
+</ol>
+<h3 id="benchmarking-connection">Benchmarking Connection</h3>
+<ol>
+<li><strong>Chunk Documents</strong> → Prepare data for model evaluation</li>
+<li><strong>Generate Datasets</strong> → Create evaluation datasets</li>
+<li><strong>Run Benchmarks</strong> → Test model performance on chunked data</li>
+<li><strong>Analyze Results</strong> → Compare chunking strategy impact</li>
+</ol>
+<p>This GUI provides comprehensive document chunking capabilities with an intuitive interface, making advanced chunking strategies accessible to users of all technical levels while maintaining the power and flexibility needed for complex document processing workflows.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

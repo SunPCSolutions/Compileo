@@ -1,0 +1,2364 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/datasetqualgui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Dataset Quality Analysis in Compileo GUI - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#dataset-quality-analysis-in-compileo-gui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Dataset Quality Analysis in Compileo GUI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessing-quality-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Quality Analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analysis-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analysis Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics-dashboard-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics Dashboard Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metrics Dashboard Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overall-summary-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overall Summary Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual-metrics-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Individual Metrics Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metric-specific-breakdowns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metric-Specific Breakdowns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#history-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        History Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="History Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analysis-history-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis History Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary-statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary Statistics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quality-metrics-explained" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quality Metrics Explained
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quality Metrics Explained">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diversity-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diversity Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bias-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bias Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#difficulty-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Difficulty Assessment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#consistency-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consistency Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analysis-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analysis Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preparing-for-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preparing for Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-quality-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Quality Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpreting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpreting Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recovery-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recovery Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Preparation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis-configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#result-utilization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result Utilization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-other-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Other Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-generation-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Generation Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarking Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analysis-not-starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Not Starting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unexpected-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unexpected Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="dataset-quality-analysis-in-compileo-gui">Dataset Quality Analysis in Compileo GUI</h1>
+<h2 id="overview">Overview</h2>
+<p>The Compileo GUI provides comprehensive dataset quality analysis capabilities through an intuitive web interface. The quality analysis evaluates datasets across multiple dimensions including diversity, bias detection, difficulty assessment, and consistency validation.</p>
+<h2 id="accessing-quality-analysis">Accessing Quality Analysis</h2>
+<ol>
+<li><strong>Navigate to the Application</strong>: Open Compileo in your web browser</li>
+<li><strong>Select Quality Analysis</strong>: Click on "📊 Quality Metrics" in the sidebar or main navigation</li>
+<li><strong>Choose Analysis Type</strong>: Select from Analysis, Metrics Dashboard, or History tabs</li>
+</ol>
+<h2 id="interface-components">Interface Components</h2>
+<h3 id="analysis-tab">Analysis Tab</h3>
+<p>The main analysis interface for running quality assessments on datasets.</p>
+<h4 id="dataset-selection">Dataset Selection</h4>
+<ul>
+<li><strong>Available Datasets</strong>: Dropdown showing all JSONL dataset files in the test_outputs directory</li>
+<li><strong>Dataset Information</strong>: Displays dataset name and number of entries</li>
+<li><strong>File Format</strong>: Supports JSONL format with question/answer structure</li>
+</ul>
+<h4 id="analysis-configuration">Analysis Configuration</h4>
+<p><strong>Basic Settings:</strong>
+- <strong>Quality Metrics Selection</strong>:
+  - Diversity Analysis: Evaluates lexical and semantic variety
+  - Bias Detection: Identifies potential demographic and content biases
+  - Difficulty Assessment: Measures question complexity and readability
+- <strong>Overall Quality Threshold</strong>: Minimum passing score (0.0-1.0, default 0.7)
+- <strong>Output Format</strong>: JSON, HTML, or PDF report formats</p>
+<p><strong>Advanced Settings:</strong>
+- <strong>Diversity Threshold</strong>: Minimum diversity score required
+- <strong>Bias Threshold</strong>: Maximum acceptable bias score
+- <strong>Target Difficulty</strong>: Desired difficulty level for the dataset</p>
+<h4 id="analysis-execution">Analysis Execution</h4>
+<ol>
+<li><strong>Configure Settings</strong>: Select metrics and adjust thresholds</li>
+<li><strong>Start Analysis</strong>: Click "🚀 Start Quality Analysis"</li>
+<li><strong>Monitor Progress</strong>: View real-time status updates</li>
+<li><strong>Review Results</strong>: Access completed analysis in dashboard</li>
+</ol>
+<h3 id="metrics-dashboard-tab">Metrics Dashboard Tab</h3>
+<p>Interactive visualization and detailed breakdown of quality analysis results.</p>
+<h4 id="overall-summary-metrics">Overall Summary Metrics</h4>
+<ul>
+<li><strong>Overall Quality Score</strong>: Weighted average across all enabled metrics</li>
+<li><strong>Dataset Size</strong>: Total number of entries analyzed</li>
+<li><strong>Passed/Failed Metrics</strong>: Count of metrics meeting thresholds</li>
+<li><strong>Failed Metrics Count</strong>: Number of metrics below threshold</li>
+</ul>
+<h4 id="individual-metrics-visualization">Individual Metrics Visualization</h4>
+<ul>
+<li><strong>Metrics Bar Chart</strong>: Color-coded bars showing scores for each metric</li>
+<li>Green bars: Passed metrics</li>
+<li>Red bars: Failed metrics</li>
+<li>Orange threshold line: Default quality threshold</li>
+<li><strong>Detailed Results Table</strong>: Tabular view with scores, thresholds, and pass/fail status</li>
+</ul>
+<h4 id="metric-specific-breakdowns">Metric-Specific Breakdowns</h4>
+<p><strong>Diversity Analysis:</strong>
+- Lexical Diversity: Vocabulary richness and variety
+- Semantic Diversity: Concept and meaning coverage
+- Topic Balance: Subject matter distribution
+- <strong>Radar Chart</strong>: Visual representation of diversity profile</p>
+<p><strong>Bias Detection:</strong>
+- Overall Bias Score: Composite bias measurement
+- Bias Indicators: Breakdown by demographic categories
+- Content Balance: Topic and perspective distribution</p>
+<p><strong>Difficulty Assessment:</strong>
+- Average Difficulty: Mean complexity score
+- Complexity Score: Cognitive load assessment
+- Readability Score: Text comprehension metrics
+- <strong>Distribution Chart</strong>: Pie chart showing difficulty level distribution</p>
+<h3 id="history-tab">History Tab</h3>
+<p>Review past quality analysis runs and track performance over time.</p>
+<h4 id="analysis-history-table">Analysis History Table</h4>
+<ul>
+<li><strong>Job ID</strong>: Unique identifier for each analysis run</li>
+<li><strong>Status</strong>: Completion status (completed, failed, running)</li>
+<li><strong>Summary Scores</strong>: Overall quality metrics</li>
+<li><strong>Completion Timestamp</strong>: When analysis finished</li>
+</ul>
+<h4 id="summary-statistics">Summary Statistics</h4>
+<ul>
+<li><strong>Total Analyses</strong>: Number of quality assessments run</li>
+<li><strong>Completed Analyses</strong>: Successfully finished evaluations</li>
+<li><strong>Failed Analyses</strong>: Analyses that encountered errors</li>
+</ul>
+<h2 id="quality-metrics-explained">Quality Metrics Explained</h2>
+<h3 id="diversity-metrics">Diversity Metrics</h3>
+<p>Evaluates content variety and representation:
+- <strong>Lexical Diversity</strong>: Measures vocabulary richness and word variety
+- <strong>Semantic Diversity</strong>: Assesses concept coverage and meaning variety
+- <strong>Topic Coverage</strong>: Analyzes subject matter distribution and balance</p>
+<h3 id="bias-detection">Bias Detection</h3>
+<p>Identifies potential biases in dataset content:
+- <strong>Demographic Bias</strong>: Gender, ethnicity, age, and cultural representation
+- <strong>Content Bias</strong>: Topic selection and perspective balance
+- <strong>Language Bias</strong>: Formal/informal tone and register distribution</p>
+<h3 id="difficulty-assessment">Difficulty Assessment</h3>
+<p>Measures question and content complexity:
+- <strong>Reading Level</strong>: Text complexity using readability formulas
+- <strong>Cognitive Load</strong>: Reasoning and comprehension requirements
+- <strong>Domain Expertise</strong>: Required knowledge level for correct answers</p>
+<h3 id="consistency-validation">Consistency Validation</h3>
+<p>Ensures logical and factual coherence:
+- <strong>Factual Consistency</strong>: Accuracy of information and claims
+- <strong>Logical Consistency</strong>: Reasoning validity and coherence
+- <strong>Format Consistency</strong>: Structural uniformity across entries</p>
+<h2 id="analysis-workflow">Analysis Workflow</h2>
+<h3 id="preparing-for-analysis">Preparing for Analysis</h3>
+<ol>
+<li><strong>Generate Dataset</strong>: Create or upload dataset in JSONL format</li>
+<li><strong>Review Content</strong>: Ensure proper question/answer structure</li>
+<li><strong>Check Size</strong>: Verify sufficient entries for reliable analysis (minimum 10-50 recommended)</li>
+</ol>
+<h3 id="running-quality-analysis">Running Quality Analysis</h3>
+<ol>
+<li><strong>Select Dataset</strong>: Choose from available JSONL files</li>
+<li><strong>Configure Metrics</strong>: Enable desired quality checks</li>
+<li><strong>Set Thresholds</strong>: Adjust passing criteria as needed</li>
+<li><strong>Execute Analysis</strong>: Start background processing</li>
+<li><strong>Monitor Progress</strong>: Track real-time status updates</li>
+</ol>
+<h3 id="interpreting-results">Interpreting Results</h3>
+<ol>
+<li><strong>Review Overall Score</strong>: Check if dataset meets quality requirements</li>
+<li><strong>Analyze Failed Metrics</strong>: Identify specific quality issues</li>
+<li><strong>Examine Details</strong>: Review metric-specific breakdowns</li>
+<li><strong>Address Issues</strong>: Modify dataset based on recommendations</li>
+</ol>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="common-issues">Common Issues</h3>
+<ul>
+<li><strong>Dataset Not Found</strong>: Ensure JSONL files exist in test_outputs directory</li>
+<li><strong>Invalid Format</strong>: Verify question/answer structure in dataset</li>
+<li><strong>Analysis Timeout</strong>: Large datasets may take time to process</li>
+<li><strong>Metric Failures</strong>: Individual metrics may fail while others succeed</li>
+</ul>
+<h3 id="recovery-actions">Recovery Actions</h3>
+<ul>
+<li><strong>Restart Analysis</strong>: Failed analyses can be restarted</li>
+<li><strong>Modify Configuration</strong>: Adjust thresholds or disable problematic metrics</li>
+<li><strong>Check Dataset</strong>: Validate data format and content</li>
+<li><strong>Contact Support</strong>: For persistent technical issues</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="dataset-preparation">Dataset Preparation</h3>
+<ul>
+<li>Use consistent question/answer formats</li>
+<li>Include diverse, representative content</li>
+<li>Add metadata for enhanced analysis</li>
+<li>Validate data quality before analysis</li>
+</ul>
+<h3 id="analysis-configuration_1">Analysis Configuration</h3>
+<ul>
+<li>Enable all relevant metrics for comprehensive evaluation</li>
+<li>Set appropriate thresholds based on use case</li>
+<li>Consider domain-specific quality requirements</li>
+<li>Use advanced settings for fine-tuned analysis</li>
+</ul>
+<h3 id="result-utilization">Result Utilization</h3>
+<ul>
+<li>Address failed metrics before dataset deployment</li>
+<li>Use detailed breakdowns for targeted improvements</li>
+<li>Track quality trends across dataset versions</li>
+<li>Compare quality scores between datasets</li>
+</ul>
+<h3 id="performance-optimization">Performance Optimization</h3>
+<ul>
+<li>Analyze datasets during off-peak hours for large files</li>
+<li>Use appropriate metric subsets for quick assessments</li>
+<li>Cache results for repeated analysis of same datasets</li>
+<li>Monitor system resources during analysis</li>
+</ul>
+<h2 id="integration-with-other-features">Integration with Other Features</h2>
+<h3 id="dataset-generation-workflow">Dataset Generation Workflow</h3>
+<ol>
+<li><strong>Generate Dataset</strong>: Create training data using dataset generation tools</li>
+<li><strong>Run Quality Analysis</strong>: Evaluate generated content quality</li>
+<li><strong>Review Results</strong>: Identify areas for improvement</li>
+<li><strong>Iterate Generation</strong>: Refine prompts and parameters based on analysis</li>
+<li><strong>Validate Improvements</strong>: Re-run analysis to confirm quality gains</li>
+</ol>
+<h3 id="benchmarking-integration">Benchmarking Integration</h3>
+<ol>
+<li><strong>Complete Quality Analysis</strong>: Ensure dataset meets quality standards</li>
+<li><strong>Run Benchmarking</strong>: Evaluate model performance on quality-assessed data</li>
+<li><strong>Correlate Results</strong>: Compare quality metrics with benchmark performance</li>
+<li><strong>Optimize Dataset</strong>: Use insights to improve both quality and performance</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="analysis-not-starting">Analysis Not Starting</h3>
+<ul>
+<li>Verify dataset file exists and is readable</li>
+<li>Check JSONL format and content structure</li>
+<li>Ensure sufficient system resources available</li>
+</ul>
+<h3 id="unexpected-results">Unexpected Results</h3>
+<ul>
+<li>Review dataset content for consistency issues</li>
+<li>Check metric thresholds are appropriate for content type</li>
+<li>Validate analysis configuration settings</li>
+</ul>
+<h3 id="performance-issues">Performance Issues</h3>
+<ul>
+<li>Reduce dataset size for faster analysis</li>
+<li>Disable unnecessary metrics for quick checks</li>
+<li>Run analysis during low-usage periods</li>
+</ul>
+<p>This quality analysis interface provides comprehensive evaluation capabilities to ensure datasets meet the highest standards for AI training and evaluation.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

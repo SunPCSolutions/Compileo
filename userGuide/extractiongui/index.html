@@ -1,0 +1,3122 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/extractiongui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Advanced Entity Extraction & Dataset Generation in Compileo GUI - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#advanced-entity-extraction-dataset-generation-in-compileo-gui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Advanced Entity Extraction &amp; Dataset Generation in Compileo GUI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Capabilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship Inference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qa-dataset-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q&amp;A Dataset Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessing-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Extraction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#three-tab-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three-Tab Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Three-Tab Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-extraction-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🏃 Run Extraction Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🏃 Run Extraction Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-taxonomy-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project &amp; Taxonomy Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-model-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Model Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taxonomy-tree-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taxonomy Tree Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extraction-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extraction Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-initiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Initiation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor-jobs-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📊 Monitor Jobs Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📊 Monitor Jobs Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-management-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Management Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#browse-manage-extractions-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📋 Browse &amp; Manage Extractions Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📋 Browse &amp; Manage Extractions Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enhanced-management-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enhanced Management Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-management-actions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Management Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#results-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results Organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qa-dataset-generation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q&amp;A Dataset Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-status-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Status Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Status Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#completed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Completed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancelled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelled
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-error-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Error Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specific-extraction-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specific Extraction Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#complete-entity-extraction-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Entity Extraction Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-dataset-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Dataset Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity-extraction-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity Extraction Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-inference_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship Inference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qa-dataset-generation_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q&amp;A Dataset Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-other-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Other Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#document-processing-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Processing Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-analytics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Analytics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-entities-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No Entities Found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#poor-relationship-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Poor Relationship Quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qa-generation-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Q&amp;A Generation Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-model-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Model Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-status-types_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Status Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Status Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pending_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#completed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Completed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancelled_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelled
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-error-types_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Error Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specific-extraction-errors_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specific Extraction Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#monitoring-active-extractions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring Active Extractions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#handling-failed-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handling Failed Jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#managing-long-running-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Long-Running Jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#job-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-other-features_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Other Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#document-processing-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Processing Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dataset-generation-follow-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Generation Follow-up
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#jobs-not-appearing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jobs Not Appearing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-not-updating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Not Updating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action-buttons-not-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action Buttons Not Working
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#real-time-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-time Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bulk-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bulk Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="advanced-entity-extraction-dataset-generation-in-compileo-gui">Advanced Entity Extraction &amp; Dataset Generation in Compileo GUI</h1>
+<h2 id="overview">Overview</h2>
+<p>The Compileo GUI provides a sophisticated, unified interface for advanced entity extraction, relationship inference, and automated Q&amp;A dataset generation. The extraction system transforms unstructured text into structured datasets through AI-powered entity recognition and intelligent relationship discovery.</p>
+<h2 id="key-capabilities">Key Capabilities</h2>
+<h3 id="entity-extraction">Entity Extraction</h3>
+<ul>
+<li><strong>Dual Extraction Modes</strong>: Supports both Named Entity Recognition (NER) and Whole Text Extraction.</li>
+<li><strong>NER</strong>: Extracts specific entities (names, terms, concepts) from text chunks.</li>
+<li><strong>Whole Text</strong>: Extracts complete relevant text portions classified into taxonomy categories.</li>
+<li><strong>High-Precision Validation</strong>: Strict subtractive validation stage that programmatically filters out hallucinations and discovery errors.</li>
+<li><strong>Snippet Deduplication</strong>: Programmatic deduplication of extracted segments to ensure unique and clean results.</li>
+<li><strong>Flexible Extraction Modes</strong>: Choose between Contextual and Document-Wide processing.</li>
+<li><strong>Contextual Extraction</strong>: Only extracts from child categories when parent context is present in the text, preventing false positives.</li>
+<li><strong>Document-Wide Extraction</strong>: Processes all chunks for selected categories regardless of contextual relevance, maximizing coverage.</li>
+<li><strong>AI-Powered Recognition</strong>: Extract specific entities from text using Grok, Gemini, or Ollama models</li>
+<li><strong>Taxonomy Integration</strong>: Work with hierarchical taxonomies for precise categorization</li>
+<li><strong>Multi-Category Support</strong>: Extract entities across multiple taxonomy categories simultaneously</li>
+<li><strong>Confidence Scoring</strong>: Quality assessment for all extracted entities</li>
+</ul>
+<h3 id="relationship-inference">Relationship Inference</h3>
+<ul>
+<li><strong>Automatic Discovery</strong>: Identify relationships between co-occurring entities</li>
+<li><strong>Domain Agnostic</strong>: Works across medical, business, legal, and technical domains</li>
+<li><strong>Confidence Weighting</strong>: Quality scoring for relationship strength</li>
+</ul>
+<h3 id="qa-dataset-generation">Q&amp;A Dataset Generation</h3>
+<ul>
+<li><strong>Template-Based Creation</strong>: Generate question-answer pairs from entity relationships</li>
+<li><strong>Multiple Formats</strong>: Export in JSONL, JSON, and CSV formats</li>
+<li><strong>Context Preservation</strong>: Maintain source relationships and metadata</li>
+</ul>
+<h2 id="accessing-extraction">Accessing Extraction</h2>
+<ol>
+<li><strong>Navigate to the Application</strong>: Open Compileo in your web browser</li>
+<li><strong>Select Extraction</strong>: Click on "🔍 Extraction" in the sidebar</li>
+<li><strong>Choose Operation</strong>: Use the three-tab interface for different workflows</li>
+</ol>
+<h2 id="interface-components">Interface Components</h2>
+<h3 id="three-tab-structure">Three-Tab Structure</h3>
+<p>The extraction interface is organized into three main tabs:</p>
+<h4 id="run-extraction-tab">🏃 <strong>Run Extraction Tab</strong></h4>
+<h5 id="project-taxonomy-selection">Project &amp; Taxonomy Selection</h5>
+<ul>
+<li><strong>Project Selector</strong>: Choose from available projects in "Project Name (ID: 123)" format</li>
+<li><strong>Taxonomy Selector</strong>: Pick the taxonomy to use for entity categorization</li>
+</ul>
+<h5 id="ai-model-configuration">AI Model Configuration</h5>
+<ul>
+<li><strong>Extraction Type</strong>: Select the type of extraction: <code>Named Entity Recognition (NER)</code> or <code>Whole Text Extraction</code>.</li>
+<li><strong>Extraction Mode</strong>: Choose the extraction mode: <code>Contextual Extraction</code> (default) or <code>Document-Wide Extraction</code>.</li>
+<li><strong>Primary Classifier</strong>: Select the AI model (Grok, Gemini, Ollama) for the initial classification stage.</li>
+<li><strong>Validation Stage</strong>: Optionally enable a second AI model for result validation. This stage is <strong>subtractive</strong>, meaning it verifies existing findings and removes errors but is strictly forbidden from discovering new categories.</li>
+<li><strong>Validation Classifier</strong>: Choose a different AI model for the validation stage if enabled.</li>
+</ul>
+<h5 id="taxonomy-tree-selection">Taxonomy Tree Selection</h5>
+<ul>
+<li><strong>Interactive Tree</strong>: Expandable taxonomy hierarchy with checkboxes</li>
+<li><strong>Search Functionality</strong>: Filter categories by name or description</li>
+<li><strong>Batch Controls</strong>: Expand/collapse all, select/deselect all visible categories</li>
+<li><strong>Selection Summary</strong>: Shows count of selected categories for extraction</li>
+</ul>
+<h5 id="extraction-parameters">Extraction Parameters</h5>
+<ul>
+<li><strong>Depth Control</strong>: How deep in taxonomy hierarchy to extract (1-5 levels)</li>
+<li><strong>Confidence Threshold</strong>: Minimum confidence score for results (0.0-1.0)</li>
+<li><strong>Batch Size</strong>: Number of chunks to process per batch (1-100)</li>
+<li><strong>Max Chunks</strong>: Maximum chunks to process (1-10,000)</li>
+</ul>
+<h5 id="job-initiation">Job Initiation</h5>
+<ul>
+<li><strong>Start Extraction</strong>: Launch extraction job with configured parameters</li>
+<li><strong>Progress Feedback</strong>: Real-time status updates and success notifications</li>
+</ul>
+<h4 id="monitor-jobs-tab">📊 <strong>Monitor Jobs Tab</strong></h4>
+<h5 id="project-selection">Project Selection</h5>
+<ul>
+<li><strong>Project Filter</strong>: View jobs for specific projects</li>
+</ul>
+<h5 id="job-dashboard">Job Dashboard</h5>
+<ul>
+<li><strong>Status Overview</strong>: Summary metrics for total, running, completed, and failed jobs</li>
+<li><strong>Job Cards</strong>: Individual cards for each extraction job with:</li>
+<li><strong>Status Indicators</strong>: Color-coded status badges and progress bars</li>
+<li><strong>Timing Information</strong>: Created, started, completed timestamps</li>
+<li><strong>Expandable Details</strong>: Parameters, error messages, and timing breakdowns</li>
+</ul>
+<h5 id="job-management-actions">Job Management Actions</h5>
+<ul>
+<li><strong>Restart Failed Jobs</strong>: Green "Restart" button for failed/cancelled jobs</li>
+<li><strong>Cancel Running Jobs</strong>: Red "Cancel" button for pending/running jobs</li>
+<li><strong>View Completed Results</strong>: Blue "View Results" button for completed jobs</li>
+</ul>
+<h4 id="browse-manage-extractions-tab">📋 <strong>Browse &amp; Manage Extractions Tab</strong></h4>
+<h5 id="enhanced-management-interface">Enhanced Management Interface</h5>
+<ul>
+<li><strong>Search &amp; Filter Controls</strong>: Find specific extraction jobs by name, status, or date range</li>
+<li><strong>Bulk Selection</strong>: Select multiple jobs for batch operations</li>
+<li><strong>Advanced Filtering</strong>: Filter by project, taxonomy, AI model, or extraction type</li>
+<li><strong>Sorting Options</strong>: Sort by creation date, completion time, or status</li>
+</ul>
+<h5 id="job-management-actions_1">Job Management Actions</h5>
+<ul>
+<li><strong>View Results</strong>: Access detailed extraction results for completed jobs</li>
+<li><strong>Delete Jobs</strong>: Permanently remove extraction jobs and associated data</li>
+<li><strong>Restart Failed Jobs</strong>: Retry failed extractions with the same parameters</li>
+<li><strong>Cancel Running Jobs</strong>: Stop active extraction processes</li>
+</ul>
+<h5 id="results-organization">Results Organization</h5>
+<ul>
+<li><strong>Optimized Data Structure</strong>: Results are deduplicated and optimized for downstream processing, focusing on unique text snippets and entities.</li>
+<li><strong>Category-Based Display</strong>: Results grouped by taxonomy categories</li>
+<li><strong>Expandable Sections</strong>: Each category shows extracted entities with:</li>
+<li><strong>Entity Frequency</strong>: How many chunks contain each entity</li>
+<li><strong>Confidence Scores</strong>: Quality indicators for extractions</li>
+<li><strong>Source References</strong>: Links to original text chunks</li>
+</ul>
+<h5 id="relationship-analysis">Relationship Analysis</h5>
+<ul>
+<li><strong>Relationship Summary</strong>: Overview of discovered entity relationships</li>
+<li><strong>Type Distribution</strong>: Breakdown by relationship types (associative, causal, etc.)</li>
+<li><strong>Confidence Metrics</strong>: Quality assessment of relationship inferences</li>
+</ul>
+<h5 id="qa-dataset-generation_1">Q&amp;A Dataset Generation</h5>
+<ul>
+<li><strong>One-Click Generation</strong>: Automatic Q&amp;A pair creation from relationships</li>
+<li><strong>Sample Preview</strong>: View generated questions and answers before export</li>
+<li><strong>Export Options</strong>: Download in JSONL, JSON, or CSV formats</li>
+<li><strong>Statistics Display</strong>: Generation metrics and quality indicators</li>
+</ul>
+<h2 id="job-status-types">Job Status Types</h2>
+<h3 id="pending">Pending</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Pending", progress at 0%</li>
+<li><strong>Actions Available</strong>: Cancel</li>
+<li><strong>Description</strong>: Job is queued and waiting for processing resources</li>
+</ul>
+<h3 id="running">Running</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Running", progress bar updates in real-time</li>
+<li><strong>Actions Available</strong>: Cancel</li>
+<li><strong>Description</strong>: Job is actively being processed with live progress updates</li>
+</ul>
+<h3 id="completed">Completed</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Completed", progress at 100%</li>
+<li><strong>Actions Available</strong>: View Results</li>
+<li><strong>Description</strong>: Job finished successfully with results available</li>
+</ul>
+<h3 id="failed">Failed</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Failed", progress bar shows last completed percentage</li>
+<li><strong>Actions Available</strong>: Restart</li>
+<li><strong>Description</strong>: Job encountered an error and stopped</li>
+</ul>
+<h3 id="cancelled">Cancelled</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Cancelled", progress shows completion at cancellation time</li>
+<li><strong>Actions Available</strong>: Restart</li>
+<li><strong>Description</strong>: Job was manually stopped by user</li>
+</ul>
+<h2 id="error-handling">Error Handling</h2>
+<p>The GUI provides intelligent error handling with user-friendly messages:</p>
+<h3 id="common-error-types">Common Error Types</h3>
+<ul>
+<li><strong>🔌 Connection Error</strong>: Network issues preventing communication with the server</li>
+<li><strong>⏱️ Timeout Error</strong>: Operations taking longer than expected</li>
+<li><strong>🔐 Authentication Error</strong>: Session expired, requiring re-login</li>
+<li><strong>❌ Not Found</strong>: Requested job or resource doesn't exist</li>
+<li><strong>🐌 Rate Limit Exceeded</strong>: Too many requests, need to wait</li>
+</ul>
+<h3 id="specific-extraction-errors">Specific Extraction Errors</h3>
+<ul>
+<li><strong>📂 Taxonomy not found</strong>: Selected taxonomy doesn't exist</li>
+<li><strong>🤖 AI model unavailable</strong>: Selected AI service issues</li>
+<li><strong>🗄️ Database connection failed</strong>: Backend database problems</li>
+<li><strong>🐌 API rate limit exceeded</strong>: External AI service limits reached</li>
+<li><strong>🔍 Entity extraction failed</strong>: AI parsing or response issues</li>
+</ul>
+<h2 id="workflow-examples">Workflow Examples</h2>
+<h3 id="complete-entity-extraction-workflow">Complete Entity Extraction Workflow</h3>
+<ol>
+<li><strong>Setup Project &amp; Taxonomy</strong>:</li>
+<li>Select project containing your documents</li>
+<li>
+<p>Choose appropriate taxonomy for entity categorization</p>
+</li>
+<li>
+<p><strong>Configure AI Models</strong>:</p>
+</li>
+<li>Select primary AI model (Grok recommended for accuracy)</li>
+<li>Optionally enable validation with different AI model</li>
+<li>
+<p>Adjust confidence threshold based on use case</p>
+</li>
+<li>
+<p><strong>Select Categories</strong>:</p>
+</li>
+<li>Use taxonomy tree to select relevant categories</li>
+<li>Search and filter categories as needed</li>
+<li>
+<p>Review selection summary before proceeding</p>
+</li>
+<li>
+<p><strong>Run Extraction</strong>:</p>
+</li>
+<li>Set extraction parameters (depth, batch size, max chunks)</li>
+<li>Click "Start Extraction" to launch job</li>
+<li>
+<p>Monitor progress in Monitor Jobs tab</p>
+</li>
+<li>
+<p><strong>Review Results</strong>:</p>
+</li>
+<li>Switch to Browse &amp; Manage Extractions tab</li>
+<li>Explore extracted entities by category</li>
+<li>Review relationship discoveries</li>
+<li>Generate Q&amp;A datasets if needed</li>
+</ol>
+<h3 id="advanced-dataset-generation">Advanced Dataset Generation</h3>
+<ol>
+<li><strong>Complete Entity Extraction</strong>: Ensure extraction job finishes successfully</li>
+<li><strong>Review Relationships</strong>: Check discovered entity associations</li>
+<li><strong>Generate Q&amp;A Pairs</strong>: Use one-click generation from relationships</li>
+<li><strong>Preview &amp; Export</strong>: Review samples and download in preferred format</li>
+<li><strong>Integration</strong>: Use exported datasets in ML training pipelines</li>
+</ol>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="entity-extraction-optimization">Entity Extraction Optimization</h3>
+<ul>
+<li><strong>AI Model Selection</strong>: Use Grok for highest accuracy, Gemini for speed</li>
+<li><strong>Confidence Thresholds</strong>: Start with 0.5, adjust based on domain requirements</li>
+<li><strong>Category Selection</strong>: Be specific - fewer, well-chosen categories yield better results</li>
+<li><strong>Batch Size Tuning</strong>: Larger batches for homogeneous content, smaller for diverse content</li>
+</ul>
+<h3 id="relationship-inference_1">Relationship Inference</h3>
+<ul>
+<li><strong>Domain Understanding</strong>: Ensure taxonomy reflects real-world relationships</li>
+<li><strong>Quality Validation</strong>: Review relationship confidence scores</li>
+<li><strong>Iterative Refinement</strong>: Adjust taxonomy based on extraction results</li>
+</ul>
+<h3 id="qa-dataset-generation_2">Q&amp;A Dataset Generation</h3>
+<ul>
+<li><strong>Template Customization</strong>: Review generated Q&amp;A pairs for quality</li>
+<li><strong>Format Selection</strong>: Choose JSONL for most ML frameworks</li>
+<li><strong>Context Preservation</strong>: Include relationship metadata when possible</li>
+<li><strong>Quality Assurance</strong>: Manually review samples before large-scale generation</li>
+</ul>
+<h2 id="integration-with-other-features">Integration with Other Features</h2>
+<h3 id="document-processing-pipeline">Document Processing Pipeline</h3>
+<ol>
+<li><strong>Upload Documents</strong>: Use Documents section to ingest and chunk files</li>
+<li><strong>Create Taxonomy</strong>: Build domain-specific taxonomies for categorization</li>
+<li><strong>Run Extraction</strong>: Use unified extraction interface for entity discovery</li>
+<li><strong>Generate Datasets</strong>: Create training data from extracted entities and relationships</li>
+<li><strong>Quality Analysis</strong>: Review extraction metrics and relationship quality</li>
+</ol>
+<h3 id="advanced-analytics">Advanced Analytics</h3>
+<ol>
+<li><strong>Monitor Performance</strong>: Track extraction accuracy across different domains</li>
+<li><strong>Relationship Mining</strong>: Discover patterns in entity associations</li>
+<li><strong>Dataset Quality</strong>: Assess generated Q&amp;A pair quality and diversity</li>
+<li><strong>Model Improvement</strong>: Use extraction results to refine AI prompts and taxonomies</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="no-entities-found">No Entities Found</h3>
+<ul>
+<li><strong>Check AI Model</strong>: Ensure selected AI model has valid API keys</li>
+<li><strong>Verify Taxonomy</strong>: Confirm taxonomy categories are relevant to content</li>
+<li><strong>Adjust Confidence</strong>: Lower confidence threshold if too restrictive</li>
+<li><strong>Review Content</strong>: Ensure documents contain extractable entities</li>
+</ul>
+<h3 id="poor-relationship-quality">Poor Relationship Quality</h3>
+<ul>
+<li><strong>Taxonomy Refinement</strong>: Improve category definitions and relationships</li>
+<li><strong>Content Quality</strong>: Ensure documents have clear entity associations</li>
+<li><strong>AI Model Selection</strong>: Try different models for better relationship inference</li>
+</ul>
+<h3 id="qa-generation-issues">Q&amp;A Generation Issues</h3>
+<ul>
+<li><strong>Relationship Quality</strong>: Ensure high-confidence relationships exist</li>
+<li><strong>Template Relevance</strong>: Customize templates for your domain</li>
+<li><strong>Content Coverage</strong>: Verify sufficient entity pairs for generation</li>
+</ul>
+<h2 id="advanced-features">Advanced Features</h2>
+<h3 id="multi-model-validation">Multi-Model Validation</h3>
+<ul>
+<li><strong>Cross-Model Agreement</strong>: Use different AI models for validation</li>
+<li><strong>Confidence Boosting</strong>: Higher confidence for agreed-upon extractions</li>
+<li><strong>Error Detection</strong>: Identify inconsistent AI responses</li>
+</ul>
+<h3 id="batch-processing">Batch Processing</h3>
+<ul>
+<li><strong>Large-Scale Operations</strong>: Process thousands of documents efficiently</li>
+<li><strong>Progress Monitoring</strong>: Real-time updates for long-running jobs</li>
+<li><strong>Resource Management</strong>: Automatic load balancing across available resources</li>
+</ul>
+<h3 id="custom-templates">Custom Templates</h3>
+<ul>
+<li><strong>Domain-Specific Q&amp;A</strong>: Create templates for specialized domains</li>
+<li><strong>Question Variety</strong>: Generate multiple question types from same relationships</li>
+<li><strong>Context Enhancement</strong>: Include domain-specific context in generated pairs</li>
+</ul>
+<p>This comprehensive GUI transforms complex entity extraction and relationship inference into an accessible, powerful tool for creating high-quality structured datasets from unstructured text. The unified interface eliminates the need for technical expertise while providing advanced capabilities for expert users.</p>
+<h2 id="job-status-types_1">Job Status Types</h2>
+<h3 id="pending_1">Pending</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Pending", progress at 0%</li>
+<li><strong>Actions Available</strong>: Cancel</li>
+<li><strong>Description</strong>: Job is queued and waiting for processing resources</li>
+</ul>
+<h3 id="running_1">Running</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Running", progress bar updates in real-time</li>
+<li><strong>Actions Available</strong>: Cancel</li>
+<li><strong>Description</strong>: Job is actively being processed with live progress updates</li>
+</ul>
+<h3 id="completed_1">Completed</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Completed", progress at 100%</li>
+<li><strong>Actions Available</strong>: View Results</li>
+<li><strong>Description</strong>: Job finished successfully with results available</li>
+</ul>
+<h3 id="failed_1">Failed</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Failed", progress bar shows last completed percentage</li>
+<li><strong>Actions Available</strong>: Restart</li>
+<li><strong>Description</strong>: Job encountered an error and stopped</li>
+</ul>
+<h3 id="cancelled_1">Cancelled</h3>
+<ul>
+<li><strong>Appearance</strong>: Status shows "Cancelled", progress shows completion at cancellation time</li>
+<li><strong>Actions Available</strong>: Restart</li>
+<li><strong>Description</strong>: Job was manually stopped by user</li>
+</ul>
+<h2 id="error-handling_1">Error Handling</h2>
+<p>The GUI provides intelligent error handling with user-friendly messages:</p>
+<h3 id="common-error-types_1">Common Error Types</h3>
+<ul>
+<li><strong>🔌 Connection Error</strong>: Network issues preventing communication with the server</li>
+<li><strong>⏱️ Timeout Error</strong>: Operations taking longer than expected</li>
+<li><strong>🔐 Authentication Error</strong>: Session expired, requiring re-login</li>
+<li><strong>❌ Not Found</strong>: Requested job or resource doesn't exist</li>
+<li><strong>🐌 Rate Limit Exceeded</strong>: Too many requests, need to wait</li>
+</ul>
+<h3 id="specific-extraction-errors_1">Specific Extraction Errors</h3>
+<ul>
+<li><strong>📂 Taxonomy not found</strong>: Selected taxonomy doesn't exist</li>
+<li><strong>🤖 Classification service unavailable</strong>: AI service issues</li>
+<li><strong>🗄️ Database connection failed</strong>: Backend database problems</li>
+<li><strong>🐌 API rate limit exceeded</strong>: External service limits reached</li>
+</ul>
+<h2 id="workflow-examples_1">Workflow Examples</h2>
+<h3 id="monitoring-active-extractions">Monitoring Active Extractions</h3>
+<ol>
+<li><strong>Select Project</strong>: Choose the project with active extraction jobs</li>
+<li><strong>View Dashboard</strong>: See all jobs with their current status and progress</li>
+<li><strong>Monitor Progress</strong>: Watch progress bars update in real-time for running jobs</li>
+<li><strong>Check Details</strong>: Expand job cards to see parameters and timing information</li>
+</ol>
+<h3 id="handling-failed-jobs">Handling Failed Jobs</h3>
+<ol>
+<li><strong>Identify Failed Jobs</strong>: Look for jobs with "Failed" status</li>
+<li><strong>Review Error Details</strong>: Expand the job card to see specific error messages</li>
+<li><strong>Assess Feasibility</strong>: Determine if the error is recoverable</li>
+<li><strong>Restart if Appropriate</strong>: Click "Restart" button for transient failures</li>
+<li><strong>Monitor Restart</strong>: Watch the restarted job progress through the dashboard</li>
+</ol>
+<h3 id="managing-long-running-jobs">Managing Long-Running Jobs</h3>
+<ol>
+<li><strong>Identify Long Jobs</strong>: Look for jobs running for extended periods</li>
+<li><strong>Check Progress</strong>: Monitor if progress is still advancing</li>
+<li><strong>Cancel if Stuck</strong>: Use "Cancel" button for jobs that appear stuck</li>
+<li><strong>Restart After Review</strong>: Restart cancelled jobs after investigating issues</li>
+</ol>
+<h2 id="best-practices_1">Best Practices</h2>
+<h3 id="job-monitoring">Job Monitoring</h3>
+<ul>
+<li><strong>Regular Checks</strong>: Periodically refresh the page to see latest job status</li>
+<li><strong>Progress Tracking</strong>: Use progress bars to estimate completion time</li>
+<li><strong>Error Review</strong>: Always check error details before restarting failed jobs</li>
+<li><strong>Resource Management</strong>: Cancel unnecessary jobs to free up system resources</li>
+</ul>
+<h3 id="error-recovery">Error Recovery</h3>
+<ul>
+<li><strong>Understand Errors</strong>: Read error messages carefully to identify root causes</li>
+<li><strong>Retry Strategically</strong>: Only restart jobs where the error appears transient</li>
+<li><strong>Contact Support</strong>: For persistent errors, gather error details before contacting support</li>
+<li><strong>Prevent Recurrence</strong>: Note patterns in failures to avoid similar issues</li>
+</ul>
+<h3 id="performance-optimization">Performance Optimization</h3>
+<ul>
+<li><strong>Batch Monitoring</strong>: Use the dashboard to monitor multiple jobs simultaneously</li>
+<li><strong>Priority Management</strong>: Cancel lower-priority jobs if high-priority work is blocked</li>
+<li><strong>Timing Awareness</strong>: Note typical completion times for different job types</li>
+<li><strong>Load Balancing</strong>: Distribute large extraction workloads across multiple projects</li>
+</ul>
+<h2 id="integration-with-other-features_1">Integration with Other Features</h2>
+<h3 id="document-processing-workflow">Document Processing Workflow</h3>
+<ol>
+<li><strong>Upload Documents</strong>: Use the Documents section to upload and process files</li>
+<li><strong>Create Taxonomy</strong>: Build or generate taxonomies for content categorization</li>
+<li><strong>Start Extraction</strong>: Initiate extraction jobs (typically through API or other interfaces)</li>
+<li><strong>Monitor Progress</strong>: Use the Extraction GUI to track job completion</li>
+<li><strong>View Results</strong>: Access extraction results through the completed job interface</li>
+</ol>
+<h3 id="dataset-generation-follow-up">Dataset Generation Follow-up</h3>
+<ol>
+<li><strong>Complete Extractions</strong>: Ensure extraction jobs finish successfully</li>
+<li><strong>Generate Datasets</strong>: Use the Dataset section to create training data</li>
+<li><strong>Quality Analysis</strong>: Review extraction quality metrics</li>
+<li><strong>Iterate</strong>: Restart failed extractions or adjust parameters as needed</li>
+</ol>
+<h2 id="troubleshooting_1">Troubleshooting</h2>
+<h3 id="jobs-not-appearing">Jobs Not Appearing</h3>
+<ul>
+<li><strong>Check Project Selection</strong>: Ensure correct project is selected</li>
+<li><strong>Refresh Page</strong>: Use browser refresh to reload job list</li>
+<li><strong>Verify Permissions</strong>: Ensure you have access to view jobs in the selected project</li>
+</ul>
+<h3 id="progress-not-updating">Progress Not Updating</h3>
+<ul>
+<li><strong>Check Connection</strong>: Verify internet connectivity</li>
+<li><strong>Refresh Browser</strong>: Hard refresh (Ctrl+F5) to clear cache</li>
+<li><strong>Contact Support</strong>: If progress consistently doesn't update</li>
+</ul>
+<h3 id="action-buttons-not-working">Action Buttons Not Working</h3>
+<ul>
+<li><strong>Check Job Status</strong>: Buttons only appear for valid state transitions</li>
+<li><strong>Verify Permissions</strong>: Ensure you have permissions to modify jobs</li>
+<li><strong>Network Issues</strong>: Check connection and retry</li>
+</ul>
+<h2 id="advanced-features_1">Advanced Features</h2>
+<h3 id="real-time-updates">Real-time Updates</h3>
+<p>The GUI automatically refreshes job status, but for the most current information:</p>
+<ul>
+<li>Use browser refresh for immediate updates</li>
+<li>Monitor progress bars for live completion tracking</li>
+<li>Check timestamps to verify data freshness</li>
+</ul>
+<h3 id="bulk-operations">Bulk Operations</h3>
+<p>While individual job control is available, consider:</p>
+<ul>
+<li><strong>Project Organization</strong>: Group related jobs in dedicated projects</li>
+<li><strong>Batch Processing</strong>: Use API or CLI for bulk job operations</li>
+<li><strong>Automation</strong>: Set up monitoring scripts for large-scale operations</li>
+</ul>
+<h3 id="performance-metrics">Performance Metrics</h3>
+<p>Track job performance over time:</p>
+<ul>
+<li><strong>Completion Times</strong>: Note typical duration for different job types</li>
+<li><strong>Success Rates</strong>: Monitor failure frequency and types</li>
+<li><strong>Resource Usage</strong>: Observe system impact during peak processing</li>
+</ul>
+<p>This GUI provides a user-friendly way to manage the complex asynchronous nature of extraction jobs while maintaining full visibility into the processing pipeline.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

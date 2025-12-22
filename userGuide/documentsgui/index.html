@@ -1,0 +1,2457 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/documentsgui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Documents Module GUI Usage Guide - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#documents-module-gui-usage-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Documents Module GUI Usage Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#accessing-document-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Document Processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tab-1-parse-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tab 1: Parse Documents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tab 1: Parse Documents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#document-upload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Upload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parser-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parser Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parsing-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parsing Action
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tab-2-configure-chunk-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tab 2: Configure &amp; Chunk Documents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tab 2: Configure &amp; Chunk Documents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#chunking-strategy-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunking Strategy Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chunking Strategy Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-character-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Character-Based Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-token-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Token-Based Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-semantic-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Semantic Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-delimiter-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Delimiter-Based Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-schema-based-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Schema-Based Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Model Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Mode
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-assisted-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-selection-for-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Selection for Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-features-multi-part-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features: Multi-part Documents
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content Preview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunking-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunking Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#processing-status-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Status Display
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#status-indicators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status Indicators
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Document Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#viewing-document-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viewing Document List
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-content-viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Content Viewer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-deletion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Deletion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-document-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Document Preparation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-parsing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Parsing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-chunking-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Chunking Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-quality-assurance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Quality Assurance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#split-pdf-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Split PDF Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-schema-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Schema Chunking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="documents-module-gui-usage-guide">Documents Module GUI Usage Guide</h1>
+<p>The Compileo Documents GUI provides an intuitive web interface for document management, including upload, parsing, chunking, and content viewing. This guide covers all GUI features with step-by-step instructions.</p>
+<h2 id="accessing-document-processing">Accessing Document Processing</h2>
+<p>Navigate to the <strong>"📄 Document Processing"</strong> page from the main menu. The interface is organized into two main tabs:</p>
+<ol>
+<li><strong>📄 Parse Documents</strong> - Upload and parse documents</li>
+<li><strong>✂️ Configure &amp; Chunk Documents</strong> - Configure chunking and process parsed documents</li>
+</ol>
+<hr />
+<h2 id="project-selection">Project Selection</h2>
+<p>Before working with documents, select a project from the dropdown at the top of the page:</p>
+<ul>
+<li><strong>Project Selection</strong>: Choose from available projects</li>
+<li><strong>Auto-save</strong>: Your selection is remembered across sessions</li>
+<li><strong>Validation</strong>: System prevents operations without a valid project</li>
+</ul>
+<hr />
+<h2 id="tab-1-parse-documents">Tab 1: Parse Documents</h2>
+<h3 id="document-upload">Document Upload</h3>
+<ol>
+<li><strong>File Upload Area</strong>:</li>
+<li>Click "Browse files" or drag-and-drop files</li>
+<li><strong>Supported formats</strong>: PDF, DOCX, TXT, MD, CSV, JSON, XML</li>
+<li>
+<p><strong>Multiple files</strong>: Upload several documents at once</p>
+</li>
+<li>
+<p><strong>PDF Splitting Configuration</strong> (appears after file selection):</p>
+<ul>
+<li><strong>Pages per Split</strong>: Number of pages per PDF chunk (default: 5, recommended: 5-10)</li>
+<li><strong>Overlap Pages</strong>: Overlapping pages between chunks for context continuity (default: 0)</li>
+<li><strong>Purpose</strong>: Automatically splits large PDFs to optimize AI parsing performance</li>
+<li><strong>Automatic</strong>: PDFs are split when <code>total_pages &gt; pages_per_split</code></li>
+</ul>
+</li>
+</ol>
+<h3 id="parser-selection">Parser Selection</h3>
+<p>Choose from available AI parsers:
+- <strong>gemini</strong>: Google's Gemini models
+- <strong>grok</strong>: xAI's Grok models
+- <strong>ollama</strong>: Local Ollama models (configurable parameters)
+- <strong>pypdf</strong>: Python PDF parser (fast, no API required)
+- <strong>unstructured</strong>: Unstructured.io parser
+- <strong>huggingface</strong>: Hugging Face models
+- <strong>novlm</strong>: No-VLM models</p>
+<p><strong>Ollama Parser Configuration</strong>: When using Ollama parsers, you can fine-tune AI behavior by configuring parameters in Settings → AI Model Configuration. Available parameters include temperature, repeat penalty, top-p, top-k, and num_predict for optimal parsing results.</p>
+<h3 id="document-selection">Document Selection</h3>
+<p><strong>Existing Documents</strong>:
+- View all documents in the selected project
+- <strong>Status indicators</strong>:
+  - ✅ <strong>Parsed</strong>: Document successfully converted to markdown
+  - 📄 <strong>Uploaded</strong>: Document uploaded but not yet parsed
+- <strong>Selection</strong>: Check boxes to select documents for parsing
+- <strong>Delete</strong>: Click 🗑️ to remove documents</p>
+<p><strong>Upload + Parse</strong>:
+- Upload new files AND select existing documents simultaneously
+- System processes both in a single operation</p>
+<h3 id="parsing-action">Parsing Action</h3>
+<ol>
+<li><strong>Parse Button</strong>: Shows count of documents to be processed</li>
+<li><strong>Progress</strong>: Real-time status updates during parsing</li>
+<li><strong>Results</strong>: Success/failure notifications with job IDs</li>
+<li><strong>Background Processing</strong>: Long operations run asynchronously</li>
+</ol>
+<hr />
+<h2 id="tab-2-configure-chunk-documents">Tab 2: Configure &amp; Chunk Documents</h2>
+<h3 id="chunking-strategy-selection">Chunking Strategy Selection</h3>
+<p>Choose from five chunking strategies:</p>
+<h4 id="1-character-based-chunking">1. Character-Based Chunking</h4>
+<ul>
+<li><strong>Best for</strong>: Speed and predictability</li>
+<li><strong>Parameters</strong>:</li>
+<li><strong>Chunk Size</strong>: Characters per chunk (100-4000)</li>
+<li><strong>Overlap</strong>: Overlapping characters (0-500)</li>
+<li><strong>Use cases</strong>: Large document sets, batch processing</li>
+</ul>
+<h4 id="2-token-based-chunking">2. Token-Based Chunking</h4>
+<ul>
+<li><strong>Best for</strong>: LLM compatibility</li>
+<li><strong>Parameters</strong>:</li>
+<li><strong>Chunk Size</strong>: Tokens per chunk (100-2000)</li>
+<li><strong>Overlap</strong>: Overlapping tokens (0-200)</li>
+<li><strong>Use cases</strong>: Preparing data for language models</li>
+</ul>
+<h4 id="3-semantic-chunking">3. Semantic Chunking</h4>
+<ul>
+<li><strong>Best for</strong>: Meaningful content boundaries</li>
+<li><strong>Parameters</strong>:</li>
+<li><strong>Similarity Threshold</strong>: Boundary detection sensitivity (0.1-0.9)</li>
+<li><strong>Min Chunk Size</strong>: Minimum characters per chunk (50-500)</li>
+<li><strong>Custom Prompt</strong>: AI instructions for boundary detection</li>
+<li><strong>Use cases</strong>: Research papers, technical documentation</li>
+</ul>
+<h4 id="4-delimiter-based-chunking">4. Delimiter-Based Chunking</h4>
+<ul>
+<li><strong>Best for</strong>: Structured documents with known separators</li>
+<li><strong>Parameters</strong>:</li>
+<li><strong>Delimiters</strong>: Select from predefined patterns</li>
+<li>Custom delimiters: <code>\n\n</code>, <code>\n</code>, <code>.</code>, <code>!</code>, <code>?</code></li>
+<li><strong>Use cases</strong>: Markdown files, structured text</li>
+</ul>
+<h4 id="5-schema-based-chunking">5. Schema-Based Chunking</h4>
+<ul>
+<li><strong>Best for</strong>: Complex splitting rules</li>
+<li><strong>Parameters</strong>:</li>
+<li><strong>Schema JSON</strong>: Custom rules combining patterns and delimiters</li>
+<li><strong>Use cases</strong>: Proprietary formats, complex document structures</li>
+</ul>
+<h3 id="ai-model-selection">AI Model Selection</h3>
+<p>Choose the AI model for intelligent chunking:
+- <strong>gemini</strong>: Google's Gemini (recommended)
+- <strong>grok</strong>: xAI's Grok
+- <strong>ollama</strong>: Local models</p>
+<h3 id="configuration-mode">Configuration Mode</h3>
+<h4 id="manual-configuration">Manual Configuration</h4>
+<ul>
+<li>Set all parameters manually</li>
+<li>Full control over chunking behavior</li>
+<li>Suitable for experienced users</li>
+</ul>
+<h4 id="ai-assisted-configuration">AI-Assisted Configuration</h4>
+<ul>
+<li><strong>Smart Recommendations</strong>: AI analyzes your documents and suggests optimal settings</li>
+<li><strong>User Instructions</strong>: Describe your chunking goals</li>
+<li><strong>Examples</strong>: Provide sample text from your documents</li>
+<li><strong>Automatic Optimization</strong>: System recommends strategy, size, and overlap</li>
+</ul>
+<h3 id="document-selection-for-chunking">Document Selection for Chunking</h3>
+<p><strong>Available Documents</strong>: Only parsed documents (status: ✅) can be chunked</p>
+<p><strong>Multi-file Selection</strong>:
+- Check boxes to select multiple documents
+- Grid layout for efficient selection
+- Real-time count of selected documents</p>
+<h3 id="advanced-features-multi-part-documents">Advanced Features: Multi-part Documents</h3>
+<p><strong>Split Document Handling</strong>:
+- System detects documents split into multiple parts
+- <strong>File Selection Dropdown</strong>: Choose which part to chunk
+- <strong>Metadata Display</strong>: Page ranges, overlap information
+- <strong>Content Preview</strong>: View content before chunking</p>
+<p><strong>Manifest Support</strong>:
+- Automatic detection of document manifests
+- Page range information for split files
+- Overlap visualization between chunks</p>
+<h3 id="content-preview">Content Preview</h3>
+<p><strong>Before Chunking</strong>:
+- Preview parsed content for selected files
+- <strong>File-Specific Viewing</strong>: Select individual parsed file chunks from multi-part documents
+- <strong>Full Content Access</strong>: View complete content of selected parsed files (up to 10,000+ characters)
+- <strong>Pagination Support</strong>: Navigate through large content with 10,000-character pages
+- Copy-to-clipboard functionality for examples
+- Verify content integrity before processing</p>
+<h3 id="chunking-execution">Chunking Execution</h3>
+<ol>
+<li><strong>Chunk Button</strong>: Initiates chunking process</li>
+<li><strong>Progress Monitoring</strong>: Real-time status updates</li>
+<li><strong>Background Processing</strong>: Asynchronous execution for large jobs</li>
+<li><strong>Results Display</strong>: Success metrics and chunk counts</li>
+</ol>
+<hr />
+<h2 id="job-monitoring">Job Monitoring</h2>
+<h3 id="processing-status-display">Processing Status Display</h3>
+<p><strong>Active Jobs</strong>:
+- Real-time progress bars
+- Current operation status
+- Estimated completion time
+- Error notifications</p>
+<p><strong>Job History</strong>:
+- Previous processing jobs
+- Success/failure status
+- Performance metrics
+- Detailed logs</p>
+<h3 id="status-indicators">Status Indicators</h3>
+<ul>
+<li><strong>⏳ Pending</strong>: Job queued for processing</li>
+<li><strong>🔄 Running</strong>: Currently being processed</li>
+<li><strong>✅ Completed</strong>: Successfully finished</li>
+<li><strong>❌ Failed</strong>: Processing errors occurred</li>
+</ul>
+<hr />
+<h2 id="document-management">Document Management</h2>
+<h3 id="viewing-document-list">Viewing Document List</h3>
+<p><strong>Project Documents</strong>:
+- All documents in selected project
+- Status indicators for each document
+- File sizes and upload dates
+- Quick actions (delete, view content)</p>
+<h3 id="document-content-viewer">Document Content Viewer</h3>
+<p><strong>Parsed Content Access</strong>:
+- Click document name to view parsed markdown
+- Pagination support for large documents
+- Search functionality within content
+- Export options (copy, download)</p>
+<h3 id="document-deletion">Document Deletion</h3>
+<p><strong>Safe Deletion</strong>:
+- Confirmation prompts prevent accidents
+- Associated chunks automatically removed
+- File system cleanup included
+- Database record removal</p>
+<hr />
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-document-preparation">1. Document Preparation</h3>
+<p><strong>File Organization</strong>:
+- Use consistent naming conventions
+- Group related documents in same project
+- Check file sizes before upload (large PDFs may need splitting)</p>
+<p><strong>Format Selection</strong>:
+- PDFs: Use for scanned documents or complex layouts
+- DOCX/TXT: Use for text-heavy content
+- MD: Use for already structured content</p>
+<h3 id="2-parsing-strategy">2. Parsing Strategy</h3>
+<p><strong>Parser Selection</strong>:
+- <strong>pypdf</strong>: Fast, no API costs, good for simple PDFs
+- <strong>gemini/grok</strong>: Best quality, handles complex layouts
+- <strong>ollama</strong>: Local processing, privacy-focused</p>
+<p><strong>Batch Processing</strong>:
+- Parse multiple documents together for efficiency
+- Monitor job status for large batches
+- Use pagination settings for oversized documents</p>
+<h3 id="3-chunking-optimization">3. Chunking Optimization</h3>
+<p><strong>Strategy Selection</strong>:
+- <strong>Character</strong>: Fast processing, predictable results
+- <strong>Semantic</strong>: Quality chunks, slower processing
+- <strong>Schema</strong>: Precise control, requires expertise</p>
+<p><strong>Parameter Tuning</strong>:
+- Start with defaults, adjust based on results
+- Use AI-assisted configuration for optimization
+- Test on sample documents before full processing</p>
+<h3 id="4-quality-assurance">4. Quality Assurance</h3>
+<p><strong>Content Verification</strong>:
+- Always preview parsed content before chunking
+- Check for parsing errors or missing content
+- Validate chunk boundaries make sense</p>
+<p><strong>Performance Monitoring</strong>:
+- Track processing times for different strategies
+- Monitor API usage and costs
+- Log successful configurations for reuse</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Upload Failures</strong>:
+- Check file size limits
+- Verify supported formats
+- Ensure write permissions on storage directory</p>
+<p><strong>Parsing Errors</strong>:
+- Verify API keys are configured
+- Check document isn't corrupted
+- Try different parser if one fails</p>
+<p><strong>Chunking Problems</strong>:
+- Ensure documents are parsed first
+- Check chunking parameters are valid
+- Verify AI model is available</p>
+<p><strong>Performance Issues</strong>:
+- Use smaller batch sizes for large documents
+- Switch to faster parsers (pypdf) for bulk processing
+- Monitor system resources during processing</p>
+<hr />
+<h2 id="advanced-features">Advanced Features</h2>
+<h3 id="split-pdf-management">Split PDF Management</h3>
+<p><strong>Large Document Handling</strong>:
+- Automatic splitting for oversized PDFs
+- Configurable page ranges and overlaps
+- Manifest tracking for split relationships
+- Selective chunking of individual splits</p>
+<h3 id="custom-schema-chunking">Custom Schema Chunking</h3>
+<p><strong>Rule Definition</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;^## &quot;</span><span class="p">},</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delimiter&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;\n\n&quot;</span><span class="p">}</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;combine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;any&quot;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Advanced Patterns</strong>:
+- Regex patterns for headers and sections
+- Multiple delimiter combinations
+- Hierarchical rule processing</p>
+<h3 id="api-integration">API Integration</h3>
+<p><strong>Programmatic Access</strong>:
+- All GUI features available via REST API
+- Batch processing scripts
+- Integration with external workflows
+- Automated document pipelines</p>
+<p>This GUI provides a complete document processing workflow from upload to chunking, with both manual control and AI-assisted optimization for maximum efficiency and quality.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

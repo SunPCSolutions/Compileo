@@ -1,0 +1,3474 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/gui_user_guide/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Compileo GUI User Guide - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#compileo-gui-user-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Compileo GUI User Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting Started
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#launching-the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Launching the GUI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#navigation-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Navigation Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-processing-tabs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📄 Document Processing Tabs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📄 Document Processing Tabs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse-documents-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parse Documents Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parse Documents Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-parsing-pdf-splitter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-Parsing PDF Splitter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pre-Parsing PDF Splitter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-splitting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Splitting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-chunk-documents-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure &amp; Chunk Documents Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure &amp; Chunk Documents Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-configuration-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Configuration Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-assisted-configuration-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Configuration Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-assisted-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-assisted-features_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI-Assisted Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taxonomy-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🏷️ Taxonomy Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🏷️ Taxonomy Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#three-main-sub-tabs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three Main Sub-tabs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Three Main Sub-tabs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-build-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 🏗️ Build Taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-classification-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 🔍 Classification &amp; Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-browse-manage-taxonomies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 📋 Browse &amp; Manage Taxonomies
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extraction-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔍 Extraction Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔍 Extraction Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#three-tab-unified-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three-Tab Unified Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Three-Tab Unified Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-extraction-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🏃 Run Extraction Tab
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor-jobs-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📊 Monitor Jobs Tab
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#view-results-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📋 View Results Tab
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-model-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Model Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalable-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalable Processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extraction-results-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📊 Extraction Results Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📊 Extraction Results Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-generation-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Dataset Generation Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔧 Dataset Generation Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-sections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Sections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Sections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quality-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quality Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-level-prompts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Prompts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dataset-size-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Size Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-source-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Source Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-creation-wizard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🧙 Dataset Creation Wizard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🧙 Dataset Creation Wizard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#navigation-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Navigation Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benefits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quality-metrics-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📊 Quality Metrics Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📊 Quality Metrics Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#features_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quality-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quality Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmarking-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📈 Benchmarking Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="📈 Benchmarking Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#purpose_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚙️ Settings Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚙️ Settings Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#job-handling-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Handling Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-key-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Key Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-key-configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Key Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Workflows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#complete-entity-extraction-dataset-generation-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Entity Extraction &amp; Dataset Generation Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quick-dataset-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Dataset Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gui-is-frozen-during-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "GUI is frozen during processing"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-stuck-in-pendingrunning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Job stuck in pending/running"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-failed-unexpectedly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Job failed unexpectedly"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#too-many-concurrent-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Too many concurrent jobs"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tips
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Tips">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-projects-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "No projects available"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-key-not-configured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "API key not configured"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-chunks-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "No chunks found"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taxonomy-generation-failed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Taxonomy generation failed"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dataset-generation-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Dataset generation timeout"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invalid-escape-error-when-using-schema-chunking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Invalid \escape error when using schema chunking"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-tips_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Tips
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support-and-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Support and Resources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="compileo-gui-user-guide">Compileo GUI User Guide</h1>
+<h2 id="overview">Overview</h2>
+<p>The Compileo GUI provides a user-friendly web interface for document processing, taxonomy management, and dataset generation. This guide covers the main features and workflows available through the GUI.</p>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Running Compileo API server (<code>python -m src.compileo.api.main</code>)</li>
+<li>API keys configured for AI services (Gemini, Grok, etc.)</li>
+<li>At least one project created</li>
+</ul>
+<h3 id="launching-the-gui">Launching the GUI</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>streamlit<span class="w"> </span>run<span class="w"> </span>src/compileo/features/gui/main.py
+</code></pre></div>
+<p>The GUI will be available at <code>http://localhost:8501</code> by default.</p>
+<h2 id="main-interface">Main Interface</h2>
+<h3 id="navigation-layout">Navigation Layout</h3>
+<p>The GUI features a modern header and grouped sidebar navigation:</p>
+<p><strong>Header:</strong>
+- <strong>🔬 Compileo Dataset Creator</strong>: Application branding</p>
+<p><strong>Sidebar Navigation (Grouped):</strong>
+- 🏠 Home
+- ⚙️ Settings
+- ──────────
+- 🧙 <strong>Wizard</strong>
+  - Dataset Generation Wizard
+- ──────────
+- ⚙️ <strong>Workflow</strong>
+  - Projects
+  - Document Processing
+  - Taxonomy
+  - Extraction
+  - Extraction Results
+  - Dataset Generation
+- ──────────
+- 📊 <strong>Analysis</strong>
+  - Quality Metrics
+  - Benchmarking
+- ──────────
+- ⚙️ <strong>Job Management</strong>
+  - Job Queue (Real-time monitoring of active and pending jobs)
+  - Job History (View all past jobs with filters)</p>
+<h2 id="document-processing-tabs">📄 Document Processing Tabs</h2>
+<h3 id="parse-documents-tab">Parse Documents Tab</h3>
+<h4 id="purpose">Purpose</h4>
+<p>Upload new documents and parse existing ones into a clean markdown format.</p>
+<h4 id="workflow">Workflow</h4>
+<ol>
+<li><strong>Select Project</strong>: Choose the target project.</li>
+<li><strong>Upload Files</strong>: Upload new documents (PDF, DOCX, TXT, etc.).</li>
+<li><strong>Select Parser</strong>: Choose the parsing engine (<code>gemini</code>, <code>grok</code>, <code>ollama</code>, <code>pypdf</code>, <code>unstructured</code>, <code>huggingface</code>, <code>novlm</code>).</li>
+<li><strong>Select Documents</strong>: Check the boxes next to the documents you want to parse.</li>
+<li><strong>Parse</strong>: Click the "Parse Documents" button. A job will be submitted to the background queue, and you can monitor its progress in the Job Queue sidebar or the dedicated Job Management page.</li>
+</ol>
+<h3 id="pre-parsing-pdf-splitter">Pre-Parsing PDF Splitter</h3>
+<h4 id="purpose_1">Purpose</h4>
+<p>For very large PDF documents (e.g., thousands of pages), direct parsing by AI models can lead to token limit issues or summarization. The Pre-Parsing PDF Splitter automatically divides these large PDFs into smaller, manageable chunks (individual PDF files) before they are sent to any parsing model. This ensures that each segment of the document can be processed completely and accurately.</p>
+<h4 id="automatic-splitting">Automatic Splitting</h4>
+<ul>
+<li>If a PDF document has more than <strong>200 pages</strong>, it will be automatically split into multiple smaller PDF files.</li>
+<li>Each split file will contain approximately <strong>200 pages</strong>.</li>
+<li>An <strong>overlap of 1 page</strong> is included between consecutive split files. This overlap helps maintain content continuity, allowing downstream chunking and parsing processes to handle information that spans across the split boundaries effectively.</li>
+<li>The split files are named sequentially (e.g., <code>original_document_name_1.pdf</code>, <code>original_document_name_2.pdf</code>).</li>
+</ul>
+<h4 id="how-it-works">How it Works</h4>
+<p>When you upload a large PDF or initiate a parsing job for one, the system first checks its page count. If it exceeds the 200-page threshold, the splitter automatically creates the smaller PDF files. These smaller files are then processed sequentially by the chosen parsing engine. From the user's perspective, this process is largely transparent, ensuring reliable parsing of even the largest documents.</p>
+<h3 id="configure-chunk-documents-tab">Configure &amp; Chunk Documents Tab</h3>
+<h4 id="purpose_2">Purpose</h4>
+<p>Configure chunking strategies and apply them to your parsed documents using either manual configuration or AI-assisted recommendations.</p>
+<h4 id="configuration-modes">Configuration Modes</h4>
+<p><strong>Manual Configuration (Default):</strong>
+Direct parameter setting for experienced users.</p>
+<p><strong>AI-Assisted Configuration:</strong>
+Intelligent recommendations based on your document structure and goals.</p>
+<h4 id="manual-configuration-workflow">Manual Configuration Workflow</h4>
+<ol>
+<li><strong>Select Strategy</strong>: Choose chunking method (<code>character</code>, <code>token</code>, <code>semantic</code>, <code>delimiter</code>, <code>schema</code>)</li>
+<li><strong>Configure Parameters</strong>: Set strategy-specific parameters manually</li>
+<li><strong>Select Documents</strong>: Choose parsed documents to process</li>
+<li><strong>Process</strong>: Apply chunking with your chosen settings. A job will be submitted to the background queue, and you can monitor its progress in the Job Queue sidebar or the dedicated Job Management page.</li>
+</ol>
+<h4 id="ai-assisted-configuration-workflow">AI-Assisted Configuration Workflow</h4>
+<ol>
+<li><strong>Describe Goal</strong>: Provide chunking objective (required field)</li>
+<li><strong>Select Document</strong>: Choose representative document for analysis</li>
+<li><strong>Preview Content</strong>: Browse document with pagination (10K chars per page)</li>
+<li><strong>Extract Examples</strong>: Select text directly in the preview area to gather examples</li>
+<li><strong>Get Recommendations</strong>: AI analyzes goal, content, and examples</li>
+<li><strong>Apply Settings</strong>: Use AI-recommended parameters or make adjustments</li>
+<li><strong>Process Documents</strong>: Apply configuration to selected documents</li>
+</ol>
+<h4 id="ai-assisted-features">AI-Assisted Features</h4>
+<ul>
+<li><strong>Goal Description</strong>: Required field describing chunking objectives</li>
+<li><strong>Document Preview</strong>: Paginated content viewing with header highlighting</li>
+<li><strong>Text Selection</strong>: Click and drag to select any portion of document content</li>
+<li><strong>Real-time Feedback</strong>: Selected text appears in a dedicated field</li>
+<li><strong>Flexible Examples</strong>: Any text portion can be added to the AI example pool</li>
+<li><strong>AI Recommendations</strong>: Intelligent strategy and parameter suggestions</li>
+<li><strong>JSON Schema Auto-Fix</strong>: Automatic correction of backslash escaping issues when copying AI recommendations</li>
+</ul>
+<h4 id="ai-assisted-features_1">AI-Assisted Features</h4>
+<ul>
+<li><strong>Goal Description</strong>: Required field describing chunking objectives</li>
+<li><strong>Document Preview</strong>: Paginated content viewing with header highlighting</li>
+<li><strong>Text Selection</strong>: Click and drag to select any portion of document content</li>
+<li><strong>Real-time Feedback</strong>: Selected text appears in a dedicated field</li>
+<li><strong>Flexible Examples</strong>: Any text portion can be added to the AI example pool</li>
+<li><strong>AI Recommendations</strong>: Intelligent strategy and parameter suggestions</li>
+</ul>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li>Use <code>gemini</code> parser for complex document layouts</li>
+<li>Set chunk size to 1000 for balanced processing</li>
+<li>Use 10-20% overlap for context continuity</li>
+<li>Process multiple related documents together</li>
+<li>For semantic: Use the placeholder example as a template for custom prompts</li>
+<li>For schema: Start with simple regex patterns and build to complex rules</li>
+<li><strong>Schema Include Pattern</strong>: Use <code>include_pattern: true</code> when you want chunks to START with matched patterns (e.g., disease names), <code>false</code> when patterns should be excluded from chunks</li>
+</ul>
+<h2 id="taxonomy-tab">🏷️ Taxonomy Tab</h2>
+<h3 id="three-main-sub-tabs">Three Main Sub-tabs</h3>
+<h4 id="1-build-taxonomy">1. 🏗️ Build Taxonomy</h4>
+<p>Create new taxonomies using AI generation or manual construction with hybrid capabilities.</p>
+<p><strong>AI Generation Mode</strong>:
+- Select project and enter taxonomy name
+- Choose AI generator (<code>gemini</code>, <code>grok</code>, <code>ollama</code>)
+- Set domain and specificity level
+- Select documents to analyze
+- Configure category limits per hierarchy level
+- Generate taxonomy automatically</p>
+<p><strong>Hybrid Mode</strong>:
+- Manually define basic category structure
+- Use AI to extend and refine the taxonomy
+- Add subcategories automatically
+- Load existing taxonomies as starting points</p>
+<p><strong>Manual Structure Building</strong>:
+- Add top-level categories with descriptions
+- Build hierarchical subcategories
+- Set confidence thresholds per category
+- AI enhancement for existing manual structures</p>
+<h4 id="2-classification-extraction">2. 🔍 Classification &amp; Extraction</h4>
+<p>Apply taxonomies to content for selective categorization and information extraction.</p>
+<p><strong>Selective Category Selection</strong>:
+- Interactive taxonomy tree selector
+- Check/uncheck specific categories for extraction
+- Preview selection with statistics
+- Hierarchical category navigation</p>
+<p><strong>Extraction Parameters</strong>:
+- <strong>Extraction Depth</strong>: Maximum taxonomy hierarchy levels to traverse (1-5)
+- <strong>Confidence Threshold</strong>: Minimum confidence score for results (0.0-1.0)
+- <strong>Skip Fine Classification</strong>: Enable for faster processing (coarse only)
+- <strong>Advanced Settings</strong>: Max chunks, batch size, processing controls</p>
+<p><strong>Extraction Workflow</strong>:
+1. Select project and taxonomy
+2. Choose specific categories using tree selector
+3. Configure extraction parameters
+4. Run selective extraction job
+5. Monitor progress and view results
+6. Export results as JSON or CSV</p>
+<p><strong>Results Viewer</strong>:
+- Organized by selected categories
+- Confidence score filtering
+- Paginated results with metadata
+- Export options for analysis</p>
+<h4 id="3-browse-manage-taxonomies">3. 📋 Browse &amp; Manage Taxonomies</h4>
+<ul>
+<li>Search and filter existing taxonomies</li>
+<li>View taxonomies in tree or list format</li>
+<li>Edit taxonomy metadata</li>
+<li>Export taxonomies as JSON or CSV</li>
+<li>Bulk operations and management</li>
+<li>Delete taxonomies (with confirmation)</li>
+</ul>
+<h3 id="best-practices_1">Best Practices</h3>
+<ul>
+<li>Start with AI generation for initial taxonomy creation</li>
+<li>Use hybrid mode for iterative refinement</li>
+<li>Choose domain-specific settings for better categorization</li>
+<li>Select specific categories for focused extraction</li>
+<li>Regularly update taxonomies as content evolves</li>
+<li>Use extraction results to improve taxonomy accuracy</li>
+</ul>
+<h2 id="extraction-tab">🔍 Extraction Tab</h2>
+<h3 id="purpose_3">Purpose</h3>
+<p>Advanced entity extraction, relationship inference, and Q&amp;A dataset generation from unstructured text documents using AI-powered analysis.</p>
+<h3 id="three-tab-unified-interface">Three-Tab Unified Interface</h3>
+<h4 id="run-extraction-tab">🏃 <strong>Run Extraction Tab</strong></h4>
+<p><strong>Extraction Type &amp; Mode Selection:</strong>
+- <strong>Extraction Type</strong>: Select between <code>Named Entity Recognition (NER)</code> (extracts specific entities) or <code>Whole Text Extraction</code> (extracts complete text portions).
+- <strong>Extraction Mode</strong>: Choose <code>Contextual Extraction</code> (filters by parent context for precision) or <code>Document-Wide Extraction</code> (processes all chunks for maximum coverage).</p>
+<p><strong>AI Model Selection:</strong>
+- Choose from Grok, Gemini, or Ollama AI models as the <code>Primary Classifier</code>.
+- Optionally enable a <code>Validation Stage</code> with a different AI model for quality assurance.</p>
+<p><strong>Taxonomy Integration:</strong>
+- Select project and taxonomy for entity categorization.
+- Interactive taxonomy tree for category selection.
+- Search and filter categories for precise targeting.</p>
+<p><strong>Extraction Parameters:</strong>
+- <strong>Depth Control</strong>: Maximum taxonomy hierarchy levels (1-5).
+- <strong>Confidence Threshold</strong>: Minimum quality score (0.0-1.0).
+- <strong>Batch Processing</strong>: Chunk size and processing limits.
+- <strong>Advanced Controls</strong>: Performance tuning options.</p>
+<p><strong>Workflow:</strong>
+1. Select project and taxonomy.
+2. Choose <code>Extraction Type</code> and <code>Extraction Mode</code>.
+3. Choose AI model(s) for extraction.
+4. Configure extraction parameters.
+5. Select specific categories using tree interface.
+6. Start extraction job and monitor progress.</p>
+<h4 id="monitor-jobs-tab">📊 <strong>Monitor Jobs Tab</strong></h4>
+<p><strong>Real-time Job Tracking:</strong>
+- Live progress updates for all extraction jobs
+- Status indicators (Pending, Running, Completed, Failed)
+- Detailed job parameters and timing information
+- Action buttons for job management (restart, cancel, view results)</p>
+<p><strong>Job Management:</strong>
+- Filter jobs by project and status
+- View comprehensive job metadata
+- Monitor resource usage and performance
+- Handle failed jobs with restart capabilities</p>
+<h4 id="view-results-tab">📋 <strong>View Results Tab</strong></h4>
+<p><strong>Entity Results Display:</strong>
+- Extracted entities organized by taxonomy categories
+- Confidence scores and source chunk references
+- Frequency analysis across document collections
+- Advanced filtering and search capabilities</p>
+<p><strong>Relationship Analysis:</strong>
+- Automatic discovery of entity relationships
+- Relationship type distribution and quality metrics
+- Interactive relationship visualization
+- Confidence-weighted association analysis</p>
+<p><strong>Q&amp;A Dataset Generation:</strong>
+- One-click generation of question-answer pairs
+- Template-based customization for different domains
+- Multiple export formats (JSONL, JSON, CSV)
+- Quality preview and statistics</p>
+<h3 id="advanced-features">Advanced Features</h3>
+<h4 id="multi-model-validation">Multi-Model Validation</h4>
+<ul>
+<li>Cross-model agreement checking</li>
+<li>Enhanced confidence through AI consensus</li>
+<li>Error detection and quality assurance</li>
+</ul>
+<h4 id="scalable-processing">Scalable Processing</h4>
+<ul>
+<li>Large document collection handling</li>
+<li>Batch processing optimization</li>
+<li>Memory-efficient streaming operations</li>
+<li>Parallel AI model utilization</li>
+</ul>
+<h3 id="best-practices_2">Best Practices</h3>
+<ul>
+<li><strong>AI Model Selection</strong>: Use Grok for accuracy, Gemini for speed</li>
+<li><strong>Category Targeting</strong>: Select specific categories for focused extraction</li>
+<li><strong>Confidence Tuning</strong>: Adjust thresholds based on domain requirements</li>
+<li><strong>Quality Validation</strong>: Enable multi-model validation for critical applications</li>
+<li><strong>Resource Monitoring</strong>: Track performance for large-scale operations</li>
+</ul>
+<h2 id="extraction-results-tab">📊 Extraction Results Tab</h2>
+<h3 id="purpose_4">Purpose</h3>
+<p>View, analyze, and export results from completed extraction jobs.</p>
+<h3 id="features">Features</h3>
+<ul>
+<li><strong>Job Management</strong>: View all extraction jobs with status</li>
+<li><strong>Results Organization</strong>: Results organized by selected categories</li>
+<li><strong>Filtering &amp; Search</strong>: Filter by confidence, category, or content</li>
+<li><strong>Export Options</strong>: Export as JSON or CSV for analysis</li>
+<li><strong>Pagination</strong>: Navigate through large result sets</li>
+<li><strong>Metadata Display</strong>: View extraction metadata and statistics</li>
+</ul>
+<h3 id="workflow_1">Workflow</h3>
+<ol>
+<li><strong>Select Job</strong>: Choose from completed extraction jobs</li>
+<li><strong>Browse Results</strong>: Navigate through categorized results</li>
+<li><strong>Apply Filters</strong>: Filter by confidence score or categories</li>
+<li><strong>Export Data</strong>: Download results for further analysis</li>
+<li><strong>Review Statistics</strong>: Analyze extraction performance metrics</li>
+</ol>
+<h3 id="best-practices_3">Best Practices</h3>
+<ul>
+<li>Review high-confidence results first</li>
+<li>Use category filtering for focused analysis</li>
+<li>Export results regularly for backup</li>
+<li>Monitor extraction quality metrics</li>
+</ul>
+<h2 id="dataset-generation-tab">🔧 Dataset Generation Tab</h2>
+<h3 id="purpose_5">Purpose</h3>
+<p>Generate high-quality datasets from processed document chunks and extraction results using advanced controls. <strong>Note:</strong> Dataset generation now follows an extraction-first approach - perform taxonomy-based extraction before generating datasets to ensure structured, categorized content is used as input.</p>
+<h3 id="configuration-sections">Configuration Sections</h3>
+<h4 id="basic-settings">Basic Settings</h4>
+<ul>
+<li><strong>Project Selection</strong>: Choose source project</li>
+<li><strong>Generation Mode</strong>: <code>default</code>, <code>question</code>, <code>answer</code>, <code>summarization</code></li>
+<li><strong>Output Format</strong>: <code>jsonl</code> or <code>parquet</code></li>
+<li><strong>Concurrent Workers</strong>: Number of parallel processing threads (1-10)</li>
+</ul>
+<h4 id="quality-control">Quality Control</h4>
+<ul>
+<li><strong>Analyze Quality</strong>: Enable/disable quality analysis</li>
+<li><strong>Quality Threshold</strong>: Minimum acceptable quality score (0.0-1.0)</li>
+</ul>
+<h4 id="advanced-options">Advanced Options</h4>
+<ul>
+<li><strong>Include Evaluation Sets</strong>: Generate train/validation/test splits</li>
+<li><strong>Enable Versioning</strong>: Create versioned dataset snapshots</li>
+<li><strong>Data Source</strong>: Choose data source for generation (Chunks Only, Taxonomy, Extract)</li>
+<li><strong>Taxonomy Selection</strong>: Choose taxonomy for content filtering (when using Taxonomy mode)</li>
+</ul>
+<h4 id="high-level-prompts">High-Level Prompts</h4>
+<p>Define the target audience and purpose for more relevant content:
+- <strong>Custom Audience</strong>: "medical residents", "data scientists", etc.
+- <strong>Custom Purpose</strong>: Specific use case description
+- <strong>Complexity Level</strong>: <code>beginner</code> to <code>expert</code>
+- <strong>Domain</strong>: Knowledge area (e.g., "cardiology", "machine learning")</p>
+<h4 id="dataset-size-control">Dataset Size Control</h4>
+<ul>
+<li><strong>Datasets per Chunk</strong>: Number of entries to generate per document chunk (1-10)</li>
+</ul>
+<h4 id="data-source-modes">Data Source Modes</h4>
+<p><strong>Chunks Only</strong>
+- Uses raw text chunks directly from processed documents
+- No taxonomy or extraction filtering required
+- Best for basic dataset generation from any content</p>
+<p><strong>Taxonomy</strong>
+- Applies taxonomy definitions to enhance generation prompts
+- Works with all chunks in the project (no extraction dependency)
+- Adds domain-specific context and terminology</p>
+<p><strong>Extract</strong>
+- Uses extracted entities as the primary content source
+- Generates datasets focused on specific concepts/entities
+- Creates educational content about extracted terms</p>
+<h4 id="model-selection">Model Selection</h4>
+<ul>
+<li><strong>Parsing Model</strong>: Document parsing AI</li>
+<li><strong>Chunking Model</strong>: Text chunking AI</li>
+<li><strong>Classification Model</strong>: Content classification AI</li>
+</ul>
+<h3 id="workflow_2">Workflow</h3>
+<ol>
+<li>Configure all parameters according to your needs</li>
+<li>Click <strong>🚀 Generate Dataset</strong>. A job will be submitted to the background queue, and you can monitor its progress in the Job Queue sidebar or the dedicated Job Management page.</li>
+<li>Monitor progress in the status section in real-time.</li>
+<li>Review results and download generated datasets.</li>
+</ol>
+<h3 id="best-practices_4">Best Practices</h3>
+<ul>
+<li>Start with small datasets (2-3 per chunk) for testing</li>
+<li>Use high-level prompts for domain-specific content</li>
+<li>Enable quality analysis for production datasets</li>
+<li>Use taxonomy filtering for focused content generation</li>
+</ul>
+<h2 id="dataset-creation-wizard">🧙 Dataset Creation Wizard</h2>
+<h3 id="purpose_6">Purpose</h3>
+<p>Comprehensive guided workflow for dataset generation with flexible navigation, automatic processing, and complete AI model selection.</p>
+<h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>5-Step Guided Process</strong>: From project selection to review &amp; generate</li>
+<li><strong>Flexible Navigation</strong>: Click any step tab to navigate non-linearly. Most steps are "resume-ready" and retrieve state directly from the database.</li>
+<li><strong>Automatic File Upload</strong>: Drag-and-drop with immediate processing</li>
+<li><strong>Complete AI Model Selection</strong>: 4-model configuration (parsing, chunking, classification, generation)</li>
+<li><strong>Full Chunking Strategy Parity</strong>: All Document Processing tab strategies available</li>
+<li><strong>Database-Mediated Workflow</strong>: UI state is synchronized with the database, allowing progress to survive session resets.</li>
+<li><strong>Smart Data Source Selection</strong>: Automatic taxonomy/chunks fallback</li>
+<li><strong>Document Management</strong>: Upload and delete capabilities with error correction</li>
+<li><strong>Real-time Progress Monitoring</strong>: Live job tracking with detailed status updates</li>
+</ul>
+<h3 id="steps">Steps</h3>
+<ol>
+<li><strong>Project Selection</strong>: Choose or create project with statistics display</li>
+<li><strong>Parse &amp; Chunk &amp; Taxonomy</strong>: Automated end-to-end processing. Upload documents, select models and chunking strategy, then initiate the full pipeline from parsing to automatic taxonomy generation.</li>
+<li><strong>Edit Taxonomy</strong>: Reactive simplified editor for picking and refining taxonomy structures. Supports renaming and real-time category management.</li>
+<li><strong>Generation Parameters</strong>: Configure generation mode, output format, quality settings, and high-level prompt parameters (Audience, Purpose, Complexity, Domain).</li>
+<li><strong>Review &amp; Generate</strong>: Comprehensive configuration summary and background job execution with progress monitoring.</li>
+</ol>
+<h3 id="navigation-features">Navigation Features</h3>
+<ul>
+<li><strong>Clickable Step Tabs</strong>: Navigate to any completed step or future steps</li>
+<li><strong>Prerequisite Validation</strong>: Clear error messages when required steps are missing</li>
+<li><strong>Progress Tracking</strong>: Visual progress indicators and completion status</li>
+<li><strong>State Persistence</strong>: Configuration saved across navigation</li>
+</ul>
+<h3 id="benefits">Benefits</h3>
+<ul>
+<li><strong>Beginner-Friendly</strong>: Step-by-step guidance with clear instructions</li>
+<li><strong>Expert Control</strong>: Full access to advanced configuration options</li>
+<li><strong>Error Prevention</strong>: Validation prevents invalid configurations</li>
+<li><strong>Workflow Flexibility</strong>: Non-linear navigation for iterative refinement</li>
+<li><strong>Quality Assurance</strong>: Built-in validation and progress monitoring</li>
+</ul>
+<h2 id="quality-metrics-tab">📊 Quality Metrics Tab</h2>
+<h3 id="features_1">Features</h3>
+<ul>
+<li>Analyze existing datasets for quality issues</li>
+<li>View detailed quality reports</li>
+<li>Compare dataset versions</li>
+<li>Identify areas for improvement</li>
+</ul>
+<h3 id="quality-metrics">Quality Metrics</h3>
+<ul>
+<li><strong>Diversity</strong>: Content variety and coverage</li>
+<li><strong>Consistency</strong>: Internal coherence</li>
+<li><strong>Difficulty</strong>: Appropriate complexity levels</li>
+<li><strong>Bias Detection</strong>: Identify potential biases</li>
+<li><strong>Relevance</strong>: Alignment with intended purpose</li>
+</ul>
+<h2 id="benchmarking-tab">📈 Benchmarking Tab</h2>
+<h3 id="purpose_7">Purpose</h3>
+<p>Evaluate AI models on generated datasets.</p>
+<h3 id="supported-benchmarks">Supported Benchmarks</h3>
+<ul>
+<li><strong>GLUE</strong>: General Language Understanding</li>
+<li><strong>SuperGLUE</strong>: Advanced language tasks</li>
+<li><strong>MMLU</strong>: Massive Multitask Language Understanding</li>
+<li><strong>Medical Benchmarks</strong>: Domain-specific evaluation</li>
+</ul>
+<h3 id="workflow_3">Workflow</h3>
+<ol>
+<li>Select dataset and benchmark suite</li>
+<li>Configure evaluation parameters</li>
+<li>Run benchmark tests</li>
+<li>Review performance results</li>
+<li>Compare model performance</li>
+</ol>
+<h2 id="settings-tab">⚙️ Settings Tab</h2>
+<h3 id="job-handling-configuration">Job Handling Configuration</h3>
+<p>Configure global and per-user limits for concurrent jobs. These settings help manage system resources and ensure fair usage.</p>
+<ul>
+<li><strong>Max Concurrent Jobs (Global)</strong>: The maximum number of jobs that can run simultaneously across all users.</li>
+<li><strong>Max Concurrent Jobs Per User</strong>: The maximum number of jobs a single user can run concurrently.</li>
+</ul>
+<h3 id="api-key-configuration">API Key Configuration</h3>
+<h3 id="api-key-configuration_1">API Key Configuration</h3>
+<p>Configure API keys for AI services:
+- <strong>Gemini API Key</strong>: Google AI services
+- <strong>Grok API Key</strong>: xAI services
+- <strong>HuggingFace API Key</strong>: HuggingFace model access
+- <strong>Ollama</strong>: Local AI models (no key required)</p>
+<h3 id="system-settings">System Settings</h3>
+<ul>
+<li><strong>Default Models</strong>: Set preferred AI models</li>
+<li><strong>Quality Thresholds</strong>: Default quality settings</li>
+<li><strong>Output Directories</strong>: Configure storage locations</li>
+</ul>
+<h3 id="plugin-management">Plugin Management</h3>
+<ul>
+<li><strong>Plugins Tab</strong>: Manage extensions to Compileo's functionality (upload, list, uninstall).</li>
+</ul>
+<h2 id="common-workflows">Common Workflows</h2>
+<h3 id="complete-entity-extraction-dataset-generation-pipeline">Complete Entity Extraction &amp; Dataset Generation Pipeline</h3>
+<ol>
+<li><strong>Create Project</strong> (Projects tab)</li>
+<li><strong>Process Documents</strong> (Document Processing tab)</li>
+<li>Upload medical PDFs</li>
+<li>Use Gemini parser for document processing</li>
+<li>
+<p>Configure chunking with appropriate size and overlap</p>
+</li>
+<li>
+<p><strong>Generate Taxonomy</strong> (Taxonomy → Build Taxonomy tab)</p>
+</li>
+<li>AI generation mode for medical domain</li>
+<li>Analyze processed documents for category discovery</li>
+<li>
+<p>Create hierarchical taxonomy structure</p>
+</li>
+<li>
+<p><strong>Run Advanced Entity Extraction</strong> (Extraction → Run Extraction tab)</p>
+</li>
+<li>Select Grok AI model for high accuracy</li>
+<li>Choose taxonomy with medical categories</li>
+<li>Configure extraction parameters (depth, confidence, batch size)</li>
+<li>Select specific categories (symptoms, diagnoses, medications)</li>
+<li>
+<p>Start extraction job and monitor real-time progress</p>
+</li>
+<li>
+<p><strong>Monitor Extraction Jobs</strong> (Extraction → Monitor Jobs tab)</p>
+</li>
+<li>Track job status and progress updates</li>
+<li>View detailed job parameters and timing</li>
+<li>
+<p>Handle any failed jobs with restart functionality</p>
+</li>
+<li>
+<p><strong>Analyze Extraction Results</strong> (Extraction → View Results tab)</p>
+</li>
+<li>Review extracted entities by category</li>
+<li>Examine relationship discoveries between entities</li>
+<li>Filter results by confidence scores</li>
+<li>
+<p>Analyze entity frequency and distribution</p>
+</li>
+<li>
+<p><strong>Generate Q&amp;A Dataset</strong> (Extraction → View Results tab)</p>
+</li>
+<li>Use one-click Q&amp;A generation from relationships</li>
+<li>Preview generated question-answer pairs</li>
+<li>Customize templates for medical education</li>
+<li>
+<p>Export in JSONL format for ML training</p>
+</li>
+<li>
+<p><strong>Quality Assurance</strong> (Quality Metrics tab)</p>
+</li>
+<li>Analyze generated Q&amp;A dataset quality</li>
+<li>Review diversity, consistency, and relevance metrics</li>
+<li>
+<p>Validate medical accuracy of generated content</p>
+</li>
+<li>
+<p><strong>Advanced Analysis</strong> (Benchmarking tab)</p>
+</li>
+<li>Test AI models on generated medical datasets</li>
+<li>Compare performance across different benchmarks</li>
+<li>Validate dataset effectiveness for training</li>
+</ol>
+<h3 id="quick-dataset-generation">Quick Dataset Generation</h3>
+<p>For users with existing processed content:</p>
+<ol>
+<li>Select project with processed documents</li>
+<li>Go to Core Dataset Generation</li>
+<li>Set basic parameters (mode, format, workers)</li>
+<li>Configure high-level prompts</li>
+<li>Generate dataset</li>
+<li>Review results</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<h4 id="gui-is-frozen-during-processing">"GUI is frozen during processing"</h4>
+<ul>
+<li>This issue has been resolved with the new asynchronous job queuing system. All long-running operations now run in the background, keeping the GUI responsive. You can monitor job progress in the Job Queue sidebar or the Job Management page.</li>
+</ul>
+<h4 id="job-stuck-in-pendingrunning">"Job stuck in pending/running"</h4>
+<ul>
+<li>Check the Job Queue sidebar or Job Management page for detailed status.</li>
+<li>Verify that worker processes are running and connected to Redis.</li>
+<li>Check server logs for errors related to job execution or resource limits.</li>
+</ul>
+<h4 id="job-failed-unexpectedly">"Job failed unexpectedly"</h4>
+<ul>
+<li>Review the job details in the Job Management page for error messages.</li>
+<li>Check server logs for detailed traceback information.</li>
+<li>Ensure all required API keys are configured in the Settings tab.</li>
+<li>Restart the job if it's a transient error.</li>
+</ul>
+<h4 id="too-many-concurrent-jobs">"Too many concurrent jobs"</h4>
+<ul>
+<li>Adjust the "Max Concurrent Jobs (Global)" or "Max Concurrent Jobs Per User" settings in the Settings tab.</li>
+<li>Consider scaling up your worker processes if you have available resources.</li>
+</ul>
+<h3 id="performance-tips">Performance Tips</h3>
+<h4 id="no-projects-available">"No projects available"</h4>
+<ul>
+<li>Create a project first in the Projects tab</li>
+<li>Check API server is running</li>
+</ul>
+<h4 id="api-key-not-configured">"API key not configured"</h4>
+<ul>
+<li>Go to Settings tab</li>
+<li>Add required API keys</li>
+<li>Restart GUI if necessary</li>
+</ul>
+<h4 id="no-chunks-found">"No chunks found"</h4>
+<ul>
+<li>Process documents first in Document Processing tab</li>
+<li>Check document formats are supported</li>
+<li>Verify processing completed successfully</li>
+</ul>
+<h4 id="taxonomy-generation-failed">"Taxonomy generation failed"</h4>
+<ul>
+<li>Check document content quality</li>
+<li>Try different domain settings</li>
+<li>Reduce sample size if needed</li>
+</ul>
+<h4 id="dataset-generation-timeout">"Dataset generation timeout"</h4>
+<ul>
+<li>Reduce concurrent workers</li>
+<li>Decrease datasets per chunk</li>
+<li>Process in smaller batches</li>
+</ul>
+<h4 id="invalid-escape-error-when-using-schema-chunking">"Invalid \escape error when using schema chunking"</h4>
+<ul>
+<li>This occurs when copying AI-recommended JSON schemas into the GUI text area</li>
+<li>The system automatically detects and fixes this issue - look for the "🔧 Auto-fixed JSON schema backslash escaping issues" message</li>
+<li>If the error persists, try re-pasting the JSON from the AI recommendations dialog</li>
+<li>The GUI includes automatic validation and correction for common JSON formatting issues</li>
+</ul>
+<h3 id="performance-tips_1">Performance Tips</h3>
+<ul>
+<li><strong>Memory Usage</strong>: Reduce concurrent workers on low-memory systems</li>
+<li><strong>Processing Speed</strong>: Use appropriate chunk sizes (smaller = faster processing)</li>
+<li><strong>Quality vs Speed</strong>: Disable quality analysis for faster generation</li>
+<li><strong>Batch Processing</strong>: Process multiple documents together when possible</li>
+</ul>
+<h2 id="api-integration">API Integration</h2>
+<p>The GUI uses REST API endpoints for all operations. You can also use these endpoints directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Example: Generate dataset</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;project_id&quot;</span><span class="p">:</span> <span class="mi">123</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">&quot;generation_mode&quot;</span><span class="p">:</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="s2">&quot;custom_audience&quot;</span><span class="p">:</span> <span class="s2">&quot;medical residents&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="s2">&quot;datasets_per_chunk&quot;</span><span class="p">:</span> <span class="mi">3</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;http://localhost:8000/api/v1/datasets/generate&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="support-and-resources">Support and Resources</h2>
+<ul>
+<li><strong>Documentation</strong>: Check <code>docs/</code> folder for detailed guides</li>
+<li><strong>Logging System</strong>: See <a href="../logging/">Logging System Guide</a> for details on log levels and configuration.</li>
+<li><strong>CLI Reference</strong>: See <code>docs/parametersTree.md</code> for command-line options</li>
+<li><strong>API Documentation</strong>: Available at <code>http://localhost:8000/docs</code> when API server is running</li>
+<li><strong>Logs</strong>: Check terminal output for detailed error messages</li>
+</ul>
+<h2 id="best-practices-summary">Best Practices Summary</h2>
+<ol>
+<li><strong>AI Model Selection</strong>: Choose Grok for accuracy, Gemini for speed, based on your quality vs. performance needs</li>
+<li><strong>Taxonomy Design</strong>: Create domain-specific taxonomies that reflect real-world entity relationships</li>
+<li><strong>Category Targeting</strong>: Select specific categories rather than extracting everything for better quality</li>
+<li><strong>Confidence Tuning</strong>: Adjust confidence thresholds based on domain requirements and use case sensitivity</li>
+<li><strong>Multi-Model Validation</strong>: Enable validation with different AI models for critical applications</li>
+<li><strong>Relationship Analysis</strong>: Review discovered relationships to improve taxonomy and extraction quality</li>
+<li><strong>Q&amp;A Customization</strong>: Use domain-specific templates and customize prompts for your target audience</li>
+<li><strong>Quality Assurance</strong>: Always validate extraction results and generated datasets before production use</li>
+<li><strong>Scalable Processing</strong>: Monitor resource usage and adjust batch sizes for optimal performance</li>
+<li><strong>Iterative Improvement</strong>: Use extraction results to refine taxonomies and improve future extractions</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2585 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular pipeline for dataset creation and curation">
+      
+      
+        <meta name="author" content="SunPCSolutions">
+      
+      
+        <link rel="canonical" href="https://SunPCSolutions.github.io/Compileo/userGuide/benchmarkinggui/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Benchmarking in Compileo GUI - Compileo</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#benchmarking-in-compileo-gui" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Compileo" class="md-header__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Compileo
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Benchmarking in Compileo GUI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../README.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/userGuide/api_authentication.md" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/developers/plugin_development_guide.md" class="md-tabs__link">
+          
+  
+  
+  Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Compileo" class="md-nav__button md-logo" aria-label="Compileo" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Compileo
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/api_authentication.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/benchmarkinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/chunkgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunk GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgenapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgencli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetgengui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Gen GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetqualgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Quality GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/datasetversioningcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Versioning CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/dockerInstall.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/documentsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractioncli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/extractiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extraction GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/gui_user_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GUI User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestionapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/ingestiongui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlingcli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobhandlinggui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Job Handling GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/jobsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jobs API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/logging.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/performanceapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/plugins.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/pluginscli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/projectsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/promptsapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/settingsgui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomyapi.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomycli.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/userGuide/taxonomygui.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Taxonomy GUI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/developers/plugin_development_guide.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessing-benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Benchmarking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interface Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-metrics-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Metrics Cards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-trends-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Trends Chart
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recent-results-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recent Results Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-benchmarks-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run Benchmarks Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Run Benchmarks Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ai-provider-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Provider Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ollama-configuration-local-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ollama Configuration (Local Models)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geminigrok-configuration-api-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gemini/Grok Configuration (API Models)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmark-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmark-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-comparison-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Comparison Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Comparison Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparison-features-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison Features (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#history-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        History Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="History Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filters_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#history-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        History Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary-statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary Statistics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#leaderboard-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leaderboard Tab
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Leaderboard Tab">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#leaderboard-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leaderboard Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#leaderboard-features-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leaderboard Features (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-error-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Error Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export Capabilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Export Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-export-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Export Formats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export Locations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#benchmark-planning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Planning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-other-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Other Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-generation-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Generation Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-queue-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Queue Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#jobs-not-starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jobs Not Starting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-not-updating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Not Updating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#results-not-appearing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results Not Appearing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-specific-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider-Specific Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider-Specific Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ollama-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ollama Problems
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#geminigrok-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gemini/Grok Problems
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#provider-specific-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider-Specific Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider-Specific Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ollama-advanced-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ollama Advanced Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-provider-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Provider Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="benchmarking-in-compileo-gui">Benchmarking in Compileo GUI</h1>
+<h2 id="overview">Overview</h2>
+<p>The Compileo GUI provides a comprehensive web interface for AI model benchmarking with full integration into the asynchronous job processing system. Users can run performance evaluations on Ollama, Gemini, and Grok models, compare results, track historical performance, and generate detailed reports.</p>
+<h2 id="accessing-benchmarking">Accessing Benchmarking</h2>
+<ol>
+<li><strong>Navigate to the Application</strong>: Open Compileo in your web browser</li>
+<li><strong>Select Benchmarking</strong>: Click on "📊 AI Model Benchmarking Dashboard" in the sidebar</li>
+<li><strong>Choose Operation</strong>: Select from Overview, Run Benchmarks, Model Comparison, History, or Leaderboard tabs</li>
+</ol>
+<h2 id="interface-components">Interface Components</h2>
+<h3 id="overview-tab">Overview Tab</h3>
+<p>The overview dashboard provides key metrics and visualizations of recent benchmarking activity.</p>
+<h4 id="key-metrics-cards">Key Metrics Cards</h4>
+<ul>
+<li><strong>Average Accuracy</strong>: Shows mean accuracy scores across completed benchmarks</li>
+<li><strong>Total Benchmark Runs</strong>: Count of completed evaluations</li>
+<li><strong>Models Evaluated</strong>: Number of unique models tested</li>
+<li><strong>Latest Run</strong>: Timestamp of most recent benchmark completion</li>
+</ul>
+<h4 id="filters">Filters</h4>
+<ul>
+<li><strong>Benchmark Suite</strong>: Select from GLUE (fully supported) or other suites (framework ready)</li>
+<li><strong>Primary Metric</strong>: Choose accuracy or f1 score</li>
+<li><strong>Days Back</strong>: Set time range (1-90 days, default: 30)</li>
+</ul>
+<h4 id="performance-trends-chart">Performance Trends Chart</h4>
+<p>Visualizes performance over time with:
+- Line chart showing accuracy scores by completion date
+- Color-coded lines for different models
+- Interactive tooltips with detailed information
+- Date range filtering</p>
+<h4 id="recent-results-table">Recent Results Table</h4>
+<p>Displays latest benchmark runs with:
+- Job ID and model name
+- Benchmark suite and completion status
+- Accuracy and F1 scores
+- Completion timestamps</p>
+<h3 id="run-benchmarks-tab">Run Benchmarks Tab</h3>
+<p>Execute new benchmarking evaluations for AI models using Compileo's job queue system.</p>
+<h4 id="ai-provider-selection">AI Provider Selection</h4>
+<ul>
+<li><strong>Provider</strong>: Select from Ollama, Gemini, or Grok</li>
+<li><strong>Dynamic Model Loading</strong>: Available models fetched automatically based on provider</li>
+<li><strong>Provider-Specific Settings</strong>: Different configuration options per provider</li>
+</ul>
+<h4 id="ollama-configuration-local-models">Ollama Configuration (Local Models)</h4>
+<ul>
+<li><strong>Model Selection</strong>: Dropdown populated from available Ollama models</li>
+<li><strong>Temperature</strong>: Sampling temperature (0.0-2.0)</li>
+<li><strong>Top P</strong>: Nucleus sampling (0.0-1.0)</li>
+<li><strong>Top K</strong>: Top-k sampling (0-100)</li>
+<li><strong>Num Predict</strong>: Maximum tokens to generate</li>
+<li><strong>Num Context</strong>: Context window size</li>
+<li><strong>Seed</strong>: Random seed (optional)</li>
+</ul>
+<h4 id="geminigrok-configuration-api-models">Gemini/Grok Configuration (API Models)</h4>
+<ul>
+<li><strong>Model Selection</strong>: Available models for the provider</li>
+<li><strong>Custom Configuration</strong>: JSON configuration for advanced options</li>
+<li><strong>API Key</strong>: Automatically loaded from settings (environment variables)</li>
+</ul>
+<h4 id="benchmark-configuration">Benchmark Configuration</h4>
+<ul>
+<li><strong>Benchmark Suite</strong>: Currently supports GLUE (fully implemented)</li>
+<li><strong>Project ID</strong>: Associated project for the benchmark job</li>
+</ul>
+<h4 id="benchmark-execution">Benchmark Execution</h4>
+<ol>
+<li><strong>Select Provider</strong>: Choose Ollama, Gemini, or Grok</li>
+<li><strong>Choose Model</strong>: Select from available models for the provider</li>
+<li><strong>Configure Parameters</strong>: Set provider-specific options</li>
+<li><strong>Start Benchmarking</strong>: Click "🚀 Start Benchmarking"</li>
+<li><strong>Monitor Progress</strong>: Real-time progress tracking with:</li>
+<li>Job ID display</li>
+<li>Status updates (pending → running → completed/failed)</li>
+<li>Auto-refresh options (1, 5, 30, or 60 second intervals)</li>
+<li>Progress percentage and current step information</li>
+<li><strong>Stop Job</strong>: Button to cancel running benchmarks</li>
+</ol>
+<h4 id="progress-monitoring">Progress Monitoring</h4>
+<ul>
+<li><strong>Real-time Updates</strong>: Automatic status polling</li>
+<li><strong>Job Persistence</strong>: Jobs continue running even if browser is closed</li>
+<li><strong>Job Cancellation</strong>: Stop long-running jobs directly from the interface</li>
+<li><strong>Result Access</strong>: Direct links to results when complete</li>
+<li><strong>Error Handling</strong>: Clear error messages and recovery options</li>
+</ul>
+<h3 id="model-comparison-tab">Model Comparison Tab</h3>
+<p>Compare performance across multiple AI models (framework ready - implementation pending).</p>
+<h4 id="model-selection">Model Selection</h4>
+<ul>
+<li><strong>Available Models</strong>: List of models with completed benchmarks</li>
+<li><strong>Multi-select</strong>: Choose multiple models for comparison</li>
+<li><strong>Suite Selection</strong>: Filter by benchmark suite</li>
+</ul>
+<h4 id="comparison-features-planned">Comparison Features (Planned)</h4>
+<ul>
+<li><strong>Performance Gap Analysis</strong>: Difference between best and worst models</li>
+<li><strong>Statistical Significance</strong>: p-value calculations</li>
+<li><strong>Visual Comparisons</strong>: Charts and graphs for easy interpretation</li>
+</ul>
+<h3 id="history-tab">History Tab</h3>
+<p>Review past benchmarking runs with comprehensive filtering and search.</p>
+<h4 id="filters_1">Filters</h4>
+<ul>
+<li><strong>Model Name</strong>: Text search for specific models</li>
+<li><strong>Suite Filter</strong>: Dropdown for benchmark suite selection</li>
+<li><strong>Status Filter</strong>: Filter by job status (All, completed, running, failed)</li>
+</ul>
+<h4 id="history-table">History Table</h4>
+<p>Displays filtered results with:
+- Job ID and model name
+- Benchmark suite and completion status
+- Created and completed timestamps
+- Export options (CSV, JSON)</p>
+<h4 id="summary-statistics">Summary Statistics</h4>
+<ul>
+<li><strong>Total Runs</strong>: Count of matching benchmark jobs</li>
+<li><strong>Completed Runs</strong>: Successful evaluations</li>
+<li><strong>Success Rate</strong>: Percentage of successful runs</li>
+</ul>
+<h3 id="leaderboard-tab">Leaderboard Tab</h3>
+<p>Ranked performance comparison across all evaluated models (framework ready - implementation pending).</p>
+<h4 id="leaderboard-settings">Leaderboard Settings</h4>
+<ul>
+<li><strong>Benchmark Suite</strong>: Select evaluation framework (default: GLUE)</li>
+<li><strong>Ranking Metric</strong>: Choose performance metric (default: accuracy)</li>
+<li><strong>Show Top N</strong>: Display configurable number of top models</li>
+</ul>
+<h4 id="leaderboard-features-planned">Leaderboard Features (Planned)</h4>
+<ul>
+<li><strong>Ranked List</strong>: Ordered by performance metrics</li>
+<li><strong>Model Details</strong>: Name, provider, and score information</li>
+<li><strong>Benchmark Count</strong>: Number of evaluations per model</li>
+<li><strong>Trend Indicators</strong>: Performance change indicators</li>
+</ul>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="common-error-types">Common Error Types</h3>
+<ul>
+<li><strong>🔌 Connection Error</strong>: Network issues preventing API communication</li>
+<li><strong>⏱️ Timeout Error</strong>: Benchmark execution exceeding 3-hour limit</li>
+<li><strong>🤖 Model API Error</strong>: Issues with AI provider APIs (Gemini, Grok)</li>
+<li><strong>📊 Invalid Configuration</strong>: Incorrect benchmark parameters</li>
+<li><strong>🐌 Rate Limit Exceeded</strong>: Too many concurrent benchmarking jobs</li>
+<li><strong>💾 Database Error</strong>: Issues with result storage or retrieval</li>
+</ul>
+<h3 id="error-recovery">Error Recovery</h3>
+<ul>
+<li><strong>Automatic Retry</strong>: RQ worker handles transient failures</li>
+<li><strong>Job Persistence</strong>: Failed jobs can be restarted</li>
+<li><strong>Configuration Validation</strong>: Frontend validates parameters before submission</li>
+<li><strong>Resource Monitoring</strong>: System prevents resource exhaustion</li>
+</ul>
+<h2 id="export-capabilities">Export Capabilities</h2>
+<h3 id="data-export-formats">Data Export Formats</h3>
+<ul>
+<li><strong>CSV Export</strong>: Tabular data for spreadsheet analysis</li>
+<li><strong>JSON Export</strong>: Structured data for programmatic processing</li>
+</ul>
+<h3 id="export-locations">Export Locations</h3>
+<ul>
+<li><strong>Overview Tab</strong>: Export recent results and performance data</li>
+<li><strong>History Tab</strong>: Export filtered historical benchmark data</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="benchmark-planning">Benchmark Planning</h3>
+<ul>
+<li><strong>Provider Selection</strong>: Choose Ollama for local/private, Gemini/Grok for API models</li>
+<li><strong>Model Selection</strong>: Use appropriate model sizes for your hardware capabilities</li>
+<li><strong>Resource Planning</strong>: GLUE benchmarks take 10-30 minutes per model</li>
+</ul>
+<h3 id="performance-monitoring">Performance Monitoring</h3>
+<ul>
+<li><strong>Progress Tracking</strong>: Use real-time monitoring for job status</li>
+<li><strong>Resource Awareness</strong>: Monitor system impact during benchmarking</li>
+<li><strong>Result Validation</strong>: Verify benchmark results are reasonable</li>
+</ul>
+<h3 id="data-management">Data Management</h3>
+<ul>
+<li><strong>Regular Exports</strong>: Save important results for future reference</li>
+<li><strong>Historical Analysis</strong>: Use History tab for performance trend analysis</li>
+<li><strong>Job Management</strong>: Cancel unnecessary jobs to free queue resources</li>
+</ul>
+<h2 id="integration-with-other-features">Integration with Other Features</h2>
+<h3 id="dataset-generation-workflow">Dataset Generation Workflow</h3>
+<ol>
+<li><strong>Run Benchmarks</strong>: Evaluate model performance on GLUE tasks</li>
+<li><strong>Analyze Results</strong>: Review accuracy and F1 scores</li>
+<li><strong>Model Selection</strong>: Choose best-performing models for dataset generation</li>
+<li><strong>Quality Validation</strong>: Use benchmark results to inform quality thresholds</li>
+</ol>
+<h3 id="job-queue-integration">Job Queue Integration</h3>
+<ul>
+<li><strong>Asynchronous Processing</strong>: All benchmarks run via RQ job queue</li>
+<li><strong>Resource Management</strong>: Automatic resource allocation and monitoring</li>
+<li><strong>Progress Tracking</strong>: Real-time status updates across all interfaces</li>
+<li><strong>Error Recovery</strong>: Automatic retry and failure handling</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="jobs-not-starting">Jobs Not Starting</h3>
+<ul>
+<li><strong>Queue Full</strong>: Wait for current jobs to complete (max 3 concurrent)</li>
+<li><strong>Invalid Parameters</strong>: Check model selection and configuration</li>
+<li><strong>API Keys</strong>: Verify environment variables for Gemini/Grok</li>
+<li><strong>Worker Status</strong>: Ensure RQ worker is running</li>
+</ul>
+<h3 id="progress-not-updating">Progress Not Updating</h3>
+<ul>
+<li><strong>Browser Cache</strong>: Hard refresh to clear cached data</li>
+<li><strong>Connection Issues</strong>: Check network connectivity to Compileo</li>
+<li><strong>Job Completion</strong>: Very long-running jobs may show delayed updates</li>
+</ul>
+<h3 id="results-not-appearing">Results Not Appearing</h3>
+<ul>
+<li><strong>Job Status</strong>: Wait for job to reach "completed" status</li>
+<li><strong>Error Checking</strong>: Review job details for failure reasons</li>
+<li><strong>Database Issues</strong>: Check system logs for storage problems</li>
+</ul>
+<h3 id="provider-specific-issues">Provider-Specific Issues</h3>
+<h4 id="ollama-problems">Ollama Problems</h4>
+<ul>
+<li><strong>Model Not Available</strong>: Check <code>ollama list</code> for installed models</li>
+<li><strong>Connection Failed</strong>: Verify Ollama server is running on port 11434</li>
+<li><strong>Parameter Errors</strong>: Validate temperature/top_p ranges</li>
+</ul>
+<h4 id="geminigrok-problems">Gemini/Grok Problems</h4>
+<ul>
+<li><strong>API Key Missing</strong>: Check environment variables <code>GOOGLE_API_KEY</code>/<code>GROK_API_KEY</code></li>
+<li><strong>Rate Limits</strong>: Wait before retrying (provider-specific limits)</li>
+<li><strong>Model Access</strong>: Verify API key has access to requested models</li>
+</ul>
+<h2 id="advanced-features">Advanced Features</h2>
+<h3 id="provider-specific-configuration">Provider-Specific Configuration</h3>
+<h4 id="ollama-advanced-settings">Ollama Advanced Settings</h4>
+<ul>
+<li><strong>Temperature Control</strong>: Fine-tune randomness (0.0-2.0)</li>
+<li><strong>Context Window</strong>: Adjust token limits for large models</li>
+<li><strong>Sampling Parameters</strong>: Top-k, top-p, and repetition penalty</li>
+<li><strong>Seed Control</strong>: Reproducible results with fixed seeds</li>
+</ul>
+<h4 id="api-provider-options">API Provider Options</h4>
+<ul>
+<li><strong>Custom Configuration</strong>: JSON settings for advanced parameters</li>
+<li><strong>Model Selection</strong>: Latest available models from providers</li>
+<li><strong>Error Handling</strong>: Automatic retry with exponential backoff</li>
+</ul>
+<h3 id="job-management">Job Management</h3>
+<ul>
+<li><strong>Queue Monitoring</strong>: Real-time queue status and worker health</li>
+<li><strong>Job Cancellation</strong>: Stop running jobs via GUI button or CLI</li>
+<li><strong>Result Persistence</strong>: All results stored in SQLite database</li>
+<li><strong>Historical Tracking</strong>: Complete audit trail of all benchmarks</li>
+</ul>
+<h3 id="system-integration">System Integration</h3>
+<ul>
+<li><strong>Environment Variables</strong>: Secure API key management</li>
+<li><strong>Database Transactions</strong>: Atomic operations for data consistency</li>
+<li><strong>Logging</strong>: Comprehensive debug logging for troubleshooting</li>
+<li><strong>Health Checks</strong>: System monitoring and automatic recovery</li>
+</ul>
+<p>This benchmarking interface provides production-ready AI model evaluation capabilities with seamless integration into Compileo's asynchronous processing system.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
