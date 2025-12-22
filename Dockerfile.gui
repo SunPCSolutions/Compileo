@@ -1,0 +1,84 @@
+# Compileo GUI Dockerfile - Multi-stage build for optimal size
+FROM nvidia/cuda:13.1.0-devel-ubuntu24.04 AS builder
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install Python and build dependencies
+RUN apt-get update && apt-get install -y \
+    python3.12 \
+    python3.12-dev \
+    python3-pip \
+    build-essential \
+    gcc \
+    g++ \
+    libffi-dev \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+COPY requirements-gui.txt .
+COPY pyproject.toml .
+
+# Install Python dependencies (including flash-attn compilation)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel --break-system-packages --ignore-installed && \
+    pip install --no-cache-dir -r requirements.txt --break-system-packages --ignore-installed && \
+    pip install --no-cache-dir --no-build-isolation flash-attn --break-system-packages --ignore-installed && \
+    pip install --no-cache-dir -r requirements-gui.txt --break-system-packages --ignore-installed
+
+# Copy source code
+COPY src/ ./src/
+
+# Production stage
+FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install Python and minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash compileo
+
+# Copy Python packages from builder stage
+COPY --from=builder /usr/local/lib/python3.12/dist-packages /usr/local/lib/python3.12/dist-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --from=builder /app/src ./src/
+
+# Create necessary directories and set permissions
+RUN mkdir -p data uploads test_outputs && \
+    chown -R compileo:compileo /app
+
+# Switch to non-root user
+USER compileo
+
+# Expose port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8501/healthz || exit 1
+
+# Run the GUI
+CMD ["streamlit", "run", "src/compileo/features/gui/main.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

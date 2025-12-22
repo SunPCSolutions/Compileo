@@ -1,0 +1,23 @@
+# GUI-specific dependencies for Compileo Streamlit frontend
+
+# Core Streamlit
+streamlit>=1.28.0
+
+# Data visualization
+pandas>=1.5.0
+plotly>=5.15.0
+matplotlib>=3.6.0
+
+# Additional Streamlit components
+streamlit-extras>=0.3.0
+streamlit-aggrid>=0.3.0
+
+# HTTP client (for API calls)
+httpx>=0.25.0
+
+# Data processing
+numpy>=1.24.0
+
+# Optional: For advanced features
+# streamlit-chat>=0.1.0  # If implementing chat features
+# streamlit-folium>=0.13.0  # If implementing maps
