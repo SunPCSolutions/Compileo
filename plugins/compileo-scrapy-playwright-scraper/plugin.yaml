@@ -1,0 +1,22 @@
+id: "compileo-scrapy-playwright-scraper"
+name: "Scrapy-Playwright Website Scraper"
+version: "1.0.0"
+author: "Compileo Team"
+description: "Website scraping plugin using scrapy-playwright for JavaScript-enabled content extraction"
+entry_point: "src.scrapy_scraper"
+
+extensions:
+  compileo.ingestion.handler:
+    scrapy_playwright: "ScrapyPlaywrightHandler"
+  compileo.api.router:
+    scrapy-playwright: "plugin_router"
+  compileo.cli.command:
+    scrape-website: "scrape_website_cli"
+
+install_script: "python -m playwright install"
+
+format_metadata:
+  scrapy_playwright:
+    file_extension: "json"
+    description: "Scraped website content in JSON format compatible with chunking pipeline"
+    content_types: ["website", "webpage"]

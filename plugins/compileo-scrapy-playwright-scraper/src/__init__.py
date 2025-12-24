@@ -1,0 +1,1 @@
+# Scrapy Playwright Scraper Plugin

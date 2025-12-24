@@ -1,0 +1,46 @@
+graph TD
+    A[Dataset Input] --> B{Quality Module Enabled?}
+    B -->|No| C[Skip Quality Analysis]
+    B -->|Yes| D[QualityAnalyzer]
+
+    D --> E{Diversity Metric}
+    D --> F{Bias Metric}
+    D --> G{Difficulty Metric}
+    D --> H{Consistency Metric}
+
+    E --> I[Lexical Diversity]
+    E --> J[Semantic Diversity]
+    E --> K[Topic Distribution]
+
+    F --> L[Demographic Bias]
+    F --> M[Content Bias]
+    F --> N[Representation Bias]
+
+    G --> O[Complexity Scoring]
+    G --> P[Readability Metrics]
+
+    H --> Q[Answer Coherence]
+    H --> R[Logical Consistency]
+
+    I --> S[Aggregate Results]
+    J --> S
+    K --> S
+    L --> S
+    M --> S
+    N --> S
+    O --> S
+    P --> S
+    Q --> S
+    R --> S
+
+    S --> T{Quality Threshold Check}
+    T -->|Pass| U[Generate Report]
+    T -->|Fail| V[Flag Issues]
+
+    U --> W[Export Report]
+    V --> W
+
+    C --> X[Continue to DatasetGen]
+    W --> X
+
+    X --> Y[DatasetGen Pipeline]

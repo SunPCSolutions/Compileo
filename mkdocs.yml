@@ -1,0 +1,109 @@
+site_name: Compileo
+site_description: A modular pipeline for dataset creation and curation
+site_author: SunPCSolutions
+site_url: https://SunPCSolutions.github.io/Compileo/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - attr_list
+  - md_in_html
+
+docs_dir: docs
+site_dir: ../site
+
+nav:
+  - 🚀 Getting Started:
+      - Introduction: index.md
+      - Overview: userGuide/index.md
+      - Docker Installation: userGuide/dockerInstall.md
+      - API Authentication: userGuide/api_authentication.md
+      - Logging: userGuide/logging.md
+      - Settings: userGuide/settingsgui.md
+  - 📑 Document Processing:
+      - Ingestion:
+          - API: userGuide/ingestionapi.md
+          - GUI: userGuide/ingestiongui.md
+      - Document Management:
+          - API: userGuide/documentsapi.md
+          - CLI: userGuide/documentscli.md
+          - GUI: userGuide/documentsgui.md
+      - AI Chunking:
+          - API: userGuide/chunkapi.md
+          - CLI: userGuide/chunkcli.md
+          - GUI: userGuide/chunkgui.md
+  - 🧠 Data Engineering:
+      - Taxonomy:
+          - API: userGuide/taxonomyapi.md
+          - CLI: userGuide/taxonomycli.md
+          - GUI: userGuide/taxonomygui.md
+      - Extraction:
+          - API: userGuide/extractionapi.md
+          - CLI: userGuide/extractioncli.md
+          - GUI: userGuide/extractiongui.md
+      - Dataset Generation:
+          - API: userGuide/datasetgenapi.md
+          - CLI: userGuide/datasetgencli.md
+          - GUI: userGuide/datasetgengui.md
+      - Prompts API: userGuide/promptsapi.md
+  - ⚙️ Job Management:
+      - Job Handling:
+          - API: userGuide/jobhandlingapi.md
+          - CLI: userGuide/jobhandlingcli.md
+          - GUI: userGuide/jobhandlinggui.md
+      - Jobs API: userGuide/jobsapi.md
+  - 🧪 Quality & Evaluation:
+      - Dataset Quality:
+          - API: userGuide/datasetqualapi.md
+          - GUI: userGuide/datasetqualgui.md
+      - Benchmarking:
+          - API: userGuide/benchmarkingapi.md
+          - GUI: userGuide/benchmarkinggui.md
+      - Performance API: userGuide/performanceapi.md
+  - 📦 Dataset Management:
+      - Datasets API: userGuide/datasetsapi.md
+      - Versioning:
+          - API: userGuide/datasetversioningapi.md
+          - CLI: userGuide/datasetversioningcli.md
+      - Projects API: userGuide/projectsapi.md
+  - 🔌 Extensions:
+      - Plugins:
+          - Overview: userGuide/plugins.md
+          - API: userGuide/pluginsapi.md
+          - CLI: userGuide/pluginscli.md
+      - Developer Guide:
+          - Plugin Development: developers/plugin_development_guide.md
+  - 🖥️ Interface Guides:
+      - GUI User Guide: userGuide/gui_user_guide.md

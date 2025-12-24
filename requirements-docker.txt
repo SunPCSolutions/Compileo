@@ -1,0 +1,72 @@
+# ==========================================
+# COMPILEO DOCKER REQUIREMENTS
+# ==========================================
+# This file includes all requirements.txt dependencies plus Docker-specific packages
+# that require special installation (e.g., flash-attn which needs torch pre-installed)
+
+# Core ML dependencies (keep GPU support for NVIDIA)
+torch>=2.9.1
+torchvision>=0.24.1
+transformers==4.56.2
+accelerate==1.10.1
+
+
+# API and web framework
+fastapi
+uvicorn[standard]
+streamlit
+
+# Data processing and ML
+pandas==2.2.3
+numpy==2.2.6
+scikit-learn==1.5.2
+datasets==4.4.1
+evaluate==0.4.6
+
+# Document and image processing
+beautifulsoup4==4.13.5
+lxml==6.0.1
+pillow
+pillow-heif
+pikepdf
+opencv-python==4.12.0.88
+pdfminer.six==20250506
+pypdf==6.0.0
+pdf2image
+PyMuPDF==1.26.4
+unstructured[docx,pptx,xlsx,md]==0.18.15
+unstructured-client==0.42.3
+unstructured-inference==1.0.5
+unstructured.pytesseract==0.3.15
+markdownify
+python-docx
+markdown
+
+# Job queuing and background tasks
+redis==5.0.7
+rq>=1.10.0
+rq-scheduler>=0.10.0
+
+# Database and storage
+aiosqlite==0.21.0
+pyarrow>=16.1.0
+
+# HTTP clients and utilities
+httpx>=0.28.1
+requests==2.32.5
+python-multipart==0.0.20
+
+# AI model providers
+openai==1.108.0
+google-genai
+ollama==0.5.4
+tiktoken>=0.5.0
+hf-transfer>=0.1.8
+
+# Development and testing
+pytest==8.4.2
+pytest-asyncio==1.2.0
+
+# Additional utilities
+plotly>=5.17.0
+python-dotenv==1.1.1
