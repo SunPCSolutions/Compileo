@@ -1,15 +1,37 @@
-- name: Push to Hub
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # 1. Remove the docs folder from the local temporary sync
+          # 1. Create a temporary branch so we don't mess with the local state
+          git checkout -b hf-sync-branch
+          
+          # 2. Remove the docs folder (and any other large files) for the Space
+          # This keeps the images out of the HF Git history
           rm -rf docs/
           
-          # 2. Commit the deletion locally so Git knows they are gone
+          # 3. Configure git and commit the deletions on this temporary branch
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
-          git commit -m "Remove docs for HF sync" || echo "No docs to remove"
+          git commit -m "Cleanup binary files for Hugging Face sync" || echo "No changes to commit"
           
-          # 3. Push to Hugging Face
-          git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo main
+          # 4. Force push the temporary branch to the HF 'main' branch
+          # Format: git push -f https://<username>:<token>@huggingface.co/spaces/<user>/<space> <local-branch>:<remote-branch>
+          git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo hf-sync-branch:main
