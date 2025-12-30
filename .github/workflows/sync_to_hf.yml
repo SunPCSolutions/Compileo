@@ -13,25 +13,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
 
       - name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # 1. Create a temporary branch so we don't mess with the local state
-          git checkout -b hf-sync-branch
+          # 1. Create a temporary folder and copy everything there EXCEPT the .git history
+          # This creates a "clean slate" without the old history that contains images
+          mkdir temp_sync
+          cp -ra . temp_sync/
+          cd temp_sync
           
-          # 2. Remove the docs folder (and any other large files) for the Space
-          # This keeps the images out of the HF Git history
+          # 2. Remove the offending docs folder
           rm -rf docs/
+          rm -rf .github/ # We don't need the workflow file on HF either
           
-          # 3. Configure git and commit the deletions on this temporary branch
+          # 3. Initialize a BRAND NEW git repo in this folder
+          # This ensures there is no history of the images ever existing
+          git init
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add .
-          git commit -m "Cleanup binary files for Hugging Face sync" || echo "No changes to commit"
           
-          # 4. Force push the temporary branch to the HF 'main' branch
-          # Format: git push -f https://<username>:<token>@huggingface.co/spaces/<user>/<space> <local-branch>:<remote-branch>
-          git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo hf-sync-branch:main
+          # 4. Add everything and create a single "flat" commit
+          git add .
+          git commit -m "Initial flat commit for Hugging Face"
+          
+          # 5. Force push this single commit to Hugging Face
+          # Since there is no history, HF's scanner will only see the current files (no images)
+          git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo master:main
