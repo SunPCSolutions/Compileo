@@ -1,24 +1,15 @@
-name: Sync to Hugging Face Hub
-
-on:
-  push:
-    branches: [main]
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-jobs:
-  sync-to-hub:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-
-      - name: Push to Hub
+- name: Push to Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Force push to the 'main' branch of your Hugging Face Space
+          # 1. Remove the docs folder from the local temporary sync
+          rm -rf docs/
+          
+          # 2. Commit the deletion locally so Git knows they are gone
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "Remove docs for HF sync" || echo "No docs to remove"
+          
+          # 3. Push to Hugging Face
           git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo main
