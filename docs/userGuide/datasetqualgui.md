@@ -4,6 +4,11 @@
 
 The Compileo GUI provides comprehensive dataset quality analysis capabilities through an intuitive web interface. The quality analysis evaluates datasets across multiple dimensions including diversity, bias detection, difficulty assessment, and consistency validation.
 
+<div align="center">
+  <a href="../img/datasetqual.png"><img src="../img/datasetqual.png" width="400" alt="Dataset Quality Evaluation"></a>
+  <p><i>Dataset Quality Evaluation Dashboard</i></p>
+</div>
+
 ## Accessing Quality Analysis
 
 1. **Navigate to the Application**: Open Compileo in your web browser

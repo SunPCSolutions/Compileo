@@ -4,6 +4,11 @@
 
 The Compileo GUI provides a comprehensive web interface for AI model benchmarking with full integration into the asynchronous job processing system. Users can run performance evaluations on Ollama, Gemini, and Grok models, compare results, track historical performance, and generate detailed reports.
 
+<div align="center">
+  <a href="../img/benchmark.png"><img src="../img/benchmark.png" width="400" alt="Model Performance Benchmarking Dashboard"></a>
+  <p><i>Model Performance Benchmarking Dashboard</i></p>
+</div>
+
 ## Accessing Benchmarking
 
 1. **Navigate to the Application**: Open Compileo in your web browser
@@ -207,7 +212,6 @@ Ranked performance comparison across all evaluated models (framework ready - imp
 ### Progress Not Updating
 - **Browser Cache**: Hard refresh to clear cached data
 - **Connection Issues**: Check network connectivity to Compileo
-- **Job Completion**: Very long-running jobs may show delayed updates
 
 ### Results Not Appearing
 - **Job Status**: Wait for job to reach "completed" status
