@@ -74,7 +74,7 @@ The Configure & Chunk Documents tab offers two configuration approaches:
 The AI-assisted configuration provides intelligent chunking recommendations based on your document structure and goals.
 
 <div align="center">
-  <a href="../img/chunking_AIassist.png"><img src="../img/chunking_AIassist.png" width="400" alt="AI-Assisted Chunking Interface"></a>
+  <a href="../../img/chunking_AIassist.png"><img src="../../img/chunking_AIassist.png" width="400" alt="AI-Assisted Chunking Interface"></a>
   <p><i>AI-Assisted Chunking Interface</i></p>
 </div>
 
@@ -228,7 +228,7 @@ Files: medical_report.pdf
 Use AI to intelligently split documents based on meaning and context with custom prompts. Supports multi-file documents with **dynamic cross-file chunking** for guaranteed boundary integrity.
 
 <div align="center">
-  <a href="../img/chunking_semantic.png"><img src="../img/chunking_semantic.png" width="400" alt="Semantic Chunking Configuration"></a>
+  <a href="../../img/chunking_semantic.png"><img src="../../img/chunking_semantic.png" width="400" alt="Semantic Chunking Configuration"></a>
   <p><i>Semantic Chunking Configuration</i></p>
 </div>
 
@@ -319,7 +319,7 @@ Split at section headers, but also consider content flow. If a section header ap
 Apply custom rules combining patterns and delimiters for precise document splitting control.
 
 <div align="center">
-  <a href="../img/chunking_schema.png"><img src="../img/chunking_schema.png" width="400" alt="Schema-Based Chunking Configuration"></a>
+  <a href="../../img/chunking_schema.png"><img src="../../img/chunking_schema.png" width="400" alt="Schema-Based Chunking Configuration"></a>
   <p><i>Schema-Based Chunking Configuration</i></p>
 </div>
 

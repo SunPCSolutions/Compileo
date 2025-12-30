@@ -5,7 +5,7 @@
 The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step interface for generating high-quality datasets from documents. The wizard features flexible navigation, automatic file upload, complete AI model selection, and intelligent data source handling for optimal dataset creation.
 
 <div align="center">
-  <a href="../img/datasetgen.png"><img src="../img/datasetgen.png" width="400" alt="Dataset Generation Pipeline"></a>
+  <a href="../../img/datasetgen.png"><img src="../../img/datasetgen.png" width="400" alt="Dataset Generation Pipeline"></a>
   <p><i>Dataset Generation Pipeline</i></p>
 </div>
 
@@ -88,7 +88,7 @@ The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step inte
 **Purpose:** Review and improve generated datasets
 
 <div align="center">
-  <a href="../img/dataset_example.png"><img src="../img/dataset_example.png" width="400" alt="Generated Dataset Preview"></a>
+  <a href="../../img/dataset_example.png"><img src="../../img/dataset_example.png" width="400" alt="Generated Dataset Preview"></a>
   <p><i>Generated Dataset Preview</i></p>
 </div>
 

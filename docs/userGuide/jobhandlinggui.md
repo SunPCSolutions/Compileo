@@ -7,7 +7,7 @@ The Compileo Job Handling GUI provides a comprehensive web interface for monitor
 Navigate to the **"📊 Job Dashboard"** page from the main menu to access the job monitoring interface.
 
 <div align="center">
-  <a href="../img/jobhandle.png"><img src="../img/jobhandle.png" width="400" alt="Asynchronous Job Management"></a>
+  <a href="../../img/jobhandle.png"><img src="../../img/jobhandle.png" width="400" alt="Asynchronous Job Management"></a>
   <p><i>Asynchronous Job Management Interface</i></p>
 </div>
 

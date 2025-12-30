@@ -3,7 +3,7 @@
 The Compileo Ingestion GUI provides an intuitive web interface for document parsing and processing. This guide covers the document upload, parsing, and PDF splitting features available in the GUI.
 
 <div align="center">
-  <a href="../img/DocumentProcessing.png"><img src="../img/DocumentProcessing.png" width="400" alt="Intelligent Document Processing Workflow"></a>
+  <a href="../../img/DocumentProcessing.png"><img src="../../img/DocumentProcessing.png" width="400" alt="Intelligent Document Processing Workflow"></a>
   <p><i>Intelligent Document Processing Workflow</i></p>
 </div>
 

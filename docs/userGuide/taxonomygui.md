@@ -31,7 +31,7 @@ The main taxonomy building interface combines manual editing with AI assistance:
    - Set confidence threshold (0.0-1.0)
 
 <div align="center">
-  <a href="../img/Taxonomy_hybrid.png"><img src="../img/Taxonomy_hybrid.png" width="400" alt="Hybrid Taxonomy Management Interface"></a>
+  <a href="../../img/Taxonomy_hybrid.png"><img src="../../img/Taxonomy_hybrid.png" width="400" alt="Hybrid Taxonomy Management Interface"></a>
   <p><i>Hybrid Taxonomy Management Interface</i></p>
 </div>
 
@@ -49,7 +49,7 @@ The main taxonomy building interface combines manual editing with AI assistance:
 #### AI-Assisted Generation
 
 <div align="center">
-  <a href="../img/Taxonomy_generating.png"><img src="../img/Taxonomy_generating.png" width="400" alt="AI-Assisted Taxonomy Generation"></a>
+  <a href="../../img/Taxonomy_generating.png"><img src="../../img/Taxonomy_generating.png" width="400" alt="AI-Assisted Taxonomy Generation"></a>
   <p><i>AI-Assisted Taxonomy Generation</i></p>
 </div>
 

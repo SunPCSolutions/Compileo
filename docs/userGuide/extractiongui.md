@@ -5,7 +5,7 @@
 The Compileo GUI provides a sophisticated, unified interface for advanced entity extraction, relationship inference, and automated Q&A dataset generation. The extraction system transforms unstructured text into structured datasets through AI-powered entity recognition and intelligent relationship discovery.
 
 <div align="center">
-  <a href="../img/Extraction_main.png"><img src="../img/Extraction_main.png" width="400" alt="Multi-Stage Entity Extraction"></a>
+  <a href="../../img/Extraction_main.png"><img src="../../img/Extraction_main.png" width="400" alt="Multi-Stage Entity Extraction"></a>
   <p><i>Multi-Stage Entity Extraction Interface</i></p>
 </div>
 
