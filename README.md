@@ -1,3 +1,12 @@
+---
+title: Compileo
+emoji: 🚀
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 7860
+---
+
 ## 📖 Documentation
 For extensive documentation, including detailed API guides, GUI walkthroughs, plugin development tutorials, and CLI references, visit our [Compileo Documentation Site](https://sunpcsolutions.github.io/Compileo/).
 
