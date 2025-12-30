@@ -18,26 +18,30 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # 1. Create a temporary folder and copy everything there EXCEPT the .git history
-          # This creates a "clean slate" without the old history that contains images
+          # 1. Move up one level and create a clean directory
+          # This prevents the "copying into itself" error
+          cd ..
           mkdir temp_sync
-          cp -ra . temp_sync/
+          
+          # 2. Copy the contents of the repo to the new folder
+          cp -ra Compileo/. temp_sync/
           cd temp_sync
           
-          # 2. Remove the offending docs folder
+          # 3. Remove the offending docs and history
           rm -rf docs/
-          rm -rf .github/ # We don't need the workflow file on HF either
+          rm -rf .github/
+          rm -rf .git/
           
-          # 3. Initialize a BRAND NEW git repo in this folder
-          # This ensures there is no history of the images ever existing
+          # 4. Initialize a BRAND NEW git repo (Flat History)
           git init
           git config user.name github-actions
           git config user.email github-actions@github.com
           
-          # 4. Add everything and create a single "flat" commit
+          # 5. Add everything and create a single commit
+          # At this stage, the images are gone from the history entirely
           git add .
           git commit -m "Initial flat commit for Hugging Face"
           
-          # 5. Force push this single commit to Hugging Face
-          # Since there is no history, HF's scanner will only see the current files (no images)
+          # 6. Force push to Hugging Face
+          # Note: 'master' is the default branch name for a new 'git init'
           git push -f https://asksunny:$HF_TOKEN@huggingface.co/spaces/asksunny/Compileo master:main
