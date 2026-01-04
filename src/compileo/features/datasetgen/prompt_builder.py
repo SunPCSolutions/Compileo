@@ -39,8 +39,8 @@ class PromptBuilder:
         prompt_record = self.prompt_repository.get_by_name(prompt_name)
         if prompt_record:
             prompt_template = prompt_record[2]  # content is the third column (index 2)
-        elif prompt_name == "default":
-            # Hardcoded default prompt template for dataset generation
+        elif prompt_name == "default" or prompt_name == "qa_pairs":
+            # Hardcoded default prompt template for Q&A dataset generation
             prompt_template = """Generate {datasets_per_chunk} question-answer pairs from the following content.
 
 Content: {chunk}
@@ -51,6 +51,8 @@ Instructions:
 - Ensure questions are answerable using only the provided information
 - Vary question types (factual, analytical, applicative)
 - Focus on key concepts, important details, and relationships in the content
+
+{taxonomy_instructions}
 
 {purpose_context}{audience_context}{complexity_level_context}
 
@@ -84,6 +86,12 @@ Format your response as a JSON array of objects with this structure:
         # Ensure datasets_per_chunk is in param_dict
         param_dict['datasets_per_chunk'] = datasets_per_chunk
 
+        # Ensure taxonomy-related parameters exist
+        param_dict.setdefault('taxonomy_instructions', '')
+        param_dict.setdefault('taxonomy_name', '')
+        param_dict.setdefault('taxonomy_description', '')
+        param_dict.setdefault('taxonomy_categories', '')
+
         # Load taxonomy if specified
         taxonomy_info = None
         if taxonomy_project and taxonomy_name:
@@ -107,6 +115,9 @@ Format your response as a JSON array of objects with this structure:
         # Add taxonomy info to param_dict if available
         if taxonomy_info:
             param_dict.update(taxonomy_info)
+
+        # Handle legacy {Na} placeholder (maps to taxonomy_name)
+        param_dict.setdefault('Na', param_dict.get('taxonomy_name', ''))
 
         # Replace {chunk} with actual chunk text if provided
         if chunk_text is not None:
@@ -244,12 +255,39 @@ Return ONLY the raw object, no additional text."""
             except Exception as e:
                 logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
 
+        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
+        param_dict.setdefault('taxonomy_instructions', '')
+        param_dict.setdefault('taxonomy_name', '')
+        param_dict.setdefault('taxonomy_description', '')
+        param_dict.setdefault('taxonomy_categories', '')
+
         prompt_record = self.prompt_repository.get_by_name("question_generation")
         if prompt_record:
             prompt_template = prompt_record[2]
         else:
             # Fallback template
-            prompt_template = "Generate a question based on the following content: {chunk_text}"
+            prompt_template = """Generate {datasets_per_chunk} questions from the following content.
+
+Content: {chunk_text}
+
+Instructions:
+- Create diverse, high-quality questions that test understanding of the content
+- Ensure questions are answerable using only the provided information
+- Vary question types (factual, analytical, applicative)
+- Focus on key concepts, important details, and relationships in the content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "question": "Your question here",
+    "category": "content_category",
+    "difficulty": "easy|medium|hard"
+  }}
+]"""
 
         # Format the prompt with the parameters and the chunk text
         final_prompt = prompt_template.format(
@@ -319,12 +357,39 @@ Return ONLY the raw object, no additional text."""
             except Exception as e:
                 logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
 
+        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
+        param_dict.setdefault('taxonomy_instructions', '')
+        param_dict.setdefault('taxonomy_name', '')
+        param_dict.setdefault('taxonomy_description', '')
+        param_dict.setdefault('taxonomy_categories', '')
+
         prompt_record = self.prompt_repository.get_by_name("answer_generation")
         if prompt_record:
             prompt_template = prompt_record[2]
         else:
             # Fallback template
-            prompt_template = "Generate an answer for the following content: {chunk_text}"
+            prompt_template = """Generate {datasets_per_chunk} answers for the following question based on the content.
+
+Question: {question}
+Content: {chunk_text}
+
+Instructions:
+- Provide accurate, comprehensive answers based only on the given content
+- Ensure answers are supported by the provided information
+- Include relevant details and context from the content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "answer": "Your answer here",
+    "category": "content_category",
+    "confidence": 0.0-1.0
+  }}
+]"""
 
         # Format the prompt with the parameters and the chunk text
         final_prompt = prompt_template.format(
@@ -394,12 +459,38 @@ Return ONLY the raw object, no additional text."""
             except Exception as e:
                 logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
 
+        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
+        param_dict.setdefault('taxonomy_instructions', '')
+        param_dict.setdefault('taxonomy_name', '')
+        param_dict.setdefault('taxonomy_description', '')
+        param_dict.setdefault('taxonomy_categories', '')
+
         prompt_record = self.prompt_repository.get_by_name("summarization")
         if prompt_record:
             prompt_template = prompt_record[2]
         else:
             # Fallback template
-            prompt_template = "Summarize the following content in a concise manner: {chunk_text}"
+            prompt_template = """Generate {datasets_per_chunk} summaries from the following content.
+
+Content: {chunk_text}
+
+Instructions:
+- Create concise, accurate summaries that capture the main points
+- Focus on key concepts and important details
+- Maintain factual accuracy from the source content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "summary": "Your summary here",
+    "key_points": ["Point 1", "Point 2", "Point 3"],
+    "category": "content_category"
+  }}
+]"""
 
         # Format the prompt with the parameters and the chunk text
         final_prompt = prompt_template.format(

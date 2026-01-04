@@ -31,7 +31,7 @@ pikepdf
 opencv-python==4.12.0.88
 pdfminer.six==20250506
 pypdf==6.0.0
-pdf2image
+
 PyMuPDF==1.26.4
 unstructured[docx,pptx,xlsx,md]==0.18.15
 unstructured-client==0.42.3

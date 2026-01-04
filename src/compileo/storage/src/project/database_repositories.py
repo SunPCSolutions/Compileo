@@ -229,7 +229,7 @@ class DatasetParameterRepository(BaseRepository):
 
     def get_parameters_by_project(self, project_id: str) -> List[Dict[str, Any]]:
         cursor = self.cursor()
-        cursor.execute('SELECT * FROM dataset_parameters WHERE project_id = ? ORDER BY created_at DESC', (project_id,))
+        cursor.execute('SELECT * FROM dataset_parameters WHERE project_id = ? ORDER BY created_at DESC', (str(project_id),))
         rows = cursor.fetchall()
         return [dict(row) for row in rows] if rows else []
 

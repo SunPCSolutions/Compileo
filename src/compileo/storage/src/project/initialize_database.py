@@ -2,6 +2,8 @@
 Database initialization utilities.
 """
 
+import uuid
+from datetime import datetime
 from ..database import get_db_connection
 from ....core.logging import get_logger
 
@@ -208,7 +210,7 @@ def setup_database():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS prompts (
                 id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL,
+                project_id TEXT,
                 name TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -392,6 +394,178 @@ def setup_database():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # Populate default prompts if they don't exist
+        cursor.execute("SELECT COUNT(*) FROM prompts")
+        count = cursor.fetchone()[0]
+        if count == 0:
+            logger.info("Populating default prompts...")
+
+            default_prompts = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "project_id": None,  # Global prompts
+                    "name": "qa_pairs",
+                    "content": """Generate {datasets_per_chunk} question-answer pairs from the following content.
+
+Content: {chunk}
+
+Instructions:
+- Create diverse, high-quality questions that test understanding of the content
+- Provide accurate, comprehensive answers based only on the given content
+- Ensure questions are answerable using only the provided information
+- Vary question types (factual, analytical, applicative)
+- Focus on key concepts, important details, and relationships in the content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "question": "Your question here",
+    "answer": "Your answer here",
+    "category": "content_category",
+    "difficulty": "easy|medium|hard"
+  }}
+]""",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "project_id": None,  # Global prompts
+                    "name": "question_generation",
+                    "content": """Generate {datasets_per_chunk} questions from the following content.
+
+Content: {chunk}
+
+Instructions:
+- Create diverse, high-quality questions that test understanding of the content
+- Ensure questions are answerable using only the provided information
+- Vary question types (factual, analytical, applicative)
+- Focus on key concepts, important details, and relationships in the content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "question": "Your question here",
+    "category": "content_category",
+    "difficulty": "easy|medium|hard"
+  }}
+]""",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "project_id": None,  # Global prompts
+                    "name": "answer_generation",
+                    "content": """Generate {datasets_per_chunk} answers for the following question based on the content.
+
+Question: {question}
+Content: {chunk}
+
+Instructions:
+- Provide accurate, comprehensive answers based only on the given content
+- Ensure answers are supported by the provided information
+- Include relevant details and context from the content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "answer": "Your answer here",
+    "category": "content_category",
+    "confidence": 0.0-1.0
+  }}
+]""",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "project_id": None,  # Global prompts
+                    "name": "summarization",
+                    "content": """Generate {datasets_per_chunk} summaries from the following content.
+
+Content: {chunk_text}
+
+Instructions:
+- Create concise, accurate summaries that capture the main points
+- Focus on key concepts and important details
+- Maintain factual accuracy from the source content
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "summary": "Your summary here",
+    "key_points": ["Point 1", "Point 2", "Point 3"],
+    "category": "content_category"
+  }}
+]""",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "project_id": None,  # Global prompts
+                    "name": "instruction_following",
+                    "content": """Generate {datasets_per_chunk} instruction-response pairs based on the following content.
+
+Content: {chunk}
+
+Instructions:
+- Create realistic, actionable instructions that someone might give about this content
+- Provide comprehensive, helpful responses that directly address the instructions
+- Ensure instructions and responses are based only on the provided content
+- Vary instruction types (explain, describe, analyze, summarize, create, etc.)
+
+{taxonomy_instructions}
+
+{purpose_context}{audience_context}{complexity_level_context}
+
+Format your response as a JSON array of objects with this structure:
+[
+  {{
+    "instruction": "Your instruction here",
+    "input": "",
+    "output": "Your response here"
+  }}
+]""",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+            ]
+
+            for prompt in default_prompts:
+                cursor.execute('''
+                    INSERT INTO prompts (id, project_id, name, content, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    prompt["id"],
+                    prompt["project_id"],
+                    prompt["name"],
+                    prompt["content"],
+                    prompt["created_at"],
+                    prompt["updated_at"]
+                ))
+
+            logger.info(f"Inserted {len(default_prompts)} default prompts")
+        else:
+            logger.info(f"Database already has {count} prompts, skipping population")
 
         conn.commit()
         logger.info("Database initialized successfully")
