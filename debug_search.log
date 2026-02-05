@@ -1,0 +1,77 @@
+--- searchWebPage Debug ---
+URL: https://github.com/orgs/community/discussions/57244
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 48610
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://stackoverflow.com/questions/75250751/github-actions-write-access-to-repository-is-not-granted
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 91857
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://www.graphite.com/guides/github-actions-permissions
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 16675
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://markaicode.com/github-actions-permissions-fix/
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 85521
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://github.com/orgs/community/discussions/130791
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 25341
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://mickeygousset.com/posts/github-actions-checkout-fails-with-two-possible-error-messages/
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 9255
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://github.com/orgs/community/discussions/63849
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 13749
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Debug ---
+URL: https://dev.to/pwd9000/fgjgghjgh-19ka
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 70675
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
+--- searchWebPage Error ---
+URL: https://tossthecoin.tcl.com/blog/understanding-github-actions-workflow-permissions
+Error: connect ETIMEDOUT 159.89.163.2:443
+--- End searchWebPage Error ---
+
+--- searchWebPage Debug ---
+URL: https://github.com/orgs/community/discussions/56704
+Query: "github workflow permissions greyed out read and write permissions"
+lowerText length: 30888
+queryWords: [github, workflow, permissions, greyed, out, read, and, write, permissions]
+anyWordPresent: true
+--- End searchWebPage Debug ---
+
