@@ -1,179 +1,415 @@
----
-title: Compileo
-emoji: 🚀
-colorFrom: blue
-colorTo: gray
-sdk: docker
-app_port: 7860
----
+# Compileo
 
-## 📖 Documentation
-For extensive documentation, including detailed API guides, GUI walkthroughs, plugin development tutorials, and CLI references, visit our [Compileo Documentation Site](https://sunpcsolutions.github.io/Compileo/).
+A modular and scalable pipeline for dataset creation and curation. This system processes documents in various formats, extracts and structures information, and generates high-quality datasets for tasks like clinical diagnosis matching.
 
-# 🔬 Compileo: The Ultimate AI-Powered Document Processing & Dataset Engineering Suite
+## Features
 
-**Compileo** is a modular platform designed to process, analyze, structure, and generate data. Whether you're processing 1,000 page  PDFs, scraping JavaScript heavy websites, or engineering datasets for LLM fine-tuning and personal study, Compileo provides a unified, AI-driven lifecycle for the modern data era.
+### Core Modules
 
----
+- **Document Ingestion**: Support for multiple document formats (PDF, DOCX, TXT, MD, etc.)
+- **Text Chunking**: Advanced text splitting with semantic, token, and schema-based methods
+- **Information Extraction**: Category-based extraction with Named Entity Recognition
+- **Dataset Generation**: Configurable question-answer pair generation
+- **Vector Storage**: Integration with Qdrant for embedding storage and indexing
 
-## 🌟 What can Compileo do?
+### Optional Quality Assurance Module
 
-Compileo isn't just a parser—it's a comprehensive **data engineering ecosystem**. It automates the complex journey from "Messy Source" to Validated Structured Data.
+The `datasetqual` module provides enterprise-grade quality assurance for dataset generation:
 
-### 📖 Multi-Source Knowledge Consolidation
-Imagine you have several thick textbooks and want to create a specialized dataset focused on **disease treatments** and **symptoms**. Compileo can:
-1.  **Ingest** all books simultaneously (PDF, DOCX, etc.).
-2.  **Discover** unified **"Treatment"** and **"Symptom"** taxonomies across all sources automatically.
-3.  **Extract** every mention of treatments, dosages, clinical manifestations, and so on for its associated taxonomy for each disease.
-4.  **Consolidate** this into one unified, high-quality Q&A dataset for training or study.
+- **Automated Dataset Quality Metrics**: Comprehensive scoring across multiple dimensions
+- **Bias Detection and Diversity Analysis**: Advanced algorithms for detecting and mitigating dataset biases
+- **Difficulty Assessment**: Readability and complexity evaluation
+- **Consistency Validation**: Answer coherence and logical consistency checking
+- **Integration with Dataset Generation Pipeline**: Seamless quality checks during dataset creation
 
-### 🕹️ Three Ways to Work
-Compileo is designed for every workflow:
-*   **Web GUI**: A user friendly Streamlit interface including a 7 step guided wizard.
-*   **REST API**: Seamlessly integrate data processing, chunking, NER, extraction, and dataset generation into your own applications.
-*   **CLI**: Automate heavy duty processing with powerful command line parameters.
+### Optional Performance Benchmarking Module
 
----
+The `benchmarking` module provides enterprise-grade AI model performance evaluation:
 
-## 🚀  Features
+- **Benchmark Suite Integration**: GLUE, SuperGLUE, MMLU, and medical domain benchmarks
+- **Performance Metrics**: Accuracy, F1, BLEU, ROUGE, and custom evaluation metrics
+- **Model Performance Tracking**: Historical performance tracking and comparison across model versions
+- **Quality-Performance Correlation**: Analysis of relationships between dataset quality and model performance
+- **Integration with Dataset Generation Pipeline**: Optional benchmarking after dataset creation
 
-### 📄 Intelligent Document Processing & AI-Assisted Chunking
-*   **Massive PDF Autonomy**: Automatically splits 1,000+ page documents into manageable segments with intelligent context-aware chunking ensuring LLM token limits are never hit while preserving context.
-*   **Two-Pass VLM Parsing**: Employs a "Skim and Extract" methodology using Vision Language Models (Grok, Gemini, ChatGPT, Huggingface, Ollama) to first understand document layout and then extract high-fidelity Markdown.
+### Web GUI Interface
 
-<div align="center">
-  <a href="docs/img/DocumentProcessing.png"><img src="docs/img/DocumentProcessing.png" width="400" alt="Intelligent Document Processing Workflow"></a>
-  <p><i>Intelligent Document Processing Workflow</i></p>
-</div>
+The `gui` module provides a complete Streamlit-based web interface for the Compileo pipeline:
 
-*   **AI-Assisted Chunking**: Want to chunk your book by chapter but each chapter has a different title? You can instruct AI how to chunk it (Each Chapter starts with... I need you to split the document at this point) or ask AI to advise you about the best strategy for chunking. Compileo's AI will analyze your documents and recommend the optimal **Semantic**, **Character**, **Token**, **Delimiter** or **Schema-based** chunking strategy.
+- **Enhanced Dataset Creation Wizard**: 6-step guided workflow with AI model selection and auto-save
+  1. Project Selection (existing or new project creation)
+  2. Smart Document Upload (multi-format support with existing document detection)
+  3. AI Model Configuration (parsing, chunking, classification model selection)
+  4. Taxonomy Selection (from available project taxonomies with existing document support)
+  5. Generation Parameters (purpose, audience, output format, concurrency=5 default)
+  6. Real Dataset Generation (actual API integration with progress monitoring)
 
-<div align="center">
-  <a href="docs/img/chunking_AIassist.png"><img src="docs/img/chunking_AIassist.png" width="400" alt="AI-Assisted Chunking Interface"></a>
-  <p><i>AI-Assisted Chunking Interface</i></p>
-</div>
+- **Multi-page Application**: Dedicated pages for different functionalities
+  - **Home/Dashboard**: Overview and quick actions
+  - **Projects**: Project management and document organization
+  - **Wizard**: Dataset creation workflow
+  - **Taxonomy**: Taxonomy browsing and hierarchical visualization
+  - **Quality**: Quality metrics dashboard with interactive charts
+  - **Benchmarking**: Performance benchmarking visualization
+  - **Settings**: Configuration and API key management with Ollama parameter tuning
 
-### 🧠 Semantic Data Engineering
-*   **AI-Assisted Taxonomy**: Don't waste weeks defining categories. Compileo can build hierarchical knowledge trees automatically based on your goals.
+- **Ollama Parameter Configuration**: Fine-tune AI model behavior across different processing roles
+  - **Role-Specific Settings**: Separate parameters for parsing, chunking, taxonomy, classification, and generation
+  - **7 Configurable Parameters**: temperature, repeat_penalty, top_p, top_k, num_predict, seed, num_ctx
+  - **Compact Grid Layout**: 4-column by 2-row parameter arrangement for space efficiency
+  - **Real-time Application**: Parameters automatically applied to subsequent processing jobs
 
-<div align="center">
-  <a href="docs/img/Taxonomy_generating.png"><img src="docs/img/Taxonomy_generating.png" width="400" alt="AI-Assisted Taxonomy Generation"></a>
-  <p><i>AI-Assisted Taxonomy Generation</i></p>
-</div>
+- **API Integration**: Full REST API integration with error handling and real-time status updates
+- **Responsive Design**: Mobile-friendly interface with adaptive layouts
+- **State Management**: Persistent session state and wizard progress tracking
 
-*   **Multi-Stage Extraction**: Performs **Hierarchical Classification**, moving from coarse-grained categories to fine-grained entities based on your custom or generated taxonomy.
+## Prerequisites
 
-<div align="center">
-  <a href="docs/img/Extraction_main.png"><img src="docs/img/Extraction_main.png" width="400" alt="Multi-Stage Entity Extraction"></a>
-  <p><i>Multi-Stage Entity Extraction</i></p>
-</div>
+Before installing Compileo, ensure you have the following dependencies:
 
-*   **Dataset Engineering**: Transform extracted entities into high-quality datasets for RAG or fine-tuning.
+- **Python 3.8+**
+- **Redis Server** (mandatory for job queuing)
+- **SQLite** (for local data storage)
+- **Qdrant** (for vector storage, optional but recommended)
 
-<div align="center">
-  <a href="docs/img/dataset_example.png"><img src="docs/img/dataset_example.png" width="400" alt="Generated Dataset Preview"></a>
-  <p><i>Generated Dataset Preview</i></p>
-</div>
+### GPU Support
 
-### 🧪 Advanced Quality Control & Evaluation
-*   **Deep Quality Metrics**: Automated scoring for **Lexical Diversity**, **Demographic Bias**, **Answer Coherence**, and **Target Audience Alignment** via the `datasetqual` module.
+**HuggingFace model processing and GPU resource monitoring are supported only for NVIDIA GPUs** in Docker environments. The system includes PyTorch with CUDA support for optimal performance with compatible hardware.
 
-<div align="center">
-  <a href="docs/img/datasetqual.png"><img src="docs/img/datasetqual.png" width="400" alt="Dataset Quality Evaluation"></a>
-  <p><i>Dataset Quality Evaluation</i></p>
-</div>
+For CPU-only deployments or systems without NVIDIA GPUs, the system will automatically fall back to CPU processing, though with reduced performance for GPU-accelerated tasks.
 
-*   **Fine-Tuned Model Testing**: Use the `benchmarking` module to evaluate how your **fine-tuned models** perform on your custom datasets using industry-standard metrics (Accuracy, F1, BLEU, ROUGE).
+### Installing Redis
 
-<div align="center">
-  <a href="docs/img/benchmark.png"><img src="docs/img/benchmark.png" width="400" alt="Model Performance Benchmarking"></a>
-  <p><i>Model Performance Benchmarking</i></p>
-</div>
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+```
 
-### ⚡ High-Concurrency Job Management
-*   **Asynchronous Processing**: All heavy-duty tasks are handled by a robust **Redis-backed queue (RQ)**, allowing for background processing without blocking the API or GUI.
-*   **Real-time Monitoring**: Track the status, progress, and results of all ingestion, parsing, and extraction jobs.
+**macOS (with Homebrew):**
+```bash
+brew install redis
+brew services start redis
+```
 
-<div align="center">
-  <a href="docs/img/jobhandle.png"><img src="docs/img/jobhandle.png" width="400" alt="Asynchronous Job Management"></a>
-  <p><i>Asynchronous Job Management</i></p>
-</div>
+**Docker:**
+```bash
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+```
 
-### 🔌 Developer Extensibility
-*   **Robust Plugin System**: Effortlessly extend Compileo by adding custom plugins via a simple `.zip` package architecture.
-*   **Custom Exports**: Out-of-the-box support for **Scrapy** URL Scraping and **Anki** flashcard export.
+## Installation
 
----
+```bash
+pip install -r requirements.txt
+```
 
-## 💻 System Requirements
+## Configuration
 
-*   **CPU**: 4-core processor minimum (8-core recommended).
-*   **RAM**: 8GB minimum (16GB recommended for heavy processing).
-*   **GPU (Optional)**: NVIDIA GPU with 8GB+ VRAM. Required for **HuggingFace** local inference.
-*   **Storage**: 25GB free disk space.
-*   **Operating System**: Linux, macOS, or Windows.
+### Redis Configuration
 
----
+Compileo requires Redis for all job processing operations. Configure your Redis connection:
 
-## 🛠️ Installation
+```bash
+# Set Redis URL (required)
+export REDIS_URL=redis://localhost:6379/0
 
-### 🐳 Option 1: Docker
-The fastest way to deploy the full stack (API, GUI, and Redis).
+# For Docker deployments
+export REDIS_URL=redis://redis:6379/0
+```
 
-1.  **Clone & Prepare**:
-    ```bash
-    git clone https://github.com/SunPCSolutions/Compileo.git
-    cd compileo
-    cp .env.example .env  # Configure COMPILEO_API_KEYS (optional)
-    ```
-2.  **Launch**:
-    ```bash
-    docker compose up --build -d
-    ```
-3.  **Access**:
-    *   **Web GUI**: `http://localhost:8501`
-    *   **API Docs**: `http://localhost:8000/docs`
+### Environment Variables
 
-### 🔐 API Authentication & Security
-Compileo implements an **"Auto-Lock"** security model.
+Create a `.env` file with your configuration:
 
-*   **Unsecured Mode (Default)**: If no API keys are defined, Compileo allows all requests.
-*   **Secured Mode**: Defining an API key "locks" the system, requiring that key for all operations.
+```bash
+# Redis (required)
+REDIS_URL=redis://localhost:6379/0
 
-#### **How to Secure Your Instance (Choose One):**
-1.  **GUI (Recommended)**: Go to **Settings > 🔗 API Configuration**, enter an **API Key**, and click **Save**.
-2.  **CLI**: Start the API with the `--api-key` flag.
-3.  **Environment**: Define `COMPILEO_API_KEY=your_secret_key` in your `.env`.
+# JWT authentication is used for multi-tenant isolation.
 
-#### **How to Connect to a Secured Instance:**
-Include the following header: `X-API-Key: your_secret_key`
+# Database
+DATABASE_URL=sqlite:///database.db
 
----
+# Vector Storage
+QDRANT_URL=http://localhost:6333
 
-### 🐍 Option 2: Python Environment
-Ideal for local development or CLI automation.
+# AI Model API Keys
+GEMINI_API_KEY=your-gemini-api-key
+GROK_API_KEY=your-grok-api-key
+```
 
-**Prerequisites**: A running Redis server.
+## Quick Start
 
-1.  **Setup Environment**:
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # Windows: .venv\Scripts\activate
-    ```
-2.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  **Start Services**:
-    ```bash
-    # 1. Start the API server
-    uvicorn src.compileo.api.main:app --host 0.0.0.0 --port 8000
+### Basic Dataset Generation
 
-    # 2. Start the Web GUI
-    streamlit run src/compileo/features/gui/main.py --server.port 8501 --server.address 0.0.0.0
-    ```
+```bash
+# Generate a dataset
+compileo generate-dataset --project-id 1 --output-dir ./output
 
----
+# Include quality analysis
+compileo generate-dataset --project-id 1 --analyze-quality --quality-threshold 0.8
 
-## 📄 License
-Apache-2.0 license
+# Include AI model benchmarking
+compileo generate-dataset --project-id 1 --run-benchmarks --benchmark-suite glue
+```
+
+### Quality Analysis
+
+```bash
+# Analyze existing dataset
+compileo analyze-quality dataset.jsonl --format markdown --output report.md
+
+# Custom quality configuration
+compileo analyze-quality dataset.jsonl --config quality_config.json
+```
+
+### GUI Interface
+
+The web GUI provides an intuitive interface for dataset creation and management:
+
+#### Starting the GUI
+```bash
+# Start the web interface (requires API server running)
+streamlit run src/compileo/features/gui/main.py
+
+# Or using Docker Compose (recommended for development)
+docker-compose -f docker-compose.yml up gui
+```
+
+#### GUI Features
+- **Dataset Creation Wizard**: Step-by-step guided dataset generation
+- **Project Management**: Create and manage projects through the web interface
+- **Document Upload**: Drag-and-drop file upload with progress tracking
+- **Taxonomy Browser**: Interactive visualization of hierarchical taxonomies
+- **Quality Dashboard**: Real-time quality metrics and analysis
+- **Benchmarking Visualization**: Performance charts and model comparisons
+
+#### GUI Configuration
+Create a `.streamlit/config.toml` file:
+```toml
+[server]
+headless = true
+port = 8501
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#FF4B4B"
+```
+
+## Project Structure
+
+```
+src/compileo/
+├── features/
+│   ├── ingestion/          # Document processing
+│   ├── chunk/             # Text chunking
+│   ├── extraction/        # Information extraction
+│   ├── datasetgen/        # Dataset generation
+│   ├── datasetqual/       # Quality assurance (optional)
+│   ├── benchmarking/      # Performance benchmarking (optional)
+│   └── gui/               # Web GUI interface
+├── storage/               # Data persistence
+├── core/                  # Shared utilities
+└── utils/                 # Helper functions
+```
+
+## Configuration
+
+### Quality Module Configuration
+
+Create a `quality_config.json`:
+
+```json
+{
+  "enabled": true,
+  "diversity": {
+    "enabled": true,
+    "threshold": 0.6,
+    "min_lexical_diversity": 0.3
+  },
+  "bias": {
+    "enabled": true,
+    "threshold": 0.3
+  },
+  "difficulty": {
+    "enabled": true,
+    "threshold": 0.7,
+    "target_difficulty": "intermediate"
+  },
+  "consistency": {
+    "enabled": true,
+    "threshold": 0.8
+  },
+  "output_format": "json",
+  "fail_on_any_failure": false
+}
+```
+
+### Benchmarking Module Configuration
+
+Create a `benchmark_config.json`:
+
+```json
+{
+  "enabled": true,
+  "benchmark": {
+    "suites": ["glue", "mmlu"],
+    "model_path": "/path/to/model",
+    "batch_size": 32
+  },
+  "metrics": {
+    "enabled_metrics": ["accuracy", "f1", "bleu"],
+    "custom_metrics": []
+  },
+  "tracking": {
+    "enabled": true,
+    "storage_path": "benchmark_results"
+  },
+  "correlation": {
+    "enabled": true,
+    "significance_threshold": 0.05
+  }
+}
+```
+
+## CLI Commands
+
+### Dataset Generation
+```bash
+compileo generate-dataset [OPTIONS]
+
+Options:
+  --project-id INTEGER          Project ID for dataset generation [required]
+  --analyze-quality             Enable quality analysis
+  --quality-threshold FLOAT     Quality threshold (0-1) [default: 0.7]
+  --quality-config PATH         Path to quality configuration JSON
+  --run-benchmarks              Run AI model benchmarks after generation
+  --benchmark-suite TEXT        Benchmark suite (glue, superglue, mmlu, medical) [default: glue]
+  --benchmark-config PATH       Path to benchmarking configuration JSON
+  --output-dir PATH             Output directory [default: .]
+```
+
+### Quality Analysis
+```bash
+compileo analyze-quality [OPTIONS] DATASET_FILE
+
+Arguments:
+  DATASET_FILE  Path to dataset file (JSONL/JSON)
+
+Options:
+  --config PATH         Quality configuration JSON
+  --threshold FLOAT     Quality threshold (0-1) [default: 0.7]
+  --format [json|text|markdown]  Output format [default: text]
+  --output PATH         Save report to file
+```
+
+## Quality Metrics
+
+### Diversity Analysis
+- **Lexical Diversity**: Measures vocabulary richness using Type-Token Ratio
+- **Semantic Diversity**: Analyzes conceptual variety in content
+- **Topic Balance**: Evaluates distribution across categories
+
+### Bias Detection
+- **Demographic Bias**: Detects unequal representation of demographic groups
+- **Content Bias**: Identifies skewed topic coverage
+- **Representation Bias**: Measures imbalanced representation patterns
+
+### Difficulty Assessment
+- **Readability**: Flesch Reading Ease scores
+- **Complexity**: Linguistic complexity metrics
+- **Target Alignment**: Matches content to intended audience level
+
+### Consistency Validation
+- **Answer Coherence**: Internal logical consistency
+- **Cross-Consistency**: Consistency across related answers
+- **Factual Accuracy**: Basic contradiction detection
+
+## Performance Benchmarking
+
+### Benchmark Suites
+- **GLUE**: General Language Understanding Evaluation (CoLA, SST-2, MRPC, QQP, MNLI, QNLI, RTE, WNLI)
+- **SuperGLUE**: Advanced GLUE tasks (BoolQ, CB, COPA, MultiRC, ReCoRD, RTE, WiC, WSC)
+- **MMLU**: Massive Multitask Language Understanding (57 academic subjects)
+- **Medical Benchmarks**: PubMedQA, MedMCQA, MedQA, Medical Board Exams
+
+### Performance Metrics
+- **Classification Metrics**: Accuracy, Precision, Recall, F1-Score
+- **Generation Metrics**: BLEU, ROUGE, METEOR scores
+- **Custom Metrics**: Domain-specific evaluation metrics
+
+### Model Performance Tracking
+- **Historical Tracking**: Performance trends over time
+- **Model Comparison**: Side-by-side performance analysis
+- **Performance Degradation Detection**: Automatic alerts for performance drops
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run quality module tests
+pytest tests/test_datasetqual.py
+
+# Run benchmarking module tests
+pytest tests/test_benchmarking.py
+
+# Run with coverage
+pytest --cov=src.compileo.features.datasetqual
+```
+
+### Adding Quality Metrics
+
+1. Create new metric class inheriting from `BaseMetric`
+2. Implement `analyze()` method
+3. Add to `QualityConfig` and `QualityAnalyzer`
+4. Write comprehensive tests
+
+## API Usage
+
+### Programmatic Quality Analysis
+
+```python
+from compileo.features.datasetqual import QualityAnalyzer, QualityConfig
+
+# Configure quality analysis
+config = QualityConfig(enabled=True)
+analyzer = QualityAnalyzer(config)
+
+# Analyze dataset
+dataset = [
+    {"question": "What is AI?", "answer": "Artificial Intelligence", "category": "tech"}
+]
+results = analyzer.analyze_dataset(dataset)
+
+print(f"Quality Score: {results['summary']['overall_score']}")
+```
+
+### Integration Hooks
+
+```python
+from compileo.features.datasetqual import QualityHooks
+
+# Add quality checks to dataset generation
+hooks = QualityHooks(config)
+hooks.register_callback('post_generation', my_quality_callback)
+```
+
+## Contributing
+
+1. Follow the established modular architecture
+2. Add comprehensive tests for new features
+3. Update documentation for API changes
+4. Ensure quality metrics are optional and configurable
+
+## License
+
+[Add license information]

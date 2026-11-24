@@ -3,12 +3,10 @@ AI Chunking Configuration Component
 Provides AI-assisted chunking configuration UI with document analysis and recommendations.
 """
 
+import logging
 import streamlit as st
 from typing import List, Dict, Any, Optional
 import json
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 
 from .ai_chunking_analyzer import (
     analyze_document_for_chunking,
@@ -18,7 +16,51 @@ from .ai_chunking_analyzer import (
 from .content_processor import extract_document_pages, smart_sample_content
 from ..services.api_client import api_client
 from ..services.document_api_service import get_project_documents
-def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]], selected_project_id: int, selected_chunker: str) -> tuple[str, List[str]]:
+
+
+EXAMPLE_TYPE_OPTIONS = {
+    "positive": "✅ Must start a chunk here",
+    "negative": "❌ Must not start a chunk here",
+    "context": "📎 Context only"
+}
+
+
+def _normalize_ai_examples(examples: List[Any]) -> List[Dict[str, str]]:
+    """Normalize legacy/string examples into structured anchor objects."""
+    normalized_examples: List[Dict[str, str]] = []
+    for example in examples or []:
+        if isinstance(example, dict):
+            text = str(example.get("text", "")).strip()
+            example_type = str(example.get("type", "context")).strip().lower()
+        else:
+            text = str(example).strip()
+            example_type = "context"
+
+        if not text:
+            continue
+
+        if example_type not in EXAMPLE_TYPE_OPTIONS:
+            example_type = "context"
+
+        normalized_examples.append({"type": example_type, "text": text})
+
+    return normalized_examples
+
+
+def _get_example_texts(examples: List[Dict[str, str]], include_negative: bool = False) -> List[str]:
+    """Extract example texts for sampling and analysis preparation."""
+    allowed_types = {"positive", "context"}
+    if include_negative:
+        allowed_types.add("negative")
+
+    return [
+        example["text"]
+        for example in _normalize_ai_examples(examples)
+        if example.get("type") in allowed_types
+    ]
+
+
+def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]], selected_project_id: int, selected_chunker: str) -> tuple[str, List[Dict[str, str]]]:
     """
     Render the AI-assisted chunking configuration UI.
 
@@ -57,6 +99,8 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
     # Initialize global examples list that persists across chunks
     if 'ai_chunking_examples' not in st.session_state:
         st.session_state.ai_chunking_examples = []
+    else:
+        st.session_state.ai_chunking_examples = _normalize_ai_examples(st.session_state.ai_chunking_examples)
 
     state = st.session_state.ai_chunking_state
 
@@ -123,10 +167,9 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
             )
 
             # Handle parsed file selection change
-            # Handle parsed file selection change
             if selected_file != "Select a parsed file...":
                 if selected_file != state.get('selected_parsed_file'):
-                    logger.debug(f"Changing parsed file from {state.get('selected_parsed_file')} to {selected_file}")
+                    logging.getLogger(__name__).debug(f"DEBUG: Changing parsed file from {state.get('selected_parsed_file')} to {selected_file}")
                     state['selected_parsed_file'] = selected_file
                     state['document_content'] = None
                     state['current_page'] = 0
@@ -136,7 +179,7 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
                     state['show_analysis'] = False
                     st.rerun()
             elif state.get('selected_parsed_file'):  # User selected "Select a parsed file..." option
-                logger.debug("Clearing parsed file selection")
+                logging.getLogger(__name__).debug("DEBUG: Clearing parsed file selection")
                 state['selected_parsed_file'] = None
                 state['document_content'] = None
                 state['current_page'] = 0
@@ -227,6 +270,15 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
             st.markdown("### 📝 Add Text Examples")
             st.markdown("Copy text from the content above and paste it here, or type your own examples.")
 
+            example_type_key = f"example_type_{state['current_page']}_{state['selected_parsed_file']}"
+            selected_example_type = st.selectbox(
+                "Example role:",
+                options=list(EXAMPLE_TYPE_OPTIONS.keys()),
+                format_func=lambda key: EXAMPLE_TYPE_OPTIONS[key],
+                key=example_type_key,
+                help="Label examples as positive boundaries, negative boundaries, or context-only anchors."
+            )
+
             # Text input area
             example_text_key = f"example_input_{state['current_page']}_{state['selected_parsed_file']}"
             example_text = st.text_area(
@@ -243,8 +295,18 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
 
             def add_example():
                 text_to_add = st.session_state.get(example_text_key, "").strip()
-                if text_to_add and text_to_add not in st.session_state.ai_chunking_examples:
-                    st.session_state.ai_chunking_examples.append(text_to_add)
+                example_entry = {
+                    "type": st.session_state.get(example_type_key, selected_example_type),
+                    "text": text_to_add
+                }
+                existing_entries = {
+                    (example.get("type"), example.get("text"))
+                    for example in st.session_state.ai_chunking_examples
+                    if isinstance(example, dict)
+                }
+
+                if text_to_add and (example_entry["type"], example_entry["text"]) not in existing_entries:
+                    st.session_state.ai_chunking_examples.append(example_entry)
                     # Mark that text was added
                     st.session_state[f"text_added_{state['current_page']}_{state['selected_parsed_file']}"] = True
                     # Clear the input after adding
@@ -253,8 +315,14 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
                     st.session_state[f"text_added_{state['current_page']}_{state['selected_parsed_file']}"] = False
 
             def copy_page_to_examples():
-                if current_content not in st.session_state.ai_chunking_examples:
-                    st.session_state.ai_chunking_examples.append(current_content)
+                page_entry = {"type": "context", "text": current_content}
+                existing_entries = {
+                    (example.get("type"), example.get("text"))
+                    for example in st.session_state.ai_chunking_examples
+                    if isinstance(example, dict)
+                }
+                if (page_entry["type"], page_entry["text"]) not in existing_entries:
+                    st.session_state.ai_chunking_examples.append(page_entry)
 
             def clear_all_examples():
                 st.session_state.ai_chunking_examples = []
@@ -274,7 +342,7 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
             with col_copy_page:
                 if st.button(f"📄 Copy Entire Page", key=f"copy_page_{state['current_page']}_{state['selected_parsed_file']}", on_click=copy_page_to_examples):
                     st.success(f"✅ Entire page added to examples!")
-                elif current_content in st.session_state.ai_chunking_examples:
+                elif {"type": "context", "text": current_content} in st.session_state.ai_chunking_examples:
                     st.info("ℹ️ This page is already in your examples.")
 
             with col_clear:
@@ -286,11 +354,25 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
         st.markdown("#### 📚 Collected Examples")
         st.markdown(f"**{len(st.session_state.ai_chunking_examples)} example(s) collected for AI analysis:**")
 
+        example_counts = {
+            key: len([example for example in st.session_state.ai_chunking_examples if example.get("type") == key])
+            for key in EXAMPLE_TYPE_OPTIONS
+        }
+        st.caption(
+            f"Positive anchors: {example_counts['positive']} | "
+            f"Negative anchors: {example_counts['negative']} | "
+            f"Context examples: {example_counts['context']}"
+        )
+
         for i, example in enumerate(st.session_state.ai_chunking_examples):
-            with st.expander(f"Example {i+1} ({len(example)} chars)"):
+            example_text = example.get("text", "") if isinstance(example, dict) else str(example)
+            example_type = example.get("type", "context") if isinstance(example, dict) else "context"
+            example_label = EXAMPLE_TYPE_OPTIONS.get(example_type, example_type)
+
+            with st.expander(f"{example_label} — Example {i+1} ({len(example_text)} chars)"):
                 st.text_area(
                     f"Example {i+1}:",
-                    value=example,
+                    value=example_text,
                     height=150,
                     key=f"example_{i}",
                     disabled=True
@@ -310,21 +392,35 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
         help="Provide detailed instructions about how you want the document to be chunked. Be specific about what constitutes meaningful chunks for your use case."
     )
 
+    all_files = len(state['available_parsed_files']) > 1 and st.checkbox(
+        "Verify schema candidates across all parsed files",
+        value=True,
+        help="The selected file supplies the model sample; the preview uses every parsed file in processing order.",
+    )
+    analysis_inputs = (
+        state['selected_doc_id'], state['selected_parsed_file'], all_files, selected_chunker,
+        state['goal_description'], tuple((entry['type'], entry['text']) for entry in st.session_state.ai_chunking_examples),
+    )
+    if analysis_inputs != state.get('analysis_inputs'):
+        state.update(analysis_inputs=analysis_inputs, analysis_results=None, show_analysis=False)
+        for key in ('ai_recommended_strategy', 'ai_recommended_params', 'show_parameter_adjustment'):
+            st.session_state.pop(key, None)
+
     # AI Analysis Section
     if state['document_content'] and state['goal_description'].strip():
         st.markdown("#### 🧠 AI Analysis & Recommendations")
 
         # Prepare analysis input
-        sample_content = smart_sample_content(state['document_content'], st.session_state.ai_chunking_examples)
+        sample_content = smart_sample_content(
+            state['document_content'],
+            _get_example_texts(st.session_state.ai_chunking_examples)
+        )
         user_instructions = state['goal_description']
-
-        # Add examples to instructions if available
-        if st.session_state.ai_chunking_examples:
-            examples_text = "\n\n=== USER-PROVIDED EXAMPLES ===\n" + "\n---\n".join(st.session_state.ai_chunking_examples)
-            user_instructions += examples_text
 
         # Analysis button
         if st.button("🔍 Analyze & Recommend Chunking Strategy", type="primary"):
+            st.session_state.pop('ai_recommended_strategy', None)
+            st.session_state.pop('ai_recommended_params', None)
             state['analysis_in_progress'] = True
             state['show_analysis'] = False
             st.rerun()
@@ -332,11 +428,35 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
         # Perform analysis
         if state['analysis_in_progress'] and not state['show_analysis']:
             with st.spinner("🤖 AI is analyzing your document and requirements..."):
-                recommendations = analyze_document_for_chunking(
-                    sample_content=sample_content,
-                    user_instructions=user_instructions,
-                    selected_chunker=selected_chunker
-                )
+                recommendations = None
+                try:
+                    evaluation_parts = [state['document_content']]
+                    if all_files:
+                        names = state['available_parsed_files']
+                        if len(set(names)) != len(names):
+                            raise ValueError("Whole-document preview requires unique parsed file names.")
+                        evaluation_parts = []
+                        for name in names:
+                            if name == state['selected_parsed_file']:
+                                content = state['document_content']
+                            else:
+                                response = api_client.get(
+                                    f"/api/v1/documents/{state['selected_doc_id']}/content",
+                                    params={'parsed_file': name},
+                                )
+                                content = response.get('content') if response else None
+                            if not isinstance(content, str):
+                                raise ValueError(f"Could not load parsed file: {name}")
+                            evaluation_parts.append(content)
+                    recommendations = analyze_document_for_chunking(
+                        sample_content=sample_content,
+                        user_instructions=user_instructions,
+                        selected_chunker=selected_chunker,
+                        example_anchors=st.session_state.ai_chunking_examples,
+                        evaluation_parts=evaluation_parts,
+                    )
+                except Exception as exc:
+                    st.error(f"Could not evaluate the selected files: {exc}")
 
                 if recommendations:
                     state['analysis_results'] = recommendations
@@ -349,6 +469,7 @@ def render_ai_assisted_configuration(available_parsed_docs: List[Dict[str, Any]]
 
         # Display results
         if state['show_analysis'] and state['analysis_results']:
+            st.caption("Preview counts apply only when processing the same evaluated files.")
             display_ai_recommendations(state['analysis_results'])
 
     elif not state['document_content']:

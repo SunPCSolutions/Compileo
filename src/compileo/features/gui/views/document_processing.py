@@ -3,17 +3,17 @@ Document Processing view for Compileo GUI.
 Handles document upload, ingestion, and chunking.
 """
 
+import logging
 import streamlit as st
 from typing import List, Dict, Any
 from datetime import datetime
 import os
 import json
+
+logger = logging.getLogger(__name__)
 import re
 import time
 import pandas as pd
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 
 from ..services.document_api_service import get_projects, get_project_documents, delete_document
 from ..services.document_processing_service import (
@@ -84,65 +84,6 @@ def parse_chunk_ids(input_str: str, chunks_data: list = None) -> list[str]:
     return sorted(list(target_indices))
 
 
-def validate_and_fix_json_schema(schema_json: str) -> tuple[str, bool]:
-    """
-    Validate JSON schema and attempt to fix common corruption issues.
-
-    Uses codecs.decode with unicode_escape to handle over-escaped strings
-    that may result from copying/pasting JSON with backslashes.
-
-    Returns:
-        tuple: (fixed_schema, was_fixed) - the schema string and whether it was modified
-    """
-    import codecs
-
-    if not schema_json or not schema_json.strip():
-        return schema_json, False
-
-    # First, try parsing as-is
-    try:
-        json.loads(schema_json)
-        return schema_json, False  # Already valid
-    except json.JSONDecodeError as e:
-        original_error = str(e)
-
-        # Check if it's a backslash escaping issue
-        if "Invalid \\escape" in original_error or "\\" in schema_json:
-            try:
-                # Use codecs.decode to handle Python-style escape sequences
-                # This properly handles strings that have been "over-escaped"
-                # e.g., {"key": "value\\with\\backslashes"} → {"key": "value\with\backslashes"}
-                fixed_text = codecs.decode(schema_json, 'unicode_escape')
-
-                # Test if the fix works
-                json.loads(fixed_text)
-                return fixed_text, True  # Successfully fixed
-
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                # Fix attempt failed, try alternative approach
-                try:
-                    # Fallback: double the backslashes in value fields
-                    def fix_backslashes(match):
-                        content = match.group(1)
-                        fixed_content = content.replace('\\', '\\\\')
-                        return f'"value": "{fixed_content}"'
-
-                    fixed_json = re.sub(
-                        r'"value"\s*:\s*"([^"]*)"',  # Match "value": "content"
-                        fix_backslashes,
-                        schema_json
-                    )
-
-                    json.loads(fixed_json)
-                    return fixed_json, True
-
-                except json.JSONDecodeError:
-                    pass
-
-        # Return original if we can't fix it
-        return schema_json, False
-
-
 def render_document_processing():
     """Render the Document Processing page with compact tabbed layout."""
     st.markdown("## 📄 Document Processing")
@@ -174,14 +115,12 @@ def render_document_processing():
         existing_documents = get_project_documents(selected_project_id)
 
         # Initialize pagination settings
-        pages_per_split = 5  # Default value
+        pages_per_split = 50  # Default value
+        page_selection = None  # Default: process all pages
 
-        # Check for scraper plugin
-        try:
-            plugins = api_client.get("/api/v1/plugins/")
-            has_scraper_plugin = any(p['id'] == 'compileo-scrapy-playwright-scraper' for p in plugins) if plugins else False
-        except:
-            has_scraper_plugin = False
+        # Check for scraper plugin using cached service
+        from ..services.plugin_cache import check_scraper_plugin
+        has_scraper_plugin = check_scraper_plugin()
 
         col1, col2 = st.columns(2)
 
@@ -195,22 +134,18 @@ def render_document_processing():
             website_depth = 1
 
             if input_mode == "Upload":
-                # Initialize upload key if not present
-                if 'processing_upload_key' not in st.session_state:
-                    st.session_state.processing_upload_key = 0
-
                 # Document Upload
                 uploaded_files = st.file_uploader(
                     "Upload documents",
                     accept_multiple_files=True,
                     type=['pdf', 'docx', 'doc', 'pptx', 'ppt', 'xlsx', 'xls', 'txt', 'md', 'csv', 'json', 'xml'],
-                    help="Drag and drop files here • Limit 200MB per file • PDF, Office (DOCX, PPTX, XLSX), TXT, MD, CSV, JSON, XML",
-                    key=f"processing_upload_{st.session_state.processing_upload_key}"
+                    help="PDF, Office (DOCX, PPTX, XLSX), TXT, MD, CSV, JSON, XML",
+                    key="upload_files"
                 )
 
                 # Pagination Settings (shown after file upload)
                 if uploaded_files:
-                    pages_per_split = render_pagination_settings()
+                    pages_per_split, page_selection = render_pagination_settings()
                     session_state.overlap_pages = 0 # Always 0 with dynamic overlap generation
             else:
                 website_url = st.text_input("Website URL", placeholder="https://example.com")
@@ -223,22 +158,18 @@ def render_document_processing():
                 all_parsers = ["grok", "gemini", "ollama", "openai", "pypdf", "unstructured", "huggingface", "novlm"]
                 supported_parsers = all_parsers.copy()
                 
-                # Check uploaded files in session state
-                check_files = st.session_state.get(f"processing_upload_{st.session_state.get('processing_upload_key', 0)}")
-                if check_files:
-                    if not isinstance(check_files, list):
-                        check_files = [check_files]
-                        
-                    has_non_pdf = any(not f.name.lower().endswith('.pdf') for f in check_files)
+                # Check uploaded files in session state (Streamlit retains them)
+                if uploaded_files:
+                    has_non_pdf = any(not f.name.lower().endswith('.pdf') for f in uploaded_files)
                     if has_non_pdf:
-                        # gemini and ollama support .txt/.md; unstructured/novlm support everything
+                        # Restrict to parsers that handle non-PDFs
                         text_extensions = {'.txt', '.md', '.csv', '.json', '.xml'}
-                        has_complex_format = any(os.path.splitext(f.name)[1].lower() not in text_extensions and not f.name.lower().endswith('.pdf') for f in check_files)
+                        has_complex_format = any(os.path.splitext(f.name)[1].lower() not in text_extensions and not f.name.lower().endswith('.pdf') for f in uploaded_files)
                         
                         if has_complex_format:
-                            supported_parsers = ["unstructured"]
+                            supported_parsers = ["unstructured", "novlm"]
                         else:
-                            supported_parsers = ["unstructured", "gemini", "ollama"]
+                            supported_parsers = ["unstructured", "novlm", "gemini", "ollama"]
                 
                 # Determine default index
                 default_parser = "grok" if "grok" in supported_parsers else "novlm"
@@ -332,7 +263,8 @@ def render_document_processing():
                         uploaded_files,
                         selected_parser,
                         selected_document_ids,
-                        pages_per_split
+                        pages_per_split,
+                        page_selection
                     )
                 st.info("GUI: Job submitted.")
         else:
@@ -345,21 +277,12 @@ def render_document_processing():
         # Get fresh document list for this tab
         existing_documents = get_project_documents(selected_project_id)
 
-        # In-view job monitoring is now handled within the button handlers
-        # in document_processing_service.py. This redundant section is removed to avoid
-        # disruptive whole-page polling reruns.
-
-        # Get parsed documents for configuration - refresh automatically if job just completed
+        # Get parsed documents for configuration
         docs_placeholder = st.empty()
-
-        # Check if we just completed a job (session state flag)
-        job_just_completed = hasattr(session_state, 'job_just_completed') and session_state.job_just_completed
-        if job_just_completed:
-            session_state.job_just_completed = False  # Clear the flag
 
         # Always fetch fresh documents for this tab
         existing_documents = get_project_documents(selected_project_id)
-        available_parsed_docs = [doc for doc in existing_documents if doc.get('status') in ['parsed', 'chunked']]
+        available_parsed_docs = [doc for doc in existing_documents if doc.get('status') == 'parsed']
 
         # Document selection for chunking (moved to top)
         st.markdown("### 📄 Select Documents to Chunk")
@@ -386,8 +309,10 @@ def render_document_processing():
                 st.success(f"Selected {len(selected_chunk_docs)} documents for chunking")
             else:
                 st.info("Select documents to chunk from the list above")
+        else:
+            # Don't show redundant warning - docs_placeholder already handles this
+            return
 
-        # Always show chunking configuration
         st.markdown("### ⚙️ Chunking Configuration")
 
         # Configuration mode first
@@ -415,13 +340,13 @@ def render_document_processing():
             if chunk_strategy in ["semantic"] or config_mode == "AI-Assisted":
                 selected_chunker = st.selectbox(
                     "AI Model",
-                    options=["grok", "gemini", "ollama", "openai"],
+                    options=["gemini", "grok", "ollama", "openai"],
                     help="AI model for intelligent chunking",
                     key="chunker_model"
                 )
             else:
                 # For deterministic strategies without AI assistance, use a default model (won't be used)
-                selected_chunker = "grok"
+                selected_chunker = "gemini"
                 st.write("")  # Empty space to maintain layout
 
         # Cross-file chunking is automatically enabled for all parsed documents
@@ -517,7 +442,8 @@ def render_document_processing():
                 "Schema JSON",
                 height=150,
                 placeholder='{"rules": [{"type": "pattern", "value": "#"}], "combine": "any"}',
-                help="JSON schema for chunking rules",
+                help="'any' uses every rule's split positions; 'all' requires the same position. "
+                     "'include_pattern' cuts before regex matches when true and after them when false; it never deletes them.",
                 key="schema_json"
             )
 
@@ -596,7 +522,7 @@ def render_document_processing():
 
                             # Copy button for individual file
                             if st.button(f"📋 Copy {os.path.basename(selected_file_info['path'])} Content",
-                                        key=f"copy_{doc['id']}_{selected_file_info['index']}"):
+                                       key=f"copy_{doc['id']}_{selected_file_info['index']}"):
                                 # Copy to clipboard (Streamlit doesn't have direct clipboard, but we can show it)
                                 st.code(content, language="markdown")
                                 st.success("Content copied to display area above!")
@@ -607,89 +533,82 @@ def render_document_processing():
 
         # Chunk button (common for both modes)
         if selected_chunk_docs and st.button("✂️ Chunk Documents", type="primary"):
-                    # Debug: Log button click
-                    from datetime import datetime
-                    import json
-                    debug_context = {
-                        "timestamp": datetime.now().isoformat(),
-                        "level": "INFO",
-                        "component": "document_processing_view",
-                        "message": "Chunk Documents button clicked",
-                        "context": {
-                            "config_mode": config_mode,
-                            "selected_chunk_docs_count": len(selected_chunk_docs),
-                            "chunk_strategy": chunk_strategy,
-                            "chunker": selected_chunker,
-                            "ai_recommendations_available": "ai_recommended_strategy" in st.session_state
-                        }
-                    }
-                    logger.debug(json.dumps(debug_context))
+            # Debug: Log button click
+            from datetime import datetime
+            import json
+            debug_context = {
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "component": "document_processing_view",
+                "message": "Chunk Documents button clicked",
+                "context": {
+                    "config_mode": config_mode,
+                    "selected_chunk_docs_count": len(selected_chunk_docs),
+                    "chunk_strategy": chunk_strategy,
+                    "chunker": selected_chunker,
+                    "ai_recommendations_available": "ai_recommended_strategy" in st.session_state
+                }
+            }
+            logger.debug(json.dumps(debug_context))
 
-                    # Check for AI recommendations and use them if available
-                    if "ai_recommended_strategy" in st.session_state and "ai_recommended_params" in st.session_state:
-                        st.info("🤖 Using AI-recommended chunking parameters...")
-                        ai_strategy = st.session_state.ai_recommended_strategy
-                        ai_params = st.session_state.ai_recommended_params
+            # Check for AI recommendations and use them if available
+            if config_mode == "AI-Assisted" and "ai_recommended_strategy" not in st.session_state:
+                st.error("Apply a recommendation before chunking, or switch to manual configuration.")
+                return
+            if config_mode == "AI-Assisted" and "ai_recommended_params" in st.session_state:
+                st.info("🤖 Using AI-recommended chunking parameters...")
+                ai_strategy = st.session_state.ai_recommended_strategy
+                ai_params = st.session_state.ai_recommended_params
 
-                        # Override form values with AI recommendations
-                        # Ensure strategy is lowercase to match backend expectations
-                        chunk_strategy = ai_strategy.lower()
-                        if "chunk_size" in ai_params:
-                            chunk_size = ai_params["chunk_size"]
-                        if "overlap" in ai_params:
-                            overlap = ai_params["overlap"]
-                        if "delimiters" in ai_params:
-                            delimiters = ai_params["delimiters"]
-                        if "semantic_prompt" in ai_params:
-                            semantic_prompt = ai_params["semantic_prompt"]
-                        if "json_schema" in ai_params:
-                            schema_json = ai_params["json_schema"]
+                # Override form values with AI recommendations
+                # Ensure strategy is lowercase to match backend expectations
+                chunk_strategy = ai_strategy.lower()
+                if "chunk_size" in ai_params:
+                    chunk_size = ai_params["chunk_size"]
+                if "overlap" in ai_params:
+                    overlap = ai_params["overlap"]
+                if "delimiters" in ai_params:
+                    delimiters = ai_params["delimiters"]
+                if "semantic_prompt" in ai_params:
+                    semantic_prompt = ai_params["semantic_prompt"]
+                if "json_schema" in ai_params:
+                    schema_json = ai_params["json_schema"]
 
-                        debug_context["ai_strategy_used"] = ai_strategy
-                        debug_context["ai_params_used"] = ai_params
-                        logger.debug(json.dumps({
-                            "timestamp": datetime.now().isoformat(),
-                            "level": "INFO",
-                            "component": "document_processing_view",
-                            "message": "AI recommendations applied",
-                            "context": debug_context
-                        }))
+                debug_context["ai_strategy_used"] = ai_strategy
+                debug_context["ai_params_used"] = ai_params
+                logger.info(json.dumps({
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "document_processing_view",
+                    "message": "AI recommendations applied",
+                    "context": debug_context
+                }))
 
-                    # Validate and fix schema JSON if using schema strategy
-                    original_schema = schema_json
-                    if chunk_strategy == "schema" and schema_json.strip():
-                        fixed_schema, was_fixed = validate_and_fix_json_schema(schema_json)
-                        if was_fixed:
-                            st.info("🔧 Auto-fixed JSON schema backslash escaping issues")
-                            schema_json = fixed_schema
-                            st.code(f"Original: {original_schema[:100]}...")
-                            st.code(f"Fixed: {schema_json[:100]}...")
-                        elif original_schema.strip():
-                            # Try to validate the schema to give immediate feedback
-                            try:
-                                json.loads(original_schema)
-                                st.success("✅ JSON schema is valid")
-                            except json.JSONDecodeError as e:
-                                st.error(f"❌ JSON schema error: {e}")
-                                st.warning("💡 Try re-pasting from AI recommendations or use double backslashes (\\\\) for regex patterns")
-                                return
+            if chunk_strategy == "schema":
+                from ...chunk.schema import parse_chunking_schema
 
-                    # Use selected parsed files if any were chosen, otherwise process all files automatically
-                    selected_files_for_chunking = selected_parsed_files if selected_parsed_files else None
+                try:
+                    parse_chunking_schema(schema_json)
+                except ValueError as exc:
+                    st.error(str(exc))
+                    return
 
-                    chunk_parsed_documents(
-                        selected_project_id,
-                        selected_chunk_docs,
-                        selected_chunker,
-                        chunk_strategy,
-                        chunk_size,
-                        overlap,
-                        delimiters,
-                        semantic_prompt,
-                        schema_json,
-                        selected_files_for_chunking,
-                        use_sliding_window
-                    )
+            # Use selected parsed files if any were chosen, otherwise process all files automatically
+            selected_files_for_chunking = selected_parsed_files if selected_parsed_files else None
+
+            chunk_parsed_documents(
+                selected_project_id,
+                selected_chunk_docs,
+                selected_chunker,
+                chunk_strategy,
+                chunk_size,
+                overlap,
+                delimiters,
+                semantic_prompt,
+                schema_json,
+                selected_files_for_chunking,
+                use_sliding_window
+            )
 
     # ============================================================================
     # TAB 3: VIEW & MANAGE CHUNKS
@@ -789,7 +708,7 @@ def render_document_processing():
             # Both delete buttons side by side
             delete_col1, delete_col2 = st.columns(2)
             with delete_col1:
-                if st.button("🗑️ Delete Selected Chunks", type="primary", width='stretch', key="tab_delete_selected_chunks"):
+                if st.button("🗑️ Delete Selected Chunks", type="primary", use_container_width=True, key="tab_delete_selected_chunks"):
                     if not chunk_ids_input.strip():
                         st.error("Please enter chunk IDs to delete.")
                         return
@@ -814,7 +733,7 @@ def render_document_processing():
                         st.error(f"Failed to delete chunks: {e}")
 
             with delete_col2:
-                if st.button("🗑️ Delete All Chunks", type="primary", width='stretch', key="tab_delete_all_chunks"):
+                if st.button("🗑️ Delete All Chunks", type="primary", use_container_width=True, key="tab_delete_all_chunks"):
                     # Use a confirmation dialog pattern if Streamlit supported modal easily,
                     # but here we'll just use session state for confirmation or just do it if "Are you sure" is implied by the button label being red/primary?
                     # Actually standard pattern is click -> separate confirm button appears.
@@ -850,8 +769,8 @@ def render_document_processing():
                 content = ""
                 full_content = ""
                 if isinstance(item, dict):
-                    # API returns 'text' field for content, not 'content' or 'content_preview'
-                    full_content = item.get("text", "")
+                    # Try 'content' first (standard API response), then 'text', then 'content_preview'
+                    full_content = item.get("content") or item.get("text") or item.get("content_preview", "")
                     if not full_content:
                         full_content = "(No content available)"
                     content = full_content

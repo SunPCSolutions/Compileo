@@ -1,126 +1,92 @@
 from typing import List, Dict, Any, Optional
 from src.compileo.core.logging import get_logger
 from .base_strategy import BaseGenerationStrategy
+from ..constants import build_json_instructions
 
 logger = get_logger(__name__)
 
+
 class ChunkGenerationStrategy(BaseGenerationStrategy):
-    """
-    Strategy for generating datasets from raw text chunks.
-    """
+    """Strategy for generating datasets from raw text chunks."""
 
-    def generate_qa(self, project_id: int, prompt_name: str, chunk: str,
+    def generate_qa(self, project_id: str, owner_id: str, prompt_name: str, chunk: str,
                     taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                    datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
-        """
-        Generates multiple question-answer pairs for a single chunk.
-        """
-        results = []
-        for i in range(datasets_per_chunk):
-            final_prompt = self.prompt_builder.build_prompt(project_id, prompt_name, chunk,
-                                                            taxonomy_project=taxonomy_project, taxonomy_name=taxonomy_name,
-                                                            datasets_per_chunk=datasets_per_chunk)
-            # Modify prompt to request multiple items if needed
-            if datasets_per_chunk > 1:
-                final_prompt += f"\n\nGenerate {datasets_per_chunk} different question-answer pairs from this text chunk. Return them as a JSON array."
+                    datasets_per_chunk: int = 3, options: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Generate Q&A pairs for a single chunk."""
+        final_prompt = self.prompt_builder.build_prompt(
+            project_id, owner_id, prompt_name, chunk,
+            taxonomy_project=taxonomy_project,
+            taxonomy_name=taxonomy_name,
+            datasets_per_chunk=datasets_per_chunk
+        )
 
-            result = self.llm_interaction.generate(final_prompt)
+        # Modify prompt to request multiple items if needed (only for fixed counts)
+        if datasets_per_chunk > 1:
+            final_prompt += f"\n\nGenerate {datasets_per_chunk} different question-answer pairs from this text chunk. Return them as a JSON array."
 
-            # Handle multiple results
-            if isinstance(result, list):
-                for item in result[:datasets_per_chunk]:
-                    results.append(item)
-            else:
-                results.append(result)
+        result = self.llm_interaction.generate(final_prompt, options=options)
+        source_type = "taxonomy_filtered_chunk" if taxonomy_project and taxonomy_name else "chunk"
+        return self._process_result(result, source_type, datasets_per_chunk)
 
-            if len(results) >= datasets_per_chunk:
-                break
+    def generate_questions(self, project_id: str, chunk: str, owner_id: str,
+                          taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
+                          datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
+        """Generate only questions for a single chunk."""
+        final_prompt = self.prompt_builder.build_question_generation_prompt(
+            project_id, owner_id, chunk, taxonomy_project, taxonomy_name
+        )
 
-        return results[:datasets_per_chunk]
+        # For AI-determined mode, add instructions to generate multiple questions
+        if datasets_per_chunk == 0:
+            from ..constants import QUESTION_GENERATION_SCHEMA
+            final_prompt += build_json_instructions(
+                {"type": "array", "items": QUESTION_GENERATION_SCHEMA, "description": "Array of question-generation results. Generate as many as appropriate."},
+                ai_decides=True
+            )
+        elif datasets_per_chunk > 1:
+            final_prompt += f"\n\nGenerate {datasets_per_chunk} different sets of questions from this text chunk. Return them as a JSON array."
 
-    def generate_questions(self, project_id: int, chunk: str,
-                           taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                           datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
-        """
-        Generates multiple questions for a single chunk.
-        """
-        results = []
-        for i in range(datasets_per_chunk):
-            final_prompt = self.prompt_builder.build_question_generation_prompt(project_id, chunk, taxonomy_project, taxonomy_name)
-            # Modify prompt to request multiple items if needed
-            if datasets_per_chunk > 1:
-                final_prompt += f"\n\nGenerate {datasets_per_chunk} different questions from this text chunk. Return them as a JSON array."
+        result = self.llm_interaction.generate(final_prompt)
+        return self._process_result(result, "chunk_questions", datasets_per_chunk)
 
-            result = self.llm_interaction.generate(final_prompt)
+    def generate_answers(self, project_id: str, chunk: str, owner_id: str,
+                        taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
+                        datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
+        """Generate only answers for a single chunk."""
+        final_prompt = self.prompt_builder.build_answer_generation_prompt(
+            project_id, owner_id, chunk, taxonomy_project, taxonomy_name
+        )
 
-            # Handle multiple results
-            if isinstance(result, list):
-                for item in result[:datasets_per_chunk]:
-                    item["result_type"] = "questions"
-                    results.append(item)
-            else:
-                result["result_type"] = "questions"
-                results.append(result)
+        # For AI-determined mode, add instructions to generate multiple answers
+        if datasets_per_chunk == 0:
+            from ..constants import ANSWER_GENERATION_SCHEMA
+            final_prompt += build_json_instructions(
+                {"type": "array", "items": ANSWER_GENERATION_SCHEMA, "description": "Array of answer-generation results. Generate as many as appropriate."},
+                ai_decides=True
+            )
+        elif datasets_per_chunk > 1:
+            final_prompt += f"\n\nGenerate {datasets_per_chunk} different sets of answers from this text chunk. Return them as a JSON array."
 
-            if len(results) >= datasets_per_chunk:
-                break
+        result = self.llm_interaction.generate(final_prompt)
+        return self._process_result(result, "chunk_answers", datasets_per_chunk)
 
-        return results[:datasets_per_chunk]
+    def generate_summary(self, project_id: str, chunk: str, owner_id: str,
+                        taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
+                        datasets_per_chunk: int = 1) -> List[Dict[str, Any]]:
+        """Generate content summaries for a single chunk."""
+        final_prompt = self.prompt_builder.build_summarization_prompt(
+            project_id, owner_id, chunk, taxonomy_project, taxonomy_name
+        )
 
-    def generate_answers(self, project_id: int, chunk: str,
-                         taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                         datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
-        """
-        Generates multiple answers for a single chunk.
-        """
-        results = []
-        for i in range(datasets_per_chunk):
-            final_prompt = self.prompt_builder.build_answer_generation_prompt(project_id, chunk, taxonomy_project, taxonomy_name)
-            # Modify prompt to request multiple items if needed
-            if datasets_per_chunk > 1:
-                final_prompt += f"\n\nGenerate {datasets_per_chunk} different answers from this text chunk. Return them as a JSON array."
+        # For AI-determined mode, add instructions to generate multiple summaries
+        if datasets_per_chunk == 0:
+            from ..constants import SUMMARIZATION_SCHEMA
+            final_prompt += build_json_instructions(
+                {"type": "array", "items": SUMMARIZATION_SCHEMA, "description": "Array of summaries. Generate as many as appropriate."},
+                ai_decides=True
+            )
+        elif datasets_per_chunk > 1:
+            final_prompt += f"\n\nGenerate {datasets_per_chunk} different summaries from this text chunk. Return them as a JSON array."
 
-            result = self.llm_interaction.generate(final_prompt)
-
-            # Handle multiple results
-            if isinstance(result, list):
-                for item in result[:datasets_per_chunk]:
-                    item["result_type"] = "answers"
-                    results.append(item)
-            else:
-                result["result_type"] = "answers"
-                results.append(result)
-
-            if len(results) >= datasets_per_chunk:
-                break
-
-        return results[:datasets_per_chunk]
-
-    def generate_summaries(self, project_id: int, chunk: str,
-                           taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                           datasets_per_chunk: int = 3) -> List[Dict[str, Any]]:
-        """
-        Generates multiple summaries for a single chunk.
-        """
-        results = []
-        for i in range(datasets_per_chunk):
-            final_prompt = self.prompt_builder.build_summarization_prompt(project_id, chunk, taxonomy_project, taxonomy_name)
-            # Modify prompt to request multiple items if needed
-            if datasets_per_chunk > 1:
-                final_prompt += f"\n\nGenerate {datasets_per_chunk} different summaries from this text chunk. Return them as a JSON array."
-
-            result = self.llm_interaction.generate(final_prompt)
-
-            # Handle multiple results
-            if isinstance(result, list):
-                for item in result[:datasets_per_chunk]:
-                    item["result_type"] = "summary"
-                    results.append(item)
-            else:
-                result["result_type"] = "summary"
-                results.append(result)
-
-            if len(results) >= datasets_per_chunk:
-                break
-
-        return results[:datasets_per_chunk]
+        result = self.llm_interaction.generate(final_prompt)
+        return self._process_result(result, "chunk_summary", datasets_per_chunk)

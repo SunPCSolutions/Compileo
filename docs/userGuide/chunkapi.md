@@ -51,30 +51,6 @@ Retrieve all chunks for a specific document.
 }
 ```
 
-**GET** `/api/v1/chunks/project/{project_id}`
-
-Retrieve chunks for all documents associated with a specific project. Useful for validating project-wide processing status.
-
-**Query Parameters:**
-- `limit`: Maximum number of chunks to return (default: 100)
-
-**Response:**
-```json
-{
-  "project_id": "b357e573-89a5-4b40-8e1b-4c075a1835a6",
-  "chunks": [
-    {
-      "id": "uuid-1",
-      "document_id": "uuid-doc-1",
-      "chunk_index": 1,
-      "chunk_strategy": "semantic",
-      "file_path": "storage/chunks/..."
-    }
-  ],
-  "total": 1
-}
-```
-
 ### Chunk Deletion
 **DELETE** `/api/v1/chunks/{chunk_id}`
 
@@ -188,6 +164,7 @@ Get AI recommendations for optimal chunking strategy based on document analysis.
 | `character_chunk_size` | integer | No | Character chunk size (overrides chunk_size) |
 | `character_overlap` | integer | No | Character overlap (overrides overlap) |
 | `sliding_window` | boolean | No | Enable sliding window chunking for multi-file documents (auto-enabled for multi-file docs) |
+| `page_selection` | string | No | Page selection expression for PDF documents. Supports single pages (`1`), ranges (`1-20`), and batches (`1, 1-20, 30-120`). Only applies when parsing PDFs. |
 | `system_instruction` | string | No | System-level instructions to guide the model's behavior, especially for Gemini. |
 
 ## Character-Based Chunking

@@ -114,7 +114,7 @@ compileo taxonomy generate --project-id 1 --name "AI Medical Taxonomy" --documen
 - `--documents`: Comma-separated document IDs (required)
 - `--depth`: Taxonomy hierarchy depth (default: 3)
 - `--generator`: AI model (`gemini`, `grok`, `ollama`, `openai`) (default: `gemini`)
-- `--domain`: Content domain (default: `general`)
+- `--domain`: Content domain (default: `general`). Supports any text (e.g., `medical`, `pediatric care`) to guide generation.
 - `--batch-size`: Number of complete chunks to process (default: 10)
 - `--category-limits`: Max categories per level (comma-separated)
 - `--specificity-level`: Specificity level 1-5 (default: 1)

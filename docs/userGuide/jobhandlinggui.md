@@ -6,11 +6,6 @@ The Compileo Job Handling GUI provides a comprehensive web interface for monitor
 
 Navigate to the **"📊 Job Dashboard"** page from the main menu to access the job monitoring interface.
 
-<div align="center">
-  <a href="../../img/jobhandle.png"><img src="../../img/jobhandle.png" width="400" alt="Asynchronous Job Management"></a>
-  <p><i>Asynchronous Job Management Interface</i></p>
-</div>
-
 ---
 
 ## Job Queue Overview
@@ -76,6 +71,29 @@ The main job table provides comprehensive job information:
     - Error details (for failed jobs)
     - Performance metrics and timing
 
+### Job History
+
+The **Job History** tab provides a comprehensive view of all completed and failed jobs:
+
+**Features:**
+- **Real Data**: Displays actual job history from the database (not placeholder data)
+- **Filtering**: Filter by status (completed, failed), job type, and time range
+- **Job Details**: Shows job ID, type, status, timestamps, duration, and progress
+- **Formatted Display**: Job types and statuses shown with emojis for easy identification
+  - 📊 Dataset Generation, 🔍 Extraction, 📈 Benchmark, ✨ Quality Analysis
+  - ✅ Completed, ❌ Failed
+
+**Accessing Job History:**
+1. Navigate to **Job Dashboard** → **📋 Job History** tab
+2. Use filters to narrow down results
+3. View job details including start time, completion time, and duration
+
+**Data Persistence:**
+- Jobs are automatically archived to history when they complete or fail
+- History entries include: job metadata, parameters, duration, and result summary
+- Multi-tenant isolation ensures users only see their own job history
+- Retention period configurable via Settings (default: 90 days)
+
 ### Cancel a Job
 
 1.  **Locate Target Job**: Find the running or pending job in the list
@@ -94,17 +112,10 @@ The main job table provides comprehensive job information:
 
 ## Real-time Monitoring
 
-### In-View Synchronous Monitoring
-Compileo uses a standardized **Synchronous In-View Monitoring** pattern for all long-running jobs (parsing, chunking, extraction, etc.) started from the GUI:
-
-- **UI Stability**: Status updates occur within `st.empty()` placeholders, preventing disruptive whole-page reruns and preserving your scroll position.
-- **Accurate Status**: Displays stage-based progress messages (e.g., "Generating Splits", "Analyzing Chunks") fetched directly from backend metadata.
-- **Blocked Execution**: The submit button handler remains active until the job reaches a terminal state (Completed, Failed, or Cancelled), ensuring you see the final result immediately.
-
 ### Live Progress Updates
 - **Progress Bars**: Visual progress indicators for running jobs
 - **Status Changes**: Automatic status updates without page refresh
-- **Performance Metrics**: Live execution throughput updates
+- **Performance Metrics**: Live execution time and throughput updates
 - **Worker Status**: Real-time worker health and activity monitoring
 
 ### Server-Sent Events (SSE)
@@ -208,11 +219,38 @@ The GUI uses Server-Sent Events for real-time updates:
 5. **Regular Cleanup**: System performs automatic maintenance
 
 ### System Limits
-- **Global Max Jobs**: 10 concurrent jobs (configurable)
-- **Per-User Max Jobs**: 3 concurrent jobs (configurable)
+- **Global Max Jobs**: 10 concurrent jobs (configurable via GUI)
+- **Per-User Max Jobs**: 3 concurrent jobs (configurable via GUI)
+- **Total Capacity**: `WORKER_REPLICAS` = total concurrent jobs
 - **Job Timeout**: 72 hours default (configurable)
 - **Result TTL**: 500 seconds default (configurable)
 - **Cleanup Frequency**: Every 10 minutes
+
+### Worker Scaling
+The system supports horizontal scaling through worker replicas:
+
+**Horizontal Scaling** (Worker Containers):
+- Add more worker containers to increase capacity
+- Configured via `WORKER_REPLICAS` environment variable
+- Each container runs independently for fault tolerance
+- Each worker processes one job at a time
+
+**Example Configurations:**
+| WORKER_REPLICAS | Total Capacity | Use Case |
+|-----------------|----------------|----------|
+| 1 | 1 job | Development |
+| 2 | 2 jobs | Small team |
+| 3 | 3 jobs | Medium load |
+| 5 | 5 jobs | High throughput |
+
+To modify worker scaling in Docker:
+```bash
+# Set environment variables
+export WORKER_REPLICAS=3
+
+# Restart with new configuration
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ---
 

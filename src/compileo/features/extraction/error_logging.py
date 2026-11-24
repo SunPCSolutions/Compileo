@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional
 from datetime import datetime
 
 from .exceptions import ExtractionError
-from ...core.logging import get_logger
 
 
 def _sanitize_message(text: str) -> str:
@@ -103,13 +102,32 @@ class ErrorLogger:
             logger: Optional custom logger instance
         """
         self.name = name
-        self.logger = logger or get_logger(f"extraction.{name}")
+        self.logger = logger or logging.getLogger(f"{__name__}.{name}")
+
+        # Set up structured logging if not already configured
+        if not self.logger.handlers:
+            self._setup_structured_logging()
 
     def _setup_structured_logging(self):
         """Set up structured logging with JSON format."""
         # Check if handler already exists to prevent duplicate logs
         if self.logger.handlers:
             return
+
+        # Determine target log level from BackendSettings to respect global config
+        try:
+            from ...core.settings import BackendSettings, LogLevel
+            settings = BackendSettings()
+            level = settings.get_log_level()
+            
+            log_mapping = {
+                LogLevel.DEBUG: logging.DEBUG,
+                LogLevel.ERROR: logging.ERROR,
+                LogLevel.NONE: logging.CRITICAL + 1
+            }
+            target_level = log_mapping.get(level, logging.INFO)
+        except:
+            target_level = logging.INFO
 
         handler = logging.StreamHandler(sys.stdout)
         # Use a formatter that ensures the message is properly escaped JSON
@@ -143,7 +161,7 @@ class ErrorLogger:
 
         handler.setFormatter(JsonFormatter())
         self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(target_level)
         # Prevent propagation to avoid double logging if root logger is configured
         self.logger.propagate = False
 
@@ -361,8 +379,7 @@ class ErrorLogger:
         if job_id:
             start_context["job_id"] = str(job_id)
 
-        # Map operation starts to DEBUG level for "extensive log reporting"
-        self.logger.debug(
+        self.logger.info(
             f"Starting {operation}",
             extra=start_context
         )
@@ -409,8 +426,7 @@ class ErrorLogger:
         if job_id:
             complete_context["job_id"] = job_id
 
-        # Map operation completion to DEBUG level for "extensive log reporting"
-        self.logger.debug(
+        self.logger.info(
             f"Completed {operation} in {duration:.2f}s" +
             (f" ({result_count} results)" if result_count is not None else ""),
             extra=complete_context

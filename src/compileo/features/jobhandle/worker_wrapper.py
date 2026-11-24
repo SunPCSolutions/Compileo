@@ -23,11 +23,25 @@ os.environ['PYTHONPATH'] = f"{src_root}:{project_root}:{os.environ.get('PYTHONPA
 def process_job(job_id: str, **kwargs) -> None:
     """Process a job by ID - this function can be called by RQ."""
     import sys
-    from ...core.logging import setup_logging, get_logger
+    from src.compileo.core.logging import setup_logging
+    import logging
+    import importlib
     
-    # Initialize logging for the worker process
+    # Initialize logging for the worker process immediately
     setup_logging()
-    logger = get_logger(__name__)
+    logger = logging.getLogger(__name__)
+
+    # Diagnostic: correlate the RQ job id with our internal Compileo job id
+    try:
+        rq_module = importlib.import_module("rq")
+        current_rq_job = rq_module.get_current_job()
+        logger.info(
+            f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - worker_wrapper entry: "
+            f"rq_job_id={current_rq_job.id if current_rq_job else 'none'}, "
+            f"compileo_job_id={job_id}"
+        )
+    except Exception as rq_mapping_error:
+        logger.debug(f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - failed to inspect current rq job: {rq_mapping_error}")
     
     logger.debug(f"WORKER_WRAPPER_CALLED_V2: process_job called with job_id={job_id}")
     try:
@@ -40,11 +54,9 @@ def process_job(job_id: str, **kwargs) -> None:
         # Get settings for limits and Redis URL
         from src.compileo.core.settings import BackendSettings
         from src.compileo.api.core.config import settings
-        backend_settings = BackendSettings()
-        global_max_jobs = backend_settings.get_global_max_concurrent_jobs()
-        # TODO: Uncomment when multi-user architecture is implemented
-        # per_user_max_jobs = backend_settings.get_per_user_max_concurrent_jobs()
-        per_user_max_jobs = global_max_jobs  # Single-user mode
+        # Use safe defaults - ResourceManager now handles per-job two-tier limit resolution
+        global_max_jobs = 10
+        per_user_max_jobs = 6
 
         # Initialize WITHOUT background monitoring
         initialize_job_queue_manager(
@@ -73,5 +85,4 @@ if __name__ == "__main__":
         job_id = sys.argv[1]
         process_job(job_id)
     else:
-        # We can use standard print for usage
         print("Usage: python worker_wrapper.py <job_id>")

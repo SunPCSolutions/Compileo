@@ -14,11 +14,11 @@ from src.compileo.features.jobhandle.enhanced_job_queue import initialize_job_qu
 from src.compileo.storage.src.database import get_db_connection
 from src.compileo.core.settings import BackendSettings
 from src.compileo.api.core.config import settings
-from src.compileo.core.logging import setup_logging, get_logger
+from src.compileo.core.logging import setup_logging
 
-# Configure logging for the worker
+# Configure centralized logging (reads log level from settings database)
 setup_logging()
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Initialize plugin manager to ensure plugins are loaded in worker process
 try:
@@ -34,34 +34,23 @@ def main():
     """
     logger.info("WORKER: Worker process started.")
 
-    # Check if another RQ worker is already running
-    import subprocess
-    try:
-        # Check for RQ Worker processes specifically (more reliable detection)
-        rq_result = subprocess.run(['pgrep', '-f', 'rq.worker'], capture_output=True, text=True)
-        rq_workers = rq_result.stdout.strip().split('\n') if rq_result.stdout.strip() else []
-        rq_workers = [w for w in rq_workers if w]  # Remove empty strings
-
-        if rq_workers:
-            logger.warning(f"WORKER: Found {len(rq_workers)} existing RQ worker processes: {rq_workers}")
-            logger.warning("WORKER: Another RQ worker is already running. Exiting to prevent duplicate workers.")
-            return
-    except Exception as check_error:
-        logger.warning(f"WORKER: Failed to check for existing RQ workers: {check_error}")
-        logger.info("WORKER: Proceeding with worker startup anyway...")
+    # NOTE: Removed the pgrep check that was preventing multiple workers in Docker.
+    # In Docker environments, each container is isolated, so we don't need to check
+    # for other workers on the system. The worker deduplication logic was incorrectly
+    # detecting workers from other containers and exiting.
+    #
+    # Docker handles worker isolation through containerization.
+    # Horizontal scaling via WORKER_REPLICAS is now fully supported.
 
     try:
         logger.info("WORKER: Getting database connection...")
         db_conn = get_db_connection()
         logger.info("WORKER: Database connection obtained.")
 
-        # Get settings for job limits
-        backend_settings = BackendSettings()
-        global_max_jobs = backend_settings.get_global_max_concurrent_jobs()
-        # TODO: Uncomment when multi-user architecture is implemented
-        # per_user_max_jobs = backend_settings.get_per_user_max_concurrent_jobs()
-        per_user_max_jobs = global_max_jobs  # Single-user mode
-        
+        # Use safe defaults - ResourceManager now handles per-job two-tier limit resolution
+        global_max_jobs = 10
+        per_user_max_jobs = 6
+
         logger.info(f"WORKER: Configuring job limits - Global: {global_max_jobs}, Per-User: {per_user_max_jobs}")
 
         logger.info("WORKER: Initializing job queue manager...")
@@ -70,6 +59,7 @@ def main():
             redis_url=settings.redis_url,
             db_connection=db_conn,
             global_max_jobs=global_max_jobs,
+            per_user_max_jobs=per_user_max_jobs,
             enable_background_monitoring=False
         )
         logger.info("WORKER: Job queue manager initialized (background threads disabled).")

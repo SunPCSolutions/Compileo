@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Protocol, Iterator
 from datetime import datetime, timedelta
+import logging
 import threading
 import time
 
 from .models import ExtractionResult, ExtractionResultChunk, ExtractionResultMetadata
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 class ResultChunkingStrategy(ABC):
@@ -483,23 +481,30 @@ class ExtractionResultStorageManager:
 
         return stored_chunk_ids
 
-    def _store_single_result(self, result: ExtractionResult) -> None:
-        """Store a single result in the database."""
+    def _store_single_result(self, result: ExtractionResult, file_path: Optional[str] = None) -> None:
+        """Store a single result in the database.
+        
+        Args:
+            result: The extraction result to store
+            file_path: Optional path to the filesystem file containing the full data
+        """
         if self.db_connection:
             # Use database repository
             from ...storage.src.project.database_repositories import ExtractionResultRepository
+            import uuid
             repo = ExtractionResultRepository(self.db_connection)
-            repo.create_result(
-                job_id=str(result.job_id),  # Ensure string
-                chunk_id=result.chunk_id,
-                categories=result.categories,
-                confidence=result.confidence,
-                extracted_data={},  # Empty dict to avoid redundancy with filesystem data
-                project_id=str(result.project_id) if result.project_id else None,
-                id=str(result.id) if result.id else None,
-                created_at=result.created_at,
-                file_path=None  # Can be populated if integrated with filesystem storage
-            )
+            repo.create_result({
+                "id": str(result.id) if result.id else str(uuid.uuid4()),
+                "owner_id": self.db_connection,  # This should be owner_id from context
+                "job_id": str(result.job_id),
+                "chunk_id": result.chunk_id,
+                "categories": result.categories,
+                "confidence": result.confidence,
+                "extracted_data": {},  # Empty dict to avoid redundancy with filesystem data
+                "project_id": str(result.project_id) if result.project_id else None,
+                "file_path": file_path,  # Store path to filesystem for data retrieval
+                "created_at": result.created_at
+            })
         else:
             # Fallback to cache-only storage
             cache_key = f"result:{result.id}"
@@ -659,7 +664,7 @@ class ExtractionResultStorageManager:
             try:
                 self.cleanup_old_results()
             except Exception as e:
-                logger.error(f"Cleanup error: {e}")
+                logging.getLogger(__name__).error(f"Cleanup error: {e}")
             time.sleep(self.cleanup_interval)
 
     def get_storage_stats(self) -> Dict[str, Any]:

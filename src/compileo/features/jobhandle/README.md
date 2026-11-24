@@ -200,7 +200,7 @@ pip install redis rq rq-scheduler psutil
 docker run -d -p 6379:6379 redis:alpine
 
 # Run development server
-uvicorn src.compileo.api.main:app --host 0.0.0.0 --port 8000 --reload
+python -m src.compileo.api.main
 ```
 
 ### Production Deployment

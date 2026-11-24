@@ -105,14 +105,17 @@ def get_job_queue_manager_safe() -> Optional[Any]:
         if _is_job_queue_manager_healthy():
             return manager
 
-        # Attempt recovery
-        logger.warning("Job queue manager is unhealthy or missing, attempting recovery...")
+        # Determine why it failed health check
+        if manager is None:
+            logger.info("Job queue manager is not initialized yet, performing first-time initialization...")
+        else:
+            logger.warning("Job queue manager is unhealthy, attempting recovery...")
 
         if initialize_job_queue_manager_safe():
             return st.session_state.get('job_queue_manager')
 
         # Recovery failed
-        logger.error("Job queue manager recovery failed")
+        logger.error("Job queue manager initialization/recovery failed")
         return None
 
 
@@ -126,22 +129,31 @@ def _is_job_queue_manager_healthy() -> bool:
     try:
         manager = st.session_state.get('job_queue_manager')
         if manager is None:
+            logger.debug("Job queue manager is missing from session state")
             return False
 
         # Try to get queue stats to verify functionality
-        stats = manager.get_queue_stats()
+        try:
+            stats = manager.get_queue_stats()
+        except Exception as stats_err:
+            logger.error(f"Job queue manager get_queue_stats() failed: {stats_err}")
+            return False
+
         if not isinstance(stats, dict):
+            logger.warning(f"Job queue manager stats is not a dict: {type(stats)}")
             return False
 
         # Check for required stats keys
         required_keys = ['total_jobs', 'pending_jobs', 'running_jobs']
-        if not all(key in stats for key in required_keys):
+        missing_keys = [key for key in required_keys if key not in stats]
+        if missing_keys:
+            logger.warning(f"Job queue manager stats missing required keys: {missing_keys}")
             return False
 
         return True
 
     except Exception as e:
-        logger.error(f"Job queue manager health check failed: {e}")
+        logger.error(f"Job queue manager health check failed with unexpected error: {e}", exc_info=True)
         return False
 
 

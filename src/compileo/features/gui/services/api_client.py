@@ -12,27 +12,36 @@ class APIError(Exception):
 class APIClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
-        self.api_key = None
+        self.jwt_token = None
 
-    def set_api_key(self, api_key: str):
-        """Set the API key for authentication."""
-        self.api_key = api_key
+    def set_jwt_token(self, token: str):
+        """Set the JWT token for authentication."""
+        self.jwt_token = token
 
-    def update_settings(self, base_url: str, api_key: str):
-        """Update both the base URL and API key."""
+    def update_settings(self, base_url: str, jwt_token: Optional[str] = None):
+        """Update both the base URL and authentication tokens."""
         self.base_url = base_url
-        self.api_key = api_key
+        if jwt_token:
+            self.jwt_token = jwt_token
 
     def _get_headers(self) -> Dict[str, str]:
-        """Get headers including API key if set."""
+        """Get request headers with authentication."""
         headers = {}
-        if self.api_key:
-            headers["X-API-Key"] = self.api_key
+        if self.jwt_token:
+            headers["Authorization"] = f"Bearer {self.jwt_token}"
         return headers
 
     def _handle_response(self, response: requests.Response) -> Optional[Dict[str, Any]]:
         """Centralized response handling."""
         try:
+            if response.status_code == 401:
+                # Clear session on auth failure
+                from src.compileo.features.gui.state.session_state import session_state
+                session_state.authenticated = False
+                session_state.jwt_token = None
+                session_state.user = None
+                raise APIError("Authentication failed or session expired. Please login again.", status_code=401)
+            
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
@@ -46,20 +55,37 @@ class APIClient:
 
     def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         try:
-            headers = self._get_headers()
-            response = requests.get(f"{self.base_url}{endpoint}", params=params, headers=headers)
+            response = requests.get(f"{self.base_url}{endpoint}", params=params, headers=self._get_headers())
             return self._handle_response(response)
         except APIError as e:
             st.error(str(e))
             return None
 
-    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None, files: Optional[List] = None) -> Optional[Dict[str, Any]]:
+    def get_file(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[bytes]:
+        """Get raw binary response (e.g. for file downloads)."""
+        try:
+            response = requests.get(f"{self.base_url}{endpoint}", params=params, headers=self._get_headers())
+            if response.status_code == 401:
+                from src.compileo.features.gui.state.session_state import session_state
+                session_state.authenticated = False
+                session_state.jwt_token = None
+                raise APIError("Authentication failed or session expired. Please login again.", status_code=401)
+            response.raise_for_status()
+            return response.content
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to download file: {e}")
+            return None
+
+    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None, files: Optional[List] = None, use_json: bool = True) -> Optional[Dict[str, Any]]:
         try:
             headers = self._get_headers()
             if files:
                 response = requests.post(f"{self.base_url}{endpoint}", data=data, files=files, headers=headers)
-            else:
+            elif use_json:
                 response = requests.post(f"{self.base_url}{endpoint}", json=data, headers=headers)
+            else:
+                # Form data
+                response = requests.post(f"{self.base_url}{endpoint}", data=data, headers=headers)
             return self._handle_response(response)
         except APIError as e:
             st.error(str(e))
@@ -67,8 +93,7 @@ class APIClient:
 
     def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         try:
-            headers = self._get_headers()
-            response = requests.put(f"{self.base_url}{endpoint}", json=data, headers=headers)
+            response = requests.put(f"{self.base_url}{endpoint}", json=data, headers=self._get_headers())
             return self._handle_response(response)
         except APIError as e:
             st.error(str(e))
@@ -76,8 +101,7 @@ class APIClient:
 
     def delete(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         try:
-            headers = self._get_headers()
-            response = requests.delete(f"{self.base_url}{endpoint}", json=data, headers=headers)
+            response = requests.delete(f"{self.base_url}{endpoint}", json=data, headers=self._get_headers())
             return self._handle_response(response)
         except APIError as e:
             st.error(str(e))

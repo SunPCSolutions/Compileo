@@ -43,20 +43,7 @@ A reference plugin, "Anki Dataset Exporter", is available to add Anki flashcard 
 1.  Install the `compileo-anki-plugin.zip`.
 2.  Go to the **Dataset Generation** page.
 3.  In the "Output Format" dropdown, you will now see an option for **anki**.
-4.  Select your desired **Generation Mode** (Instruction Following, Question and Answer, Summarization, etc.).
-5.  Generating a dataset with this format will produce a semicolon-separated text file (`.txt` extension) compatible with Anki import.
-
-**Generation Mode Support:**
-- **Instruction Following**: Creates flashcards with instructions on the front and responses on the back
-- **Question and Answer**: Traditional Q&A format with questions on the front and answers on the back
-- **Summarization**: Content summaries on the front with key points on the back
-- **Other Modes**: Automatically adapts to any generation mode supported by Compileo
-
-**File Format:**
-- Output: `dataset_[job_id]_extract.txt`
-- Format: `question;answer` (semicolon-separated)
-- Compatible with Anki's built-in import feature
-- HTML formatting supported for rich text display
+4.  Generating a dataset with this format will produce a semicolon-separated text file compatible with Anki import.
 
 ## Example: Scrapy-Playwright Website Scraper
 
@@ -69,3 +56,19 @@ The "Scrapy-Playwright Website Scraper" plugin enables extracting content from d
     ```
 3.  **Usage (API)**: Send a POST request to `/api/v1/plugins/scrapy-playwright/scrape` with the URL and configuration.
 4.  **Usage (GUI)**: In the **Document Processing** tab, you can use the "Scrape Website" feature to ingest content directly from URLs.
+
+## Example: Qdrant Embeddings Plugin (RAG)
+
+The `compileo-qdrant-embedding-plugin` adds embedding workflows designed for RAG over textbook-style content.
+
+1.  **Install**: Upload and install the embedding plugin zip from the Plugins tab.
+2.  **Open page**: Use the plugin page **🧠 Embeddings** from the sidebar.
+3.  **Configure**:
+    *   Qdrant URL/collection
+    *   Ollama embedding model
+    *   Taxonomy mode (`chunk` recommended)
+    *   Main-topic anchoring for better topic/subtopic retrieval
+4.  **Preview**: Use payload preview to validate metadata and taxonomy attachment before indexing.
+5.  **Submit**: Launch an async embedding job and monitor progress in Job Handling.
+
+For full workflow and RAG-focused tuning guidance, see the dedicated guide: [Embeddings Plugin User Guide](embeddings.md).

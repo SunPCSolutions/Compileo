@@ -9,7 +9,6 @@ import time
 import os
 
 from ..services.api_client import api_client, APIError
-from ..services.job_monitoring_service import monitor_job_synchronously
 
 
 def render_quality():
@@ -80,17 +79,13 @@ def render_quality_analysis_tab():
 
             # Configuration options
             with st.expander("⚙️ Analysis Configuration", expanded=False):
-                st.subheader("Quality Analysis Model")
-
-                # Model selection for quality analysis
-                quality_model = st.selectbox(
-                    "AI Model for Quality Analysis",
-                    options=["grok", "gemini", "ollama", "openai"],
-                    index=0,
-                    help="AI model used for quality analysis. Should match the model used for dataset generation for consistency."
-                )
-
                 st.subheader("Quality Metrics Configuration")
+                
+                # Note: Quality analysis is currently statistical - AI model selection reserved for future
+                st.info("ℹ️ Quality analysis uses statistical methods. AI model selection reserved for future enhancement.")
+                
+                # Hidden quality_model for API compatibility (always uses statistical)
+                quality_model = "statistical"
 
                 col_a, col_b = st.columns(2)
 
@@ -133,7 +128,6 @@ def render_quality_analysis_tab():
 
     with col2:
         # Analysis status
-        # Synchronous monitoring is now handled within the button handler
         render_analysis_status()
 
 
@@ -143,21 +137,23 @@ def render_analysis_status():
 
     if st.session_state.quality_job_id:
         try:
-            # Get current results from state or API
-            if st.session_state.quality_results:
-                status = st.session_state.quality_results
-            else:
-                status = api_client.get_quality_results(st.session_state.quality_job_id)
-                
+            # Poll for status
+            status = api_client.get_quality_results(st.session_state.quality_job_id)
             if status is None:
-                st.error("Analysis job not found.")
+                st.error("Analysis job not found. It may have expired or failed to start.")
                 return
+        except Exception as e:
+            st.error(f"Failed to get analysis status: {e}")
+            return
 
-            job_status = status.get('status', 'unknown')
-            
-            if job_status == 'running':
+            status_col = st.status(status.get('status', 'unknown').title())
+
+            if status.get('status') == 'running':
                 st.info("🔄 Analysis in progress...")
-            elif job_status == 'completed':
+                time.sleep(2)  # Brief pause for UI
+                st.rerun()  # Refresh to update status
+
+            elif status.get('status') == 'completed':
                 st.success("✅ Analysis completed!")
                 st.session_state.quality_results = status
                 st.session_state.quality_status = 'completed'
@@ -167,13 +163,14 @@ def render_analysis_status():
                 if summary:
                     st.metric("Overall Score", f"{summary.get('overall_score', 0):.3f}")
                     st.metric("Passed Metrics", f"{summary.get('passed_metrics', 0)}/{summary.get('total_metrics', 0)}")
-            elif job_status == 'failed':
+
+            elif status.get('status') == 'failed':
                 st.error("❌ Analysis failed")
-                error_details = status.get('details', {}).get('error', status.get('error', 'Unknown error'))
+                error_details = status.get('details', {}).get('error', 'Unknown error')
                 st.error(f"Error: {error_details}")
 
-        except Exception as e:
-            st.error(f"Error displaying analysis status: {e}")
+        except APIError as e:
+            st.error(f"Failed to get analysis status: {e}")
     else:
         st.info("No analysis in progress")
 
@@ -393,6 +390,14 @@ def get_available_datasets(project_id: int) -> Dict[str, Dict[str, Any]]:
     """Get list of available datasets for analysis."""
     datasets = {}
 
+    # Get user_id for multi-tenant path construction
+    from ..state.session_state import session_state
+    user_id = session_state.user_id
+    
+    if not user_id:
+        # Fallback: cannot construct multi-tenant path without user_id
+        return datasets
+
     # First try to get datasets from the API (database-backed)
     try:
         response = api_client.list_datasets(project_id=project_id, page=1, page_size=100)
@@ -400,7 +405,8 @@ def get_available_datasets(project_id: int) -> Dict[str, Dict[str, Any]]:
             for dataset in response['datasets']:
                 file_path = dataset.get('name', '')  # Use filename as key
                 if file_path:
-                    full_path = f"storage/datasets/{project_id}/{file_path}"
+                    # Use multi-tenant path format: storage/{user_id}/datasets/{project_id}/{filename}
+                    full_path = f"storage/{user_id}/datasets/{project_id}/{file_path}"
                     datasets[file_path] = {
                         'name': dataset.get('name', file_path),
                         'path': full_path,
@@ -448,23 +454,18 @@ def start_quality_analysis(dataset_file: str, config: Dict[str, Any],
                 quality_model=quality_model
             )
 
+        # Handle None response (e.g., from 404 or network errors)
+        if response is None:
+            st.error("Failed to start analysis - server returned an error. Please check that the dataset file path is correct and the API is running.")
+            return
+
         job_id = response.get('job_id')
         if job_id:
             st.session_state.quality_job_id = job_id
             st.session_state.quality_status = 'running'
             st.session_state.quality_results = None
             st.success(f"✅ Analysis started! Job ID: {job_id}")
-            
-            # Monitor job synchronously in-view (Wizard-style)
-            # Use general endpoint as quality uses /quality/{id}/results for status too
-            success = monitor_job_synchronously(job_id, success_text="Quality analysis completed!")
-            
-            if success:
-                # Get results and update state
-                results = api_client.get_quality_results(job_id)
-                st.session_state.quality_results = results
-                st.session_state.quality_status = 'completed'
-                st.rerun()
+            st.rerun()  # Refresh to show status
         else:
             st.error("Failed to start analysis - no job ID returned")
 

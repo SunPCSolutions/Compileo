@@ -30,11 +30,6 @@ The main taxonomy building interface combines manual editing with AI assistance:
    - Enter category name and description
    - Set confidence threshold (0.0-1.0)
 
-<div align="center">
-  <a href="../../img/Taxonomy_hybrid.png"><img src="../../img/Taxonomy_hybrid.png" width="400" alt="Hybrid Taxonomy Management Interface"></a>
-  <p><i>Hybrid Taxonomy Management Interface</i></p>
-</div>
-
 3. **Build Hierarchy**:
    - Click on any category to expand
    - Add subcategories with "Add Subcategory"
@@ -48,11 +43,6 @@ The main taxonomy building interface combines manual editing with AI assistance:
 
 #### AI-Assisted Generation
 
-<div align="center">
-  <a href="../../img/Taxonomy_generating.png"><img src="../../img/Taxonomy_generating.png" width="400" alt="AI-Assisted Taxonomy Generation"></a>
-  <p><i>AI-Assisted Taxonomy Generation</i></p>
-</div>
-
 1. **AI Generation Setup**:
     - Select "Generate with AI" mode
     - Choose AI model (Gemini, Grok, Ollama)
@@ -61,7 +51,7 @@ The main taxonomy building interface combines manual editing with AI assistance:
 **Ollama Generator Configuration**: When using Ollama for taxonomy generation, you can fine-tune AI behavior by configuring parameters in Settings → AI Model Configuration. Available parameters include temperature, repeat penalty, top-p, top-k, and num_predict for optimal taxonomy generation results.
 
 2. **Generation Parameters**:
-   - **Domain**: Content domain (medical, legal, technical, general)
+   - **Domain**: Content domain (e.g., medical, legal, technical, preventive nutrition, etc.). This is a free-text field that helps guide AI taxonomy generation towards specific knowledge areas.
    - **Processing Mode**:
      - **Fast (Sampled)**: Quickly generates taxonomy from a sample of up to 10 chunks.
      - **Complete (All Content)**: Iteratively processes every chunk in the document for comprehensive coverage.
@@ -190,10 +180,10 @@ The main taxonomy building interface combines manual editing with AI assistance:
 #### Delete Taxonomy
 
 1. **Safe Deletion**:
-     - Confirmation prompts prevent accidents
-     - **Complete Cleanup**: Deleting a taxonomy automatically removes its file from the filesystem and cleans up all associated extraction jobs and their results (both database entries and filesystem files).
-     - Check for dependent extraction jobs
-     - Option to archive instead of delete
+    - Confirmation prompts prevent accidents
+    - **Complete Cleanup**: Deleting a taxonomy automatically removes its file from the filesystem and cleans up all associated extraction jobs and their results (both database entries and filesystem files).
+    - Check for dependent extraction jobs
+    - Option to archive instead of delete
 
 2. **Bulk Management**:
    - Select multiple taxonomies for deletion

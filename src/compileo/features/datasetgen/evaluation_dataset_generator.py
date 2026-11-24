@@ -2,12 +2,11 @@
 Evaluation Dataset Generator for creating comprehensive evaluation datasets.
 """
 
+import logging
 import random
 from typing import List, Dict, Any, Tuple, Optional
-from ...core.logging import get_logger
 
-logger = get_logger(__name__)
-
+logger = logging.getLogger(__name__)
 from sklearn.model_selection import train_test_split, KFold
 import numpy as np
 

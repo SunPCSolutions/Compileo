@@ -9,93 +9,8 @@ from typing import List, Dict, Any, Optional
 import streamlit as st
 
 from ..services.api_client import api_client
+from ..services.realtime_job_monitor import display_realtime_job_status, monitor_job_status, stop_monitoring_job
 from ..state.session_state import session_state
-
-
-def monitor_job_synchronously(job_id: str, success_text: str = "Processing completed!", timeout: int = 600, poll_interval: int = 2, endpoint_type: str = "general") -> bool:
-    """
-    Monitors a job using placeholders and blocks the current script run until terminal state.
-    Provides accurate status reporting without relying on whole-page polling reruns.
-    
-    Args:
-        job_id: The ID of the job to monitor
-        success_text: Text to show upon successful completion
-        timeout: Maximum time to wait in seconds
-        poll_interval: Interval between status checks in seconds
-        endpoint_type: Type of job endpoint ("general" or "dataset")
-        
-    Returns:
-        bool: True if job completed successfully, False otherwise
-    """
-    # Create placeholders for dynamic updates
-    status_placeholder = st.empty()
-    details_placeholder = st.empty()
-    
-    start_time = time.time()
-    last_status = None
-    last_step = None
-    
-    # Use a container for better layout within placeholders
-    while time.time() - start_time < timeout:
-        try:
-            # Use specific dataset status endpoint if requested
-            if endpoint_type == "dataset":
-                 endpoint = f"/api/v1/datasets/generate/{job_id}/status"
-            else:
-                 endpoint = f"/api/v1/jobs/status/{job_id}"
-            
-            status_response = api_client.get(endpoint)
-            
-            if not status_response:
-                status_placeholder.warning(f"⚠️ No response from status endpoint for job {job_id}")
-                time.sleep(poll_interval)
-                continue
-                
-            status = status_response.get("status", "unknown")
-            # Attempt to extract current step from various possible fields
-            current_step = (
-                status_response.get("current_step") or
-                status_response.get("metadata", {}).get("progress_message") or
-                status_response.get("metadata", {}).get("current_step") or
-                "Processing..."
-            )
-            
-            # Update status display if changed
-            if status != last_status or current_step != last_step:
-                with status_placeholder.container():
-                    if status == "running":
-                        st.info(f"🔄 **Status: Running** | {current_step}")
-                    elif status == "pending":
-                        st.info(f"⏳ **Status: Pending**")
-                    elif status == "completed":
-                        st.success(f"✅ {success_text}")
-                        # Show result if available
-                        result = status_response.get("result")
-                        if result:
-                            with details_placeholder.expander("📊 View Results"):
-                                st.json(result)
-                        return True
-                    elif status == "failed":
-                        error_msg = status_response.get("error", "Unknown error")
-                        st.error(f"❌ **Job Failed**: {error_msg}")
-                        return False
-                    elif status == "cancelled":
-                        st.warning("🚫 **Job Cancelled**")
-                        return False
-                    else:
-                        st.info(f"❓ **Status: {status.title()}** | {current_step}")
-                
-                last_status = status
-                last_step = current_step
-
-        except Exception as e:
-            # Don't fail the monitoring loop on a single transient error
-            status_placeholder.warning(f"⚠️ Status check error: {e}")
-            
-        time.sleep(poll_interval)
-        
-    status_placeholder.error(f"❌ **Monitoring Timeout**: Job {job_id} did not finish within {timeout} seconds.")
-    return False
 
 
 def wait_for_upload_completion(job_id: str, timeout: int = 60) -> List[int]:
@@ -159,3 +74,119 @@ def wait_for_upload_completion_with_paths(job_id: str, timeout: int = 60) -> Lis
     st.error("Upload timeout")
     return []
 
+
+def display_processing_status(job_id: str):
+    """Display real-time processing status and results with enhanced UI."""
+    try:
+        # Use the new real-time monitoring system
+        display_realtime_job_status(job_id, show_progress=True, show_steps=True)
+
+        # Check if job is completed to clear session state
+        # This is a simple check - the real-time monitor handles the updates
+        try:
+            status_response = api_client.get(f"/api/v1/jobs/status/{job_id}")
+            if status_response:
+                status = status_response.get("status", "unknown")
+                if status in ["completed", "failed", "cancelled"]:
+                    # Clear the job ID from session state
+                    session_state.processing_job_id = None
+        except Exception:
+            # Ignore errors in status check for cleanup
+            pass
+
+    except Exception as e:
+        st.markdown(f'<div class="status-error">❌ Error setting up real-time monitoring: {e}</div>', unsafe_allow_html=True)
+        # Fallback to basic status display
+        try:
+            status_response = api_client.get(f"/api/v1/jobs/status/{job_id}")
+            if status_response:
+                _display_basic_status(status_response)
+        except Exception as e2:
+            st.markdown(f'<div class="status-error">❌ Error checking processing status: {e2}</div>', unsafe_allow_html=True)
+
+def _display_basic_status(status_response: Dict[str, Any]):
+    """Fallback basic status display without real-time updates."""
+    status = status_response.get("status", "unknown")
+    progress = status_response.get("progress", 0)
+    current_step = status_response.get("current_step", "Unknown")
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">📊 Processing Status</div>', unsafe_allow_html=True)
+
+    # Progress bar with percentage
+    st.markdown(f'<div class="progress-label">Progress: {progress}%</div>', unsafe_allow_html=True)
+    st.progress(progress / 100)
+
+    if status == "running":
+        st.markdown(f'<div class="status-info">ℹ️ Current Step: {current_step}</div>', unsafe_allow_html=True)
+    elif status == "completed":
+        st.markdown('<div class="status-success">✅ Processing completed successfully!</div>', unsafe_allow_html=True)
+        # Display results
+        result = status_response.get("result", {})
+        if result:
+            with st.expander("📋 Processing Results"):
+                st.json(result)
+    elif status == "failed":
+        st.markdown('<div class="status-error">❌ Processing failed</div>', unsafe_allow_html=True)
+        error = status_response.get("error")
+        if error:
+            st.markdown(f'<div class="status-error">❌ Error: {error}</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def monitor_job_synchronously(job_id: str, success_text: str = "✅ Job completed successfully!", endpoint_type: str = "general") -> bool:
+    """
+    Monitor a job synchronously using a local placeholder and loop.
+    Prevents disruptive whole-page polling.
+    """
+    status_placeholder = st.empty()
+    progress_placeholder = st.empty()
+    
+    max_wait = 7200  # 2 hours max
+    wait_count = 0
+    interval = 2 # Poll every 2 seconds
+    
+    while wait_count < max_wait:
+        try:
+            # Route to correct endpoint based on type
+            if endpoint_type == "dataset":
+                status_response = api_client.get(f"/api/v1/datasets/generate/{job_id}/status")
+            else:
+                status_response = api_client.get(f"/api/v1/jobs/status/{job_id}")
+                
+            if status_response:
+                status = status_response.get("status", "unknown")
+                progress = status_response.get("progress", 0)
+                current_step = status_response.get("current_step", "Processing...")
+                
+                with status_placeholder.container():
+                    if status == "running":
+                        st.info(f"🔄 **{current_step}**")
+                        progress_placeholder.progress(progress / 100)
+                    elif status == "pending":
+                        st.warning("⏳ **Job Pending...**")
+                        progress_placeholder.progress(0.05)
+                    elif status == "completed":
+                        st.success(success_text)
+                        progress_placeholder.empty()
+                        return True
+                    elif status == "failed":
+                        st.error(f"❌ **Job Failed**")
+                        error = status_response.get("error")
+                        if error:
+                            st.error(f"Error Details: {error}")
+                        return False
+                    elif status == "cancelled":
+                        st.warning("🚫 **Job Cancelled**")
+                        return False
+            
+        except Exception as e:
+            # Don't fail on transient API errors, just wait
+            pass
+            
+        time.sleep(interval)
+        wait_count += interval
+        
+    st.error("⏰ Job monitoring timed out after 2 hours.")
+    return False

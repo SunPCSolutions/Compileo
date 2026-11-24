@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from ...storage.src.database import get_db_connection
+from ..core.database import get_db
+from ..core.dependencies import get_current_active_user
+from ..models.user import User as UserSchema
 from ...features.datasetqual import QualityAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -44,13 +47,13 @@ class QualityJobRepository:
     def __init__(self, db_connection):
         self.db = db_connection
 
-    def create_job(self, job_id: str, project_id: str, dataset_file: str, parameters: dict = None):
+    def create_job(self, job_id: str, owner_id: str, project_id: str, dataset_file: str, parameters: dict = None):
         """Create a new quality job."""
         cursor = self.db.cursor()
         cursor.execute("""
-            INSERT INTO quality_jobs (id, project_id, dataset_file, status, parameters)
-            VALUES (?, ?, ?, 'pending', ?)
-        """, (job_id, project_id, dataset_file, json.dumps(parameters or {})))
+            INSERT INTO quality_jobs (id, owner_id, project_id, dataset_file, status, parameters)
+            VALUES (?, ?, ?, ?, 'pending', ?)
+        """, (job_id, owner_id, project_id, dataset_file, json.dumps(parameters or {})))
         self.db.commit()
 
     def update_job_status(self, job_id: str, status: str, results: dict = None, report_files: dict = None, error_message: str = None):
@@ -82,14 +85,14 @@ class QualityJobRepository:
         cursor.execute(query, params)
         self.db.commit()
 
-    def get_job(self, job_id: str):
-        """Get job by ID."""
+    def get_job(self, job_id: str, owner_id: str):
+        """Get job by ID for current user."""
         cursor = self.db.cursor()
         cursor.execute("""
             SELECT id, project_id, dataset_file, status, parameters, results, report_files,
                    created_at, updated_at, completed_at, error_message, started_at, progress
-            FROM quality_jobs WHERE id = ?
-        """, (job_id,))
+            FROM quality_jobs WHERE id = ? AND owner_id = ?
+        """, (job_id, owner_id))
 
         row = cursor.fetchone()
         if not row:
@@ -111,15 +114,16 @@ class QualityJobRepository:
             'progress': row[12] or 0.0
         }
 
-    def get_jobs_history(self, limit: int = 20):
-        """Get jobs history."""
+    def get_jobs_history(self, owner_id: str, limit: int = 20):
+        """Get jobs history for current user."""
         cursor = self.db.cursor()
         cursor.execute("""
             SELECT id, status, results, completed_at
             FROM quality_jobs
+            WHERE owner_id = ?
             ORDER BY created_at DESC
             LIMIT ?
-        """, (limit,))
+        """, (owner_id, limit))
 
         jobs = []
         for row in cursor.fetchall():
@@ -131,37 +135,41 @@ class QualityJobRepository:
             })
         return jobs
 
-# Dependency to get database connection
-def get_db():
-    return get_db_connection()
-
 @router.post("/analyze")
 async def analyze_quality(
     request: QualityAnalysisRequest,
     background_tasks: BackgroundTasks,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Analyze quality of a dataset."""
+    """Analyze quality of a dataset for current user."""
     try:
         import os
         if not os.path.exists(request.dataset_file):
             raise HTTPException(status_code=404, detail=f"Dataset file not found: {request.dataset_file}")
 
-        # Extract project_id from dataset_file path
+        # Extract project_id from dataset_file path, ensuring it belongs to current user
         project_id = None
-        if request.dataset_file.startswith("storage/datasets/"):
+        user_prefix = f"storage/{current_user.id}/datasets/"
+        if request.dataset_file.startswith(user_prefix):
             parts = request.dataset_file.split("/")
-            if len(parts) >= 3:
-                project_id = parts[2]  # project_id is a string UUID, not int
+            if len(parts) >= 4:
+                project_id = parts[3]
 
         if not project_id:
-            raise HTTPException(status_code=400, detail="Could not determine project ID from dataset file path")
+            raise HTTPException(status_code=400, detail="Could not determine project ID from dataset file path or file does not belong to user")
+
+        # Verify project ownership
+        cursor = db.cursor()
+        cursor.execute("SELECT name FROM projects WHERE id = ? AND owner_id = ?", (project_id, current_user.id))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail=f"Project not found or access denied")
 
         job_id = str(uuid.uuid4())
 
-        # Create job in database
+        # Create job in database - pass db connection for multi-tenant access
         repo = QualityJobRepository(db)
-        repo.create_job(job_id, project_id, request.dataset_file, {
+        repo.create_job(job_id, current_user.id, project_id, request.dataset_file, {
             "threshold": request.threshold,
             "output_format": request.output_format,
             "config": request.config,
@@ -173,6 +181,7 @@ async def analyze_quality(
             process_quality_analysis,
             job_id,
             request,
+            current_user.id,
             db
         )
 
@@ -188,10 +197,14 @@ async def analyze_quality(
         raise HTTPException(status_code=500, detail=f"Failed to start quality analysis: {str(e)}")
 
 @router.get("/{job_id}/results", response_model=QualityResult)
-async def get_quality_results(job_id: str, db=Depends(get_db)):
-    """Get quality analysis results."""
+async def get_quality_results(
+    job_id: str,
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    """Get quality analysis results for current user."""
     repo = QualityJobRepository(db)
-    job = repo.get_job(job_id)
+    job = repo.get_job(job_id, current_user.id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Quality analysis job {job_id} not found")
 
@@ -213,12 +226,13 @@ async def get_quality_results(job_id: str, db=Depends(get_db)):
 async def get_quality_history(
     dataset_id: Optional[str] = None,
     limit: int = 20,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get quality analysis history."""
+    """Get quality analysis history for current user."""
     try:
         repo = QualityJobRepository(db)
-        jobs = repo.get_jobs_history(limit)
+        jobs = repo.get_jobs_history(current_user.id, limit)
         return QualityHistoryResponse(
             analyses=jobs,
             total=len(jobs)
@@ -255,13 +269,14 @@ async def check_quality_threshold(
         raise HTTPException(status_code=500, detail=f"Failed to check quality threshold: {str(e)}")
 
 # Background task function
-def process_quality_analysis(job_id: str, request: QualityAnalysisRequest, db):
+def process_quality_analysis(job_id: str, request: QualityAnalysisRequest, owner_id: str, db):
     """Background task for quality analysis."""
     try:
         import time
         import json
         from pathlib import Path
 
+        # Use the provided db connection
         repo = QualityJobRepository(db)
 
         # Update status to running
@@ -341,7 +356,7 @@ def process_quality_analysis(job_id: str, request: QualityAnalysisRequest, db):
         analyzer = QualityAnalyzer(config)
 
         # Get quality model from job parameters
-        job_data = repo.get_job(job_id)
+        job_data = repo.get_job(job_id, owner_id)
         quality_model = job_data['parameters'].get('quality_model') if job_data and job_data['parameters'] else None
 
         # Run quality analysis
@@ -352,21 +367,18 @@ def process_quality_analysis(job_id: str, request: QualityAnalysisRequest, db):
             report_files = {}
             output_format = request.output_format or "json"
 
-            # Extract project_id from dataset_file path (storage/datasets/{project_id}/{filename})
+            # Extract project_id from dataset_file path (storage/{user_id}/datasets/{project_id}/{filename})
             project_id = None
-            if request.dataset_file.startswith("storage/datasets/"):
+            if f"storage/{owner_id}/datasets/" in request.dataset_file:
                 parts = request.dataset_file.split("/")
-                if len(parts) >= 3:
-                    try:
-                        project_id = int(parts[2])
-                    except ValueError:
-                        pass
+                if len(parts) >= 4:
+                    project_id = parts[3]
 
             # Create quality reports directory following storage convention
             if project_id is not None:
-                reports_dir = Path("storage/dataqual") / str(project_id)
+                reports_dir = Path(f"storage/{owner_id}/dataqual") / str(project_id)
             else:
-                reports_dir = Path("storage/dataqual")
+                reports_dir = Path(f"storage/{owner_id}/dataqual")
             reports_dir.mkdir(parents=True, exist_ok=True)
 
             base_filename = f"{job_id}_datasetqual"
@@ -416,5 +428,8 @@ def process_quality_analysis(job_id: str, request: QualityAnalysisRequest, db):
             repo.update_job_status(job_id, "failed", error_message=f"Quality analysis failed: {str(e)}")
 
     except Exception as e:
-        repo = QualityJobRepository(db)
-        repo.update_job_status(job_id, "failed", error_message=str(e))
+        # Use the db connection that was passed to the function
+        from ...storage.src.database import get_db_connection
+        with get_db_connection(owner_id=owner_id, db_type="tenant") as conn:
+            repo = QualityJobRepository(conn)
+            repo.update_job_status(job_id, "failed", error_message=str(e))

@@ -45,17 +45,17 @@ class ChunkLoader:
         """
         try:
             # First try loading directly from chunks table if content is stored there
-            cursor = self.chunk_repo.cursor()
-            cursor.execute('''
-                SELECT c.id, c.content_preview, c.file_path, c.metadata
-                FROM chunks c
-                JOIN documents d ON c.document_id = d.id
-                WHERE d.project_id = ?
-                ORDER BY d.created_at DESC, c.chunk_index ASC
-            ''', (project_id,))
-            
-            processed_chunks = []
-            rows = cursor.fetchall()
+            with self.chunk_repo.cursor() as cursor:
+                cursor.execute('''
+                    SELECT c.id, c.content_preview, c.file_path, c.metadata
+                    FROM chunks c
+                    JOIN documents d ON c.document_id = d.id
+                    WHERE d.project_id = ?
+                    ORDER BY d.created_at DESC, c.chunk_index ASC
+                ''', (project_id,))
+                
+                processed_chunks = []
+                rows = cursor.fetchall()
             
             for row in rows:
                 chunk_id, content_preview, file_path, metadata_str = row
@@ -99,19 +99,21 @@ class ChunkLoader:
             # Re-raise with more context
             raise Exception(f"Failed to load chunks for project {project_id}: {e}") from e
 
-    def load_document_chunks(self, document_id: Union[str, int], max_chunks: Optional[int] = None) -> List[Dict[str, Any]]:
+    def load_document_chunks(self, document_id: Union[str, int], max_chunks: Optional[int] = None, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Load chunks for a specific document.
 
         Args:
             document_id: Document ID to load chunks for
             max_chunks: Maximum number of chunks to load (None for all)
+            owner_id: Owner ID for multi-tenancy (required)
 
         Returns:
             List of chunk data dictionaries
         """
         try:
-            chunks = self.chunk_repo.get_chunks_by_document(document_id)
+            # Repository already has owner_id from initialization, no need to pass it
+            chunks = self.chunk_repo.get_chunks_by_document(str(document_id))
 
             processed_chunks = []
             for chunk in chunks:

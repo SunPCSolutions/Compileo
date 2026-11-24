@@ -2,13 +2,11 @@
 Configuration management for the multi-stage classification pipeline.
 """
 
+import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 import json
 import os
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 @dataclass
@@ -116,7 +114,7 @@ class PipelineConfig:
                 try:
                     config_dict[field_name] = converter(value)
                 except (ValueError, TypeError) as e:
-                    logger.warning(f"Invalid value for {env_var}: {value} ({e})")
+                    logging.getLogger(__name__).warning(f"Warning: Invalid value for {env_var}: {value} ({e})")
 
         # Handle API keys separately
         api_keys = {}

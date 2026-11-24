@@ -64,6 +64,20 @@ compileo generate-dataset [OPTIONS]
 - `--domain TEXT`: Knowledge domain (default: "general")
 - `--datasets-per-chunk INTEGER`: Maximum datasets per chunk (default: 3)
 
+## Prompt Management
+
+### Listing Prompts
+```bash
+compileo prompts list --project-id 1
+```
+
+### Setting Default Prompt Override
+Override a system default prompt (e.g., `qa_pairs`) for a specific project using a custom template file.
+
+```bash
+compileo prompts set-default qa_pairs ./my_custom_prompt.txt --project-id 1
+```
+
 ## Data Source Options
 
 ### Chunks Only Mode
@@ -345,6 +359,30 @@ compileo generate-dataset --status dataset-gen-uuid-123 --poll --timeout 300
 
 # Get general job statistics
 compileo jobs stats
+```
+
+### Managing Generated Datasets
+
+Once generation is complete, datasets can be listed, downloaded, viewed, and deleted using the dedicated dataset commands:
+
+```bash
+# List all generated datasets for a project
+compileo datasets list --project-id 1
+
+# Output as JSON
+compileo datasets list --project-id 1 --format json
+
+# Download a specific dataset locally
+compileo datasets download dataset_job-uuid-123.jsonl --project-id 1
+
+# Specify output download path
+compileo datasets download dataset_job-uuid-123.jsonl --project-id 1 --output ./my-custom-dataset.jsonl
+
+# Get detailed information about a dataset
+compileo datasets details dataset_job-uuid-123.jsonl --project-id 1
+
+# Delete a specific dataset
+compileo datasets delete dataset_job-uuid-123.jsonl --project-id 1 --confirm
 ```
 
 ### Managing Jobs

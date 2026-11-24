@@ -3,27 +3,24 @@ CLI Command Definitions.
 Contains all Click command definitions and decorators.
 """
 
+# cython: annotation_typing=False
+
 import click
-from . import __version__
+from typing import Any
+
+# Import with fallback for compiled/development compatibility
+try:
+    from compileo import __version__
+except ImportError:
+    from src.compileo import __version__
 
 
 # Main CLI group
 @click.group()
 @click.version_option(__version__)
-@click.option("--log-level", type=click.Choice(["none", "error", "debug"]), help="Set the log level")
-def cli(log_level):
+def cli():
     """Compileo: A modular pipeline for dataset creation and curation."""
-    from .core.logging import setup_logging
-    from .core.settings import LogLevel, BackendSettings
-    
-    if log_level:
-        # Override setting for this run and update persistent setting
-        lvl = LogLevel(log_level)
-        BackendSettings.set_log_level(lvl)
-        setup_logging(lvl)
-    else:
-        # Use existing setting
-        setup_logging()
+    pass
 
 
 # Hello command
@@ -228,6 +225,50 @@ def generate_dataset(project_id, prompt_name, format_type, concurrency, batch_si
     """Generate a dataset from processed chunks."""
     from .cli_handlers import handle_generate_dataset
     handle_generate_dataset(project_id, prompt_name, format_type, concurrency, batch_size, include_evaluation_sets, taxonomy_project, taxonomy_name, data_source, extraction_file_id, output_dir, analyze_quality, quality_threshold, quality_config, enable_versioning, dataset_name, run_benchmarks, benchmark_suite, benchmark_config, category_limits, specificity_level, custom_audience, custom_purpose, complexity_level, domain, datasets_per_chunk, selected_categories)
+
+
+# Datasets command group
+@cli.group()
+def datasets():
+    """Manage generated datasets."""
+    pass
+
+@datasets.command("list")
+@click.option("--project-id", required=True, type=int, help="Project ID to list datasets for")
+@click.option("--format", "output_format", default="table", type=click.Choice(["table", "json"]), help="Output format")
+def list_datasets_cli(project_id, output_format):
+    """List all datasets for a project."""
+    from .cli_handlers import handle_list_datasets
+    handle_list_datasets(project_id, output_format)
+
+@datasets.command("download")
+@click.argument("filename")
+@click.option("--project-id", required=True, type=int, help="Project ID")
+@click.option("--output", "output_path", help="Path to save the downloaded dataset")
+def download_dataset_cli(filename, project_id, output_path):
+    """Download a specific dataset file."""
+    from .cli_handlers import handle_download_dataset
+    handle_download_dataset(project_id, filename, output_path)
+
+
+@datasets.command("details")
+@click.argument("dataset_id")
+@click.option("--project-id", type=int, help="Project ID (optional, helps narrow search)")
+@click.option("--format", "output_format", default="table", type=click.Choice(["table", "json"]), help="Output format")
+def dataset_details_cli(dataset_id, project_id, output_format):
+    """Get details of a specific dataset."""
+    from .cli_handlers import handle_dataset_details
+    handle_dataset_details(dataset_id, project_id, output_format)
+
+
+@datasets.command("delete")
+@click.argument("dataset_id")
+@click.option("--project-id", type=int, help="Project ID (optional, helps narrow search)")
+@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
+def delete_dataset_cli(dataset_id, project_id, confirm):
+    """Delete a dataset file."""
+    from .cli_handlers import handle_delete_dataset
+    handle_delete_dataset(dataset_id, project_id, confirm)
 
 
 # Quality analysis command
@@ -607,6 +648,59 @@ def benchmark_cancel(job_id):
     from .cli_handlers import handle_cancel_job
     # Reuse the generic job cancel handler
     handle_cancel_job(job_id, confirm=True)
+
+
+# Config command group
+@cli.group()
+def config():
+    """Manage Compileo configuration settings."""
+    pass
+
+
+@config.command("log-level")
+@click.option("--level", type=click.Choice(["none", "error", "debug"]), help="Set log level (none, error, debug)")
+@click.option("--show", is_flag=True, help="Show current log level")
+def log_level_config(level, show):
+    """Get or set the global log level."""
+    from .cli_handlers import handle_log_level_config
+    handle_log_level_config(level, show)
+
+
+@config.command("retention")
+@click.option("--days", type=click.IntRange(1, 365), help="Set job history retention period in days (1-365)")
+@click.option("--show", is_flag=True, help="Show current retention settings")
+@click.option("--cleanup", is_flag=True, help="Run cleanup with current retention settings")
+def retention_config(days, show, cleanup):
+    """Get or set the job history retention configuration."""
+    from .cli_handlers import handle_retention_config
+    handle_retention_config(days, show, cleanup)
+
+
+# Prompts command group
+@cli.group()
+def prompts():
+    """Manage generation prompts."""
+    pass
+
+
+@prompts.command("list")
+@click.option("--project-id", required=True, type=int, help="Project ID")
+def list_prompts(project_id):
+    """List available prompts for a project."""
+    from .cli_handlers import handle_list_prompts
+    handle_list_prompts(project_id)
+
+
+@prompts.command("set-default")
+@click.argument("name")
+@click.argument("content_file", type=click.Path(exists=True))
+@click.option("--project-id", required=True, type=int, help="Project ID")
+def set_default_prompt(name, content_file, project_id):
+    """Set a default prompt override for a project."""
+    from .cli_handlers import handle_set_default_prompt
+    handle_set_default_prompt(name, content_file, project_id)
+
+
 # Plugin command group
 @cli.group()
 def plugins():
@@ -615,7 +709,11 @@ def plugins():
 
 # Load Plugin Commands
 try:
-    from src.compileo.features.plugin.manager import plugin_manager
+    # Import with fallback for compiled/development compatibility
+    try:
+        from compileo.features.plugin.manager import plugin_manager
+    except ImportError:
+        from src.compileo.features.plugin.manager import plugin_manager
     plugin_commands = plugin_manager.get_extensions("compileo.cli.command")
     for plugin_id, command_obj in plugin_commands.items():
         # Check if it's a click command/group

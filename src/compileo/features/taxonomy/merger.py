@@ -98,7 +98,7 @@ class TaxonomyMerger:
     def _dict_to_category(data: Dict[str, Any]) -> HierarchicalCategory:
         """Convert a dictionary to a HierarchicalCategory object."""
         category = HierarchicalCategory(
-            name=data.get('name', 'Unknown'),
+            name=data.get('name') or 'Unknown',
             description=data.get('description', None),
             confidence_threshold=data.get('confidence_threshold', 0.5),
             source=data.get('source', 'unknown'),

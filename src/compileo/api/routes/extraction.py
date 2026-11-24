@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query, status, Request
 from datetime import datetime, timedelta
@@ -15,8 +16,7 @@ from ...storage.src.project.database_repositories import (
 )
 from ...storage.src.project.file_manager import FileManager
 from ...features.extraction.taxonomy_extractor import TaxonomyExtractor
-from ...core.settings import backend_settings
-from ...core.logging import get_logger
+from ...core.settings import BackendSettings
 from ..models.extraction import (
     SelectiveExtractionRequest,
     ExtractionJobResponse,
@@ -54,10 +54,13 @@ from ...features.extraction.storage_monitor import (
     StorageHealthMonitor
 )
 from ...features.jobhandle.models import JobType
+from ..core.database import get_db
+from ..core.dependencies import get_current_active_user
+from ..models.user import User as UserSchema
 
 # Create router
 router = APIRouter()
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_job_queue_manager(request):
@@ -150,34 +153,40 @@ def handle_extraction_error(error: Exception, operation: str, **context) -> HTTP
             detail="An unexpected error occurred. Please try again or contact support."
         )
 
-# Dependency to get database connection
-def get_db():
-    return get_db_connection()
-
 # Dependency to get repositories
-def get_repositories(db=Depends(get_db)):
+def get_repositories(
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
     file_manager = ExtractionFileManager()
     filesystem_manager = FilesystemStorageManager(file_manager)
     return {
-        'taxonomy_repo': TaxonomyRepository(db),
-        'extraction_job': ExtractionJobRepository(db),
-        'extraction_result': ExtractionResultRepository(db),
+        'taxonomy_repo': TaxonomyRepository(current_user.id),
+        'extraction_job': ExtractionJobRepository(current_user.id),
+        'extraction_result': ExtractionResultRepository(current_user.id),
         'file_manager': FileManager(),
         'filesystem_manager': filesystem_manager,
-        'hybrid_manager': HybridStorageManager(filesystem_manager, ExtractionResultRepository(db), enable_filesystem=True)
+        'hybrid_manager': HybridStorageManager(filesystem_manager, ExtractionResultRepository(current_user.id), enable_filesystem=True)
     }
 
 # Dependency to get taxonomy extractor
-def get_taxonomy_extractor(repos=Depends(get_repositories), db=Depends(get_db)):
-    grok_key = backend_settings.get_setting("grok_api_key")
-    gemini_key = backend_settings.get_setting("gemini_api_key")
+def get_taxonomy_extractor(
+    repos=Depends(get_repositories),
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    # Use user-specific settings to get API keys with proper decryption
+    from ...core.settings import BackendSettings
+    user_settings = BackendSettings(owner_id=current_user.id)
+    grok_key = user_settings.get_setting("grok_api_key")
+    gemini_key = user_settings.get_setting("gemini_api_key")
 
-    logger.debug(f"Grok key available: {grok_key is not None}")
-    logger.debug(f"Gemini key available: {gemini_key is not None}")
+    logger.debug(f"DEBUG: Grok key available: {grok_key is not None}")
+    logger.debug(f"DEBUG: Gemini key available: {gemini_key is not None}")
 
     # Create extractor with all available keys - classifier will be set per request
     from ...storage.src.project.database_repositories import ChunkRepository
-    chunk_repo = ChunkRepository(db)
+    chunk_repo = ChunkRepository(current_user.id)
     extractor = TaxonomyExtractor(
         taxonomy_repo=repos['taxonomy_repo'],
         chunk_repo=chunk_repo,
@@ -188,7 +197,7 @@ def get_taxonomy_extractor(repos=Depends(get_repositories), db=Depends(get_db)):
     )
 
     # Don't override classifiers here - let the request specify which one to use
-    logger.debug(f"Extractor created with available classifiers: grok={grok_key is not None}, gemini={gemini_key is not None}")
+    logger.debug(f"DEBUG: Extractor created with available classifiers: grok={grok_key is not None}, gemini={gemini_key is not None}")
     return extractor
 
 
@@ -196,9 +205,10 @@ def get_taxonomy_extractor(repos=Depends(get_repositories), db=Depends(get_db)):
 async def create_extraction_job(
     request: SelectiveExtractionRequest,
     http_request: Request,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Create a new selective extraction job."""
+    """Create a new selective extraction job for current user."""
     try:
         # Validate request parameters
         if not request.taxonomy_id or not isinstance(request.taxonomy_id, str):
@@ -213,7 +223,7 @@ async def create_extraction_job(
                 detail="Invalid selected_categories: must be a list of strings"
             )
 
-        # Validate taxonomy exists and get project info
+        # Validate taxonomy exists and get project info, ensuring ownership
         try:
             taxonomy_data = repos['taxonomy_repo'].get_taxonomy_by_id(request.taxonomy_id)
             if not taxonomy_data:
@@ -234,32 +244,36 @@ async def create_extraction_job(
             if job_queue_manager is None:
                 raise ValueError("Job queue manager not initialized")
 
-            # Get specific models for initial and validation classifiers from database settings
-            initial_classifier = request.initial_classifier or backend_settings.get_classification_model()
+            # Create user-aware settings to read from tenant database
+            user_settings = BackendSettings(owner_id=current_user.id)
+
+            # Get specific models for initial and validation classifiers from user settings
+            initial_classifier = request.initial_classifier or user_settings.get_classification_model()
             validation_classifier = request.validation_classifier or initial_classifier
 
             initial_model = None
             if initial_classifier == "gemini":
-                initial_model = backend_settings.get_classification_gemini_model()
+                initial_model = user_settings.get_classification_gemini_model()
             elif initial_classifier == "grok":
-                initial_model = backend_settings.get_classification_grok_model()
+                initial_model = user_settings.get_classification_grok_model()
             elif initial_classifier == "openai":
-                initial_model = backend_settings.get_classification_openai_model()
+                initial_model = user_settings.get_classification_openai_model()
             elif initial_classifier == "ollama":
-                initial_model = backend_settings.get_classification_ollama_model()
+                initial_model = user_settings.get_classification_ollama_model()
 
             validation_model = None
             if validation_classifier == "gemini":
-                validation_model = backend_settings.get_classification_gemini_model()
+                validation_model = user_settings.get_classification_gemini_model()
             elif validation_classifier == "grok":
-                validation_model = backend_settings.get_classification_grok_model()
+                validation_model = user_settings.get_classification_grok_model()
             elif validation_classifier == "openai":
-                validation_model = backend_settings.get_classification_openai_model()
+                validation_model = user_settings.get_classification_openai_model()
             elif validation_classifier == "ollama":
-                validation_model = backend_settings.get_classification_ollama_model()
+                validation_model = user_settings.get_classification_ollama_model()
 
             job_params = {
                 "operation": "extraction",
+                "owner_id": current_user.id,
                 "taxonomy_id": request.taxonomy_id,
                 "selected_categories": request.selected_categories,
                 "parameters": request.parameters,
@@ -272,18 +286,20 @@ async def create_extraction_job(
                 "extraction_mode": request.extraction_mode,
             }
 
-            # Check job parameters being created
-            logger.debug(f"job_params keys = {list(job_params.keys())}")
-            logger.debug(f"extraction_mode = {job_params.get('extraction_mode', 'NOT_SET')}")
-            logger.debug(f"request.extraction_mode = {request.extraction_mode}")
+            # DEBUG: Check job parameters being created
+            logger.debug(f"DEBUG_API_JOB_PARAMS: job_params keys = {list(job_params.keys())}")
+            logger.debug(f"DEBUG_API_JOB_PARAMS: extraction_mode = {job_params.get('extraction_mode', 'NOT_SET')}")
+            logger.debug(f"DEBUG_API_JOB_PARAMS: request.extraction_mode = {request.extraction_mode}")
             job_id = job_queue_manager.submit_job(
                 job_type=JobType.EXTRACTION,
-                parameters=job_params
+                parameters=job_params,
+                user_id=current_user.id
             )
 
             # Create job record in database
             job_data = {
                 'id': job_id,
+                'owner_id': current_user.id,
                 'project_id': project_id,
                 'document_id': None,  # No specific document for taxonomy extraction
                 'status': 'pending',
@@ -295,7 +311,19 @@ async def create_extraction_job(
                 'completed_at': None,
                 'error_message': None
             }
-            repos['extraction_job'].create_job(job_data)
+            # DEBUG: Log before creating job
+            logger.debug(f"DEBUG_EXTRACTION_API: Creating job {job_id} in database for owner {current_user.id}")
+            logger.debug(f"DEBUG_EXTRACTION_API: Project ID: {project_id}")
+            # Use explicitly initialized repository to ensure proper database context
+            try:
+                repo = ExtractionJobRepository(current_user.id)
+                created_id = repo.create_job(job_data)
+                logger.debug(f"DEBUG_EXTRACTION_API: Successfully created job with ID: {created_id}")
+            except Exception as db_error:
+                logger.error(f"DEBUG_EXTRACTION_API: ERROR creating job in database: {db_error}")
+                import traceback
+                logger.debug(f"DEBUG_EXTRACTION_API: Traceback: {traceback.format_exc()}")
+                raise
         except Exception as e:
             raise handle_extraction_error(e, "submit_extraction_job", taxonomy_id=request.taxonomy_id)
 
@@ -318,9 +346,10 @@ async def create_extraction_job(
 @router.get("/{job_id}", response_model=ExtractionJobStatus)
 async def get_extraction_job_status(
     job_id: str,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get the status of an extraction job."""
+    """Get the status of an extraction job for current user."""
     try:
         # Validate job_id - accept both string (UUID) and integer formats
         if isinstance(job_id, str):
@@ -329,22 +358,15 @@ async def get_extraction_job_status(
             if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', job_id):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid job_id: must be a valid UUID string or positive integer"
-                )
-        elif isinstance(job_id, int):
-            # Integer format
-            if job_id <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid job_id: must be a positive integer"
+                    detail="Invalid job_id: must be a valid UUID string"
                 )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid job_id: must be a UUID string or positive integer"
+                detail="Invalid job_id: must be a UUID string"
             )
 
-        # Get job with error handling
+        # Get job with error handling, ensuring ownership
         try:
             job = repos['extraction_job'].get_job_by_id(job_id)
             if not job:
@@ -361,7 +383,7 @@ async def get_extraction_job_status(
         progress = None
         if job['status'] == 'completed':
             try:
-                metadata = repos['hybrid_manager'].get_job_metadata(job_id, storage_preference="hybrid")
+                metadata = repos['hybrid_manager'].get_job_metadata(job_id, current_user.id, storage_preference="hybrid")
                 if metadata:
                     progress = {
                         'total_results': metadata['total_results'],
@@ -416,9 +438,10 @@ async def get_extraction_job_status(
 @router.get("/projects/{project_id}/jobs", response_model=List[ExtractionJobStatus])
 async def get_project_extraction_jobs(
     project_id: str,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get all extraction jobs for a project."""
+    """Get all extraction jobs for a project for current user."""
     try:
         # Validate project_id - accept UUID strings
         if not project_id or not isinstance(project_id, str):
@@ -427,7 +450,7 @@ async def get_project_extraction_jobs(
                 detail="Invalid project_id: must be a valid string identifier"
             )
 
-        # Get all jobs for the project
+        # Get all jobs for the project belonging to current user
         try:
             jobs_data = repos['extraction_job'].get_jobs_by_project(project_id)
         except Exception as e:
@@ -439,7 +462,7 @@ async def get_project_extraction_jobs(
             progress = None
             if job_data['status'] == 'completed':
                 try:
-                    metadata = repos['hybrid_manager'].get_job_metadata(job_data['id'], storage_preference="hybrid")
+                    metadata = repos['hybrid_manager'].get_job_metadata(job_data['id'], current_user.id, storage_preference="hybrid")
                     if metadata:
                         progress = {
                             'total_results': metadata['total_results'],
@@ -499,7 +522,7 @@ async def get_project_extraction_jobs(
                 "completed_at": parse_datetime(job_data['completed_at']),
                 "error_message": job_data['error_message']
             }
-            logger.debug(f"job_status_data: {job_status_data}")
+            logger.debug(f"DEBUG_JOB_STATUS_DATA: {job_status_data}")
 
             jobs.append(ExtractionJobStatus(**job_status_data))
 
@@ -517,11 +540,12 @@ async def get_extraction_results(
     page_size: int = Query(50, ge=1, le=100),
     min_confidence: Optional[float] = Query(None, ge=0.0, le=1.0),
     category_filter: Optional[str] = None,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get paginated results for an extraction job."""
+    """Get paginated results for an extraction job for current user."""
     try:
-        # Check if job exists and is completed
+        # Check if job exists and belongs to user
         job = repos['extraction_job'].get_job_by_id(job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Extraction job with ID {job_id} not found")
@@ -539,6 +563,7 @@ async def get_extraction_results(
         try:
             paginated_results, has_more, total_results = repos['hybrid_manager'].retrieve_results(
                 job_id=job_id,
+                owner_id=current_user.id,
                 page=page,
                 page_size=page_size,
                 min_confidence=min_confidence,
@@ -621,9 +646,10 @@ async def get_extraction_results(
 @router.delete("/{job_id}", response_model=ExtractionJobCancellation)
 async def cancel_extraction_job(
     job_id: str,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Cancel an extraction job if it's still pending or processing."""
+    """Cancel an extraction job for current user if it's still pending or processing."""
     try:
         job = repos['extraction_job'].get_job_by_id(job_id)
         if not job:
@@ -640,7 +666,7 @@ async def cancel_extraction_job(
 
         # Clean up any partial results using hybrid storage
         try:
-            repos['hybrid_manager'].delete_job_results(job_id, storage_preference="hybrid")
+            repos['hybrid_manager'].delete_job_results(job_id, current_user.id, storage_preference="hybrid")
         except Exception as e:
             api_logger.log_warning(
                 f"Failed to delete results for cancelled job {job_id}: {e}",
@@ -664,9 +690,10 @@ async def cancel_extraction_job(
 @router.delete("/{job_id}/delete", response_model=dict)
 async def delete_extraction_job(
     job_id: str,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Permanently delete an extraction job and all associated data."""
+    """Permanently delete an extraction job and all associated data for current user."""
     try:
         # Validate job_id format
         import re
@@ -682,7 +709,7 @@ async def delete_extraction_job(
                 detail="Invalid job_id: must be a UUID string"
             )
 
-        # Check if job exists
+        # Check if job exists and belongs to user
         job = repos['extraction_job'].get_job_by_id(job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Extraction job with ID {job_id} not found")
@@ -701,7 +728,7 @@ async def delete_extraction_job(
 
         # Delete from filesystem first
         try:
-            filesystem_success = repos['filesystem_manager'].delete_job_results(job_id)
+            filesystem_success = repos['filesystem_manager'].delete_job_results(job_id, current_user.id)
             api_logger.log_warning(
                 f"Filesystem deletion result for job {job_id}: {filesystem_success}",
                 "filesystem_deletion",
@@ -716,50 +743,53 @@ async def delete_extraction_job(
             # Continue with database deletion even if filesystem fails
 
         # Delete from database using a single transaction
-        db = get_db()
-        cursor = db.cursor()
         try:
-            # Start transaction
-            cursor.execute("BEGIN TRANSACTION")
+            with get_db_connection(owner_id=current_user.id) as db:
+                cursor = db.cursor()
+                try:
+                    # Start transaction
+                    cursor.execute("BEGIN TRANSACTION")
 
-            # First check how many results exist for this job
-            cursor.execute("SELECT COUNT(*) FROM extraction_results WHERE job_id = ?", (job_id,))
-            results_count_before = cursor.fetchone()[0]
-            api_logger.log_warning(
-                f"Found {results_count_before} extraction results for job {job_id} before deletion",
-                "database_results_check",
-                context={"job_id": job_id}
-            )
+                    # First check how many results exist for this job
+                    cursor.execute("SELECT COUNT(*) FROM extraction_results WHERE job_id = ?", (job_id,))
+                    results_count_before = cursor.fetchone()[0]
+                    api_logger.log_warning(
+                        f"Found {results_count_before} extraction results for job {job_id} before deletion",
+                        "database_results_check",
+                        context={"job_id": job_id}
+                    )
 
-            # Delete extraction results first
-            cursor.execute("DELETE FROM extraction_results WHERE job_id = ?", (job_id,))
-            results_deleted = cursor.rowcount
-            api_logger.log_warning(
-                f"Deleted {results_deleted} extraction results for job {job_id}",
-                "database_results_deletion",
-                context={"job_id": job_id, "results_deleted": results_deleted}
-            )
+                    # Delete extraction results first
+                    cursor.execute("DELETE FROM extraction_results WHERE job_id = ?", (job_id,))
+                    results_deleted = cursor.rowcount
+                    api_logger.log_warning(
+                        f"Deleted {results_deleted} extraction results for job {job_id}",
+                        "database_results_deletion",
+                        context={"job_id": job_id, "results_deleted": results_deleted}
+                    )
 
-            # Then delete the job record (CASCADE will handle any remaining results)
-            cursor.execute("DELETE FROM extraction_jobs WHERE id = ?", (job_id,))
-            job_deleted = cursor.rowcount
-            api_logger.log_warning(
-                f"Deleted {job_deleted} extraction job record for {job_id}",
-                "database_job_deletion",
-                context={"job_id": job_id, "job_deleted": job_deleted}
-            )
+                    # Then delete the job record (CASCADE will handle any remaining results)
+                    cursor.execute("DELETE FROM extraction_jobs WHERE id = ?", (job_id,))
+                    job_deleted = cursor.rowcount
+                    api_logger.log_warning(
+                        f"Deleted {job_deleted} extraction job record for {job_id}",
+                        "database_job_deletion",
+                        context={"job_id": job_id, "job_deleted": job_deleted}
+                    )
 
-            # Commit transaction
-            db.commit()
-            api_logger.log_operation_complete(
-                "delete_extraction_job",
-                duration=0.0,
-                context={"job_id": job_id, "results_deleted": results_deleted, "job_deleted": job_deleted}
-            )
+                    # Commit transaction
+                    db.commit()
+                    api_logger.log_operation_complete(
+                        "delete_extraction_job",
+                        duration=0.0,
+                        context={"job_id": job_id, "results_deleted": results_deleted, "job_deleted": job_deleted}
+                    )
 
+                except Exception as inner_e:
+                    # Rollback on any error
+                    db.rollback()
+                    raise inner_e
         except Exception as e:
-            # Rollback on any error
-            db.rollback()
             api_logger.log_error(
                 e,
                 "database_deletion_failed",
@@ -799,9 +829,10 @@ async def delete_extraction_job(
 async def restart_extraction_job(
     job_id: str,
     http_request: Request,
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Restart a failed or cancelled extraction job."""
+    """Restart a failed or cancelled extraction job for current user."""
     try:
         job = repos['extraction_job'].get_job_by_id(job_id)
         if not job:
@@ -825,6 +856,7 @@ async def restart_extraction_job(
 
             job_params = {
                 "operation": "extraction",
+                "owner_id": current_user.id,
                 "taxonomy_id": parameters.get('taxonomy_id'),
                 "selected_categories": parameters.get('selected_categories', []),
                 "parameters": parameters.get('parameters', {}),
@@ -836,7 +868,8 @@ async def restart_extraction_job(
             }
             job_id_str = job_queue_manager.submit_job(
                 job_type=JobType.EXTRACTION,
-                parameters=job_params
+                parameters=job_params,
+                user_id=current_user.id
             )
         except Exception as e:
             raise handle_extraction_error(e, "restart_extraction_job", job_id=job_id)
@@ -870,11 +903,13 @@ def get_monitor_instance(repos=Depends(get_repositories)):
 
 @router.get("/storage/health")
 async def get_storage_health(
-    job_id: Optional[int] = None,
+    job_id: Optional[str] = None,
     repos=Depends(get_repositories),
-    monitor=Depends(get_monitor_instance)
+    monitor=Depends(get_monitor_instance),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get storage health status and integrity check results."""
+    """Get storage health status for current user."""
+    # TODO: Update health check to be user-scoped
     try:
         # Perform integrity check
         integrity_report = repos['filesystem_manager'].check_file_integrity(job_id)
@@ -893,30 +928,37 @@ async def get_storage_health(
         raise HTTPException(status_code=500, detail=f"Failed to get storage health: {str(e)}")
 
 @router.get("/storage/stats")
-async def get_storage_statistics(repos=Depends(get_repositories)):
-    """Get storage usage statistics."""
+async def get_storage_statistics(
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    """Get storage usage statistics for current user."""
     try:
-        # Calculate storage statistics
-        base_path = repos['filesystem_manager'].file_manager.base_path
+        # Calculate storage statistics for current user
+        user_storage_path = Path(f"storage/{current_user.id}")
 
         total_files = 0
         total_size = 0
         projects_count = 0
 
-        if base_path.exists():
-            for project_dir in base_path.iterdir():
-                if project_dir.is_dir() and project_dir.name.isdigit():
-                    projects_count += 1
-                    for file_path in project_dir.glob("*.json"):
-                        total_files += 1
-                        total_size += file_path.stat().st_size
-
+        if user_storage_path.exists():
+            # Documents in uploads
+            uploads_path = user_storage_path / "uploads"
+            if uploads_path.exists():
+                for project_dir in uploads_path.iterdir():
+                    if project_dir.is_dir():
+                        projects_count += 1
+                        for file_path in project_dir.iterdir():
+                            if file_path.is_file():
+                                total_files += 1
+                                total_size += file_path.stat().st_size
+                                
         return {
             'total_files': total_files,
             'total_size_mb': total_size / (1024 * 1024),
             'projects_count': projects_count,
             'avg_file_size_kb': (total_size / max(total_files, 1)) / 1024,
-            'storage_path': str(base_path),
+            'storage_path': str(user_storage_path),
             'last_updated': datetime.utcnow().isoformat()
         }
     except Exception as e:
@@ -999,38 +1041,34 @@ async def run_integrity_check(
 @router.post("/storage/maintenance/cleanup")
 async def cleanup_storage(
     days_old: int = Query(30, ge=1, le=365),
-    repos=Depends(get_repositories)
+    repos=Depends(get_repositories),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Clean up old storage files and directories."""
+    """Clean up old storage files and directories for current user."""
     try:
-        # This is a simplified cleanup - in production you'd want more sophisticated logic
-        base_path = repos['filesystem_manager'].file_manager.base_path
+        user_storage_path = Path(f"storage/{current_user.id}")
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
 
         cleaned_files = 0
-        cleaned_projects = 0
 
-        if base_path.exists():
-            for project_dir in base_path.iterdir():
-                if project_dir.is_dir() and project_dir.name.isdigit():
-                    # Note: We don't delete project directories during cleanup
-                    # because they might contain fresh files from other jobs.
-                    # We only clean up old files within them.
-                    try:
-                        project_id = int(project_dir.name)
-                        for file_path in project_dir.glob("*.json"):
-                            stat = file_path.stat()
-                            file_date = datetime.fromtimestamp(stat.st_mtime)
-                            if file_date < cutoff_date:
-                                file_path.unlink()
-                                cleaned_files += 1
-                    except ValueError:
-                        continue
+        if user_storage_path.exists():
+            for folder in ["uploads", "parsed", "chunks", "taxonomy", "extract", "datasets", "dataqual"]:
+                folder_path = user_storage_path / folder
+                if folder_path.exists():
+                    for project_dir in folder_path.iterdir():
+                        if project_dir.is_dir():
+                            for file_path in project_dir.iterdir():
+                                if file_path.is_file():
+                                    stat = file_path.stat()
+                                    file_date = datetime.fromtimestamp(stat.st_mtime)
+                                    if file_date < cutoff_date:
+                                        file_path.unlink()
+                                        cleaned_files += 1
 
         return {
             'cleaned_files': cleaned_files,
             'days_old_threshold': days_old,
-            'message': f'Cleaned up {cleaned_files} files in project directories',
+            'message': f'Cleaned up {cleaned_files} files in user storage',
             'timestamp': datetime.utcnow().isoformat()
         }
     except Exception as e:

@@ -14,7 +14,8 @@ List all projects with pagination support.
 
 **Request:**
 ```bash
-curl "http://localhost:8000/api/v1/projects?page=1&per_page=20"
+curl "http://localhost:8000/api/v1/projects?page=1&per_page=20" \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
 **Query Parameters:**
@@ -64,6 +65,7 @@ Create a new project.
 ```bash
 curl -X POST "http://localhost:8000/api/v1/projects/" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
   -d '{
     "name": "New Research Project",
     "description": "A project for analyzing research documents"
@@ -98,7 +100,8 @@ Get detailed information about a specific project.
 
 **Request:**
 ```bash
-curl "http://localhost:8000/api/v1/projects/1"
+curl "http://localhost:8000/api/v1/projects/1" \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
 **Response:**
@@ -121,7 +124,8 @@ Get all documents associated with a project.
 
 **Request:**
 ```bash
-curl "http://localhost:8000/api/v1/projects/1/documents"
+curl "http://localhost:8000/api/v1/projects/1/documents" \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
 **Response:**
@@ -148,7 +152,8 @@ Get all datasets associated with a project.
 
 **Request:**
 ```bash
-curl "http://localhost:8000/api/v1/projects/1/datasets"
+curl "http://localhost:8000/api/v1/projects/1/datasets" \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
 **Response:**
@@ -178,6 +183,7 @@ Update project information.
 ```bash
 curl -X PUT "http://localhost:8000/api/v1/projects/1" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
   -d '{
     "name": "Updated Medical Research Project",
     "description": "Updated analysis of medical documents with new focus"
@@ -238,7 +244,8 @@ Delete a project and all associated data with comprehensive cascading cleanup.
 
 **Request:**
 ```bash
-curl -X DELETE "http://localhost:8000/api/v1/projects/1"
+curl -X DELETE "http://localhost:8000/api/v1/projects/1" \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
 **Response:**
@@ -262,6 +269,7 @@ Bulk delete multiple projects.
 ```bash
 curl -X DELETE "http://localhost:8000/api/v1/projects/" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
   -d '{
     "project_ids": [1, 2, 3]
   }'

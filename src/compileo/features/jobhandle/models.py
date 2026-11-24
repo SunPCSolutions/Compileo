@@ -38,6 +38,7 @@ class JobType(str, Enum):
     TAXONOMY_PROCESSING = "taxonomy_processing"
     DATASET_GENERATION = "dataset_generation"
     BENCHMARKING = "benchmarking"
+    PLUGIN_TASK = "plugin_task"
     CLEANUP = "cleanup"
     MAINTENANCE = "maintenance"
 

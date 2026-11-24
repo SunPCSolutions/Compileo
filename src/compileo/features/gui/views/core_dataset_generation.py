@@ -4,13 +4,22 @@ Handles advanced dataset generation with comprehensive controls.
 """
 
 import streamlit as st
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import time
 
 from ..services.api_client import api_client, APIError
 from ..services.document_api_service import get_projects
+from ..services.unified_job_service import unified_job_service, JobResult
 from ..state.session_state import session_state
-from ..services.job_monitoring_service import monitor_job_synchronously
+from ...jobhandle.models import JobType, JobPriority
+
+
+def _get_user_id() -> Optional[str]:
+    """Get the current user ID from session state."""
+    try:
+        return session_state.user_id
+    except:
+        return None
 
 
 def render_core_dataset_generation():
@@ -60,7 +69,7 @@ def render_generate_dataset():
         st.markdown("**📄 Documents**")
         try:
             docs_response = api_client.get(f"/api/v1/documents?project_id={selected_project_id}")
-            documents = docs_response.get('documents', [])
+            documents = docs_response.get('documents', []) if docs_response else []
 
             if documents:
                 doc_options = {f"{d['file_name']} (ID: {d['id']})": d['id'] for d in documents}
@@ -86,7 +95,7 @@ def render_generate_dataset():
         st.markdown("**🤖 Generation Model**")
         classification_model = st.selectbox(
             "Model",
-            options=["grok", "gemini", "ollama", "openai"],
+            options=["gemini", "grok", "ollama", "openai"],
             index=0,
             help="AI model used to generate dataset entries. Grok provides detailed reasoning, Gemini is fast and accurate, Ollama runs locally."
         )
@@ -102,13 +111,9 @@ def render_generate_dataset():
 
     with col5:
         st.markdown("**📄 Output Format**")
-        # Get available formats dynamically including plugins
-        try:
-            formats_response = api_client.get("/api/v1/plugins/dataset-formats")
-            available_formats = formats_response.get("formats", ["jsonl", "parquet"])
-        except Exception as e:
-            st.warning(f"Could not load plugin formats: {e}. Using default formats.")
-            available_formats = ["jsonl", "parquet"]
+        # Get available formats dynamically including plugins (cached)
+        from ..services.plugin_cache import get_dataset_formats_cached
+        available_formats = get_dataset_formats_cached()
 
         format_type = st.selectbox(
             "Format",
@@ -160,10 +165,15 @@ def render_generate_dataset():
         st.markdown("**📊 Dataset Size**")
         datasets_per_chunk = st.number_input(
             "Entries per Chunk",
-            min_value=1,
+            min_value=0,
             value=3,
             step=1,
-            help="Number of dataset entries to generate from each document chunk. Higher values create more data but increase processing time."
+            help="""Number of dataset entries to generate from each document chunk.
+
+• **1-10**: Fixed number of entries per chunk
+• **0**: Let AI Decide - AI determines the appropriate number based on content richness
+
+Higher values create more data but increase processing time."""
         )
 
     with col7:
@@ -290,12 +300,14 @@ def render_generate_dataset():
         generate_button = st.button(
             "🚀 Generate Dataset",
             type="primary",
-            width='stretch'
+            use_container_width=True
         )
 
     if generate_button:
         if not selected_doc_ids:
             st.error("❌ Please select at least one document")
+        elif data_source == "Extract" and not extraction_file_id:
+            st.error("❌ Please select an extraction file when using 'Extract' data source")
         else:
             generate_dataset(
                 project_id=selected_project_id,
@@ -317,7 +329,6 @@ def render_generate_dataset():
                 datasets_per_chunk=datasets_per_chunk,
                 custom_prompt=custom_prompt
             )
-
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -349,7 +360,7 @@ def get_project_extraction_files(project_id: int) -> list:
 
 
 def generate_dataset(**kwargs):
-    """Generate dataset with provided parameters."""
+    """Generate dataset with provided parameters using unified job service."""
     try:
         # Prepare the request data - simplified for compact design
         request_data = {
@@ -380,64 +391,45 @@ def generate_dataset(**kwargs):
                     request_data["purpose"] = kwargs[field]
                 else:
                     request_data[field] = kwargs[field]
+        
+        # Add taxonomy_project when taxonomy_name is provided
+        # This is required for the taxonomy loader to initialize properly
+        if kwargs.get("taxonomy_name"):
+            request_data["taxonomy_project"] = kwargs["project_id"]
 
-        # Start dataset generation
-        with st.spinner("🚀 Starting dataset generation..."):
-            response = api_client.post("/api/v1/datasets/generate", request_data)
+        user_id = _get_user_id()
+        if not user_id:
+            st.error("❌ You must be logged in to generate datasets.")
+            return
 
-            if response and "job_id" in response:
-                job_id = response["job_id"]
-                st.success(f"✅ Dataset generation started! Job ID: {job_id}")
-                
-                # Monitor job synchronously in-view (Wizard-style)
-                success = monitor_job_synchronously(job_id, success_text="Dataset generation completed!", endpoint_type="dataset")
-                
-                if success:
-                    # Switch to Browse tab and refresh
-                    st.session_state.generation_job_id = None
-                    st.rerun()
-            else:
-                st.error("❌ Failed to start dataset generation")
+        # Use unified job service for submission and monitoring
+        result = unified_job_service.submit_and_monitor(
+            job_type=JobType.DATASET_GENERATION,
+            parameters=request_data,
+            priority=JobPriority.NORMAL,
+            user_id=user_id,
+            title="Generating Dataset",
+            timeout=7200,  # 2 hours
+            poll_interval=5
+        )
+
+        if result.success:
+            dataset_result = result.result or {}
+            # Unwrap nested result if present (common pattern from worker response)
+            if "result" in dataset_result and isinstance(dataset_result["result"], dict):
+                dataset_result = dataset_result["result"]
+            
+            dataset_id = dataset_result.get("dataset_id", "Unknown")
+            entries_count = dataset_result.get("entries_count", 0)
+            st.success(f"✅ Dataset generation completed! ID: {dataset_id} with {entries_count} entries")
+            # Clear the job ID from session state
+            session_state.generation_job_id = None
+        else:
+            st.error(f"❌ Dataset generation failed: {result.error_message}")
+            session_state.generation_job_id = None
 
     except Exception as e:
         st.error(f"❌ Error: {e}")
-
-
-def display_generation_status(job_id: str):
-    """Display dataset generation status and results with enhanced UI."""
-    try:
-        status_response = api_client.get(f"/api/v1/datasets/generate/{job_id}/status")
-
-        if status_response:
-            status = status_response.get("status", "unknown")
-            progress = status_response.get("progress", 0)
-            current_step = status_response.get("current_step", "Unknown")
-
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-header">📊 Generation Status</div>', unsafe_allow_html=True)
-
-            # Progress bar with percentage
-            st.markdown(f'<div class="progress-label">Progress: {progress}%</div>', unsafe_allow_html=True)
-            st.progress(progress / 100)
-
-            if status == "running":
-                st.markdown(f'<div class="status-info">ℹ️ Current Step: {current_step}</div>', unsafe_allow_html=True)
-            elif status == "completed":
-                st.markdown('<div class="status-success">✅ Dataset generation completed successfully!</div>', unsafe_allow_html=True)
-
-                # Clear the job ID
-                session_state.generation_job_id = None
-            elif status == "failed":
-                st.markdown('<div class="status-error">❌ Dataset generation failed</div>', unsafe_allow_html=True)
-                error = status_response.get("error")
-                if error:
-                    st.markdown(f'<div class="status-error">❌ Error: {error}</div>', unsafe_allow_html=True)
-                session_state.generation_job_id = None
-
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    except Exception as e:
-        st.markdown(f'<div class="status-error">❌ Error checking generation status: {e}</div>', unsafe_allow_html=True)
 
 
 def render_dataset_browser_management():
@@ -506,11 +498,11 @@ def render_dataset_browser_management():
         filtered_datasets.sort(key=lambda x: x.get('file_size', 0), reverse=True)
 
     # Bulk selection controls
-    render_bulk_selection_controls_datasets(filtered_datasets)
+    render_bulk_selection_controls_datasets(filtered_datasets, selected_project_id)
 
     # Display datasets
     for dataset in filtered_datasets:
-        render_dataset_card(dataset)
+        render_dataset_card(dataset, selected_project_id)
 
     # Export functionality
     st.divider()
@@ -527,7 +519,7 @@ def render_dataset_browser_management():
             export_datasets_csv(filtered_datasets)
 
 
-def render_bulk_selection_controls_datasets(datasets: List[Dict[str, Any]]):
+def render_bulk_selection_controls_datasets(datasets: List[Dict[str, Any]], project_id: str):
     """Render bulk selection controls for datasets."""
     if not datasets:
         return
@@ -561,10 +553,10 @@ def render_bulk_selection_controls_datasets(datasets: List[Dict[str, Any]]):
 
     # Bulk delete confirmation
     if st.session_state.get('dataset_bulk_delete_confirm', False):
-        render_bulk_delete_confirmation_datasets()
+        render_bulk_delete_confirmation_datasets(project_id)
 
 
-def render_bulk_delete_confirmation_datasets():
+def render_bulk_delete_confirmation_datasets(project_id: str):
     """Render bulk delete confirmation dialog for datasets."""
     selected_ids = st.session_state.get('dataset_bulk_selected', [])
     if not selected_ids:
@@ -580,7 +572,7 @@ def render_bulk_delete_confirmation_datasets():
             try:
                 with st.spinner(f"Deleting {len(selected_ids)} datasets..."):
                     for dataset_id in selected_ids:
-                        api_client.delete(f"/api/v1/datasets/{dataset_id}/delete")
+                        api_client.delete(f"/api/v1/datasets/{dataset_id}/delete?project_id={project_id}")
 
                 st.success(f"Successfully deleted {len(selected_ids)} datasets!")
                 st.session_state.dataset_bulk_selected = []
@@ -599,7 +591,7 @@ def render_bulk_delete_confirmation_datasets():
             st.rerun()
 
 
-def render_dataset_card(dataset: Dict[str, Any]):
+def render_dataset_card(dataset: Dict[str, Any], selected_project_id: str):
     """Render a dataset card with management actions."""
     with st.container():
         # Checkbox for bulk selection
@@ -645,21 +637,53 @@ def render_dataset_card(dataset: Dict[str, Any]):
                     st.rerun()
 
             with col2:
-                # Direct link to backend for downloading
-                api_base = api_client.base_url
-                download_url = f"{api_base}/api/v1/datasets/{dataset['id']}/download"
-                st.markdown(
-                    f'<a href="{download_url}" target="_self" style="text-decoration: none;">'
-                    f'<button style="width: 100%; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.2); '
-                    f'background-color: transparent; color: white; padding: 0.5rem; border-radius: 0.25rem;">'
-                    f'📥 Download</button></a>',
-                    unsafe_allow_html=True
-                )
+                # Use a state variable to track if this specific file is ready for download
+                dl_state_key = f"dl_ready_{dataset['id']}"
+                if not st.session_state.get(dl_state_key):
+                    if st.button("📥 Download Dataset", key=f"prep_download_{dataset['id']}", width='stretch', help="Fetch and save the dataset file"):
+                        st.session_state[dl_state_key] = True
+                        st.rerun()
+                
+                if st.session_state.get(dl_state_key):
+                    try:
+                        # 1. Fetch the download URL using the job ID
+                        response = api_client.get(f"/api/v1/datasets/{dataset['id']}/download?project_id={selected_project_id}")
+                        if response and response.get('download_url'):
+                            download_endpoint = response['download_url']
+                            
+                            # 2. Fetch the actual binary file
+                            with st.spinner("Fetching dataset..."):
+                                @st.cache_data(ttl=3600)
+                                def get_cached_file(url):
+                                    return api_client.get_file(url)
+                                    
+                                file_content = get_cached_file(download_endpoint)
+                                if file_content:
+                                    filename = download_endpoint.split("/")[-2]
+                                    
+                                    # Show the Streamlit native download button directly
+                                    st.download_button(
+                                        label=f"📥 Download '{filename}'",
+                                        data=file_content,
+                                        file_name=filename,
+                                        mime="application/octet-stream",
+                                        key=f"real_download_{dataset['id']}",
+                                        use_container_width=True
+                                    )
+                                else:
+                                    st.error("Failed to retrieve file content.")
+                                    st.session_state[dl_state_key] = False
+                        else:
+                            st.error("Download URL not available")
+                            st.session_state[dl_state_key] = False
+                    except Exception as e:
+                        st.error(f"Failed to fetch dataset: {e}")
+                        st.session_state[dl_state_key] = False
 
             with col3:
                 if st.button("📊 Export JSON", key=f"export_dataset_{dataset['id']}", width='stretch'):
                     try:
-                        response = api_client.get(f"/api/v1/datasets/{dataset['id']}/details")
+                        response = api_client.get(f"/api/v1/datasets/{dataset['id']}/details?project_id={selected_project_id}")
                         if response:
                             import json
                             json_str = json.dumps(response, indent=2, default=str)
@@ -680,17 +704,17 @@ def render_dataset_card(dataset: Dict[str, Any]):
 
             # Individual delete confirmation
             if st.session_state.get(f'dataset_delete_confirm_{dataset["id"]}', False):
-                render_individual_delete_confirmation_datasets(dataset)
+                render_individual_delete_confirmation_datasets(dataset, selected_project_id)
 
             # Dataset details expander
             if st.session_state.get(f'dataset_details_expanded_{dataset["id"]}', False):
                 with st.expander("📋 Dataset Details", expanded=True):
-                    render_dataset_details(dataset)
+                    render_dataset_details(dataset, selected_project_id)
 
         st.divider()
 
 
-def render_individual_delete_confirmation_datasets(dataset: Dict[str, Any]):
+def render_individual_delete_confirmation_datasets(dataset: Dict[str, Any], project_id: str):
     """Render individual delete confirmation for a dataset."""
     dataset_id = dataset['id']
 
@@ -703,7 +727,7 @@ def render_individual_delete_confirmation_datasets(dataset: Dict[str, Any]):
         if st.button(f"❌ Yes, Delete Dataset {dataset_id}", type="primary", width='stretch'):
             try:
                 with st.spinner(f"Deleting dataset {dataset_id}..."):
-                    api_client.delete(f"/api/v1/datasets/{dataset_id}/delete")
+                    api_client.delete(f"/api/v1/datasets/{dataset_id}/delete?project_id={project_id}")
 
                 st.success(f"Dataset {dataset_id} deleted successfully!")
                 del st.session_state[f'dataset_delete_confirm_{dataset_id}']
@@ -721,11 +745,11 @@ def render_individual_delete_confirmation_datasets(dataset: Dict[str, Any]):
             st.rerun()
 
 
-def render_dataset_details(dataset: Dict[str, Any]):
+def render_dataset_details(dataset: Dict[str, Any], project_id: str):
     """Render detailed information about a dataset."""
     try:
         # Get full dataset details
-        response = api_client.get(f"/api/v1/datasets/{dataset['id']}/details")
+        response = api_client.get(f"/api/v1/datasets/{dataset['id']}/details?project_id={project_id}")
         if not response:
             st.error("Failed to load dataset details.")
             return

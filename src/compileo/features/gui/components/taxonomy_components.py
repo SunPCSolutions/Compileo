@@ -42,39 +42,33 @@ def render_taxonomy_tree(node: Dict[str, Any], depth: int = 0, taxonomy_id: int 
                 render_taxonomy_tree(child, depth + 1, taxonomy_id, search_term, child_path)
 
 
-def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_depth: int, path: str, taxonomy: Dict[str, Any], default_expanded: Optional[bool] = None, key_prefix: str = ""):
+def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_depth: int, path: str, taxonomy: Dict[str, Any]):
     """Render a collapsible category builder with per-category depth controls."""
     node_name = node.get("name", "")
     node_desc = node.get("description", "")
     confidence = node.get("confidence_threshold", 0.8)
     children = node.get("children", [])
     depth_limit = node.get("depth_limit", max_depth - level - 1)
-    
-    # Use key_prefix for unique widget keys
-    key_path = f"{key_prefix}_{path}" if key_prefix else path
 
     # Color coding based on confidence
     color = "🟢" if confidence >= 0.8 else "🟡" if confidence >= 0.6 else "🔴"
 
-    # Determine expansion state: use explicit override or default logic (level 0 expanded)
-    is_expanded = default_expanded if default_expanded is not None else (level == 0)
-
     # Collapsible expander for this category
-    with st.expander(f"{color} {node_name or f'Category {level + 1}'} (Level {level + 1})", expanded=is_expanded):
+    with st.expander(f"{color} {node_name or f'Category {level + 1}'} (Level {level + 1})", expanded=(level == 0)):
         # Category inputs
         col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
         with col1:
             node["name"] = st.text_input(
                 f"Category Name (Level {level + 1})",
                 value=node_name,
-                key=f"node_name_{key_path}",
+                key=f"node_name_{path}",
                 placeholder=f"Enter category name for level {level + 1}"
             )
         with col2:
             node["description"] = st.text_input(
                 f"Description (Level {level + 1})",
                 value=node_desc,
-                key=f"node_desc_{key_path}",
+                key=f"node_desc_{path}",
                 placeholder="Optional description"
             )
         with col3:
@@ -84,7 +78,7 @@ def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_de
                 max_value=1.0,
                 value=confidence,
                 step=0.1,
-                key=f"node_conf_{key_path}"
+                key=f"node_conf_{path}"
             )
         with col4:
             # Per-category depth control
@@ -95,7 +89,7 @@ def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_de
                     min_value=0,
                     max_value=max_possible_depth,
                     value=min(depth_limit, max_possible_depth),
-                    key=f"depth_limit_{key_path}",
+                    key=f"depth_limit_{path}",
                     help=f"Maximum additional levels for this category (0-{max_possible_depth})"
                 )
             else:
@@ -105,7 +99,7 @@ def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_de
         col1, col2, col3 = st.columns(3)
         with col1:
             if level < max_depth - 1 and (node.get("depth_limit", 0) > 0 or level < max_depth - 1):
-                if st.button(f"➕ Add Subcategory", key=f"add_child_{key_path}", width='stretch'):
+                if st.button(f"➕ Add Subcategory", key=f"add_child_{path}", width='stretch'):
                     if "children" not in node:
                         node["children"] = []
                     node["children"].append({
@@ -120,25 +114,16 @@ def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_de
         with col2:
             # AI extend button for individual categories
             if node.get("name", "").strip() and taxonomy.get("creation_mode") in ["manual", "hybrid"]:
-                if st.button(f"🚀 AI Extend", key=f"extend_{key_path}", help=f"Use AI to add subcategories to '{node['name']}'", width='stretch'):
+                if st.button(f"🚀 AI Extend", key=f"extend_{path}", help=f"Use AI to add subcategories to '{node['name']}'", width='stretch'):
                     from src.compileo.features.gui.utils.taxonomy_utils import extend_category_with_ai
                     extend_category_with_ai(path, taxonomy, node.get("depth_limit", 2), "gemini", "general")
-                    # Auto-save after AI extension
-                    from src.compileo.features.gui.utils.taxonomy_utils import save_unified_taxonomy
-                    save_unified_taxonomy(taxonomy)
 
         with col3:
-            if st.button("🗑️ Remove", key=f"remove_{key_path}", help=f"Remove this category", width='stretch'):
-                from src.compileo.features.gui.utils.taxonomy_utils import remove_category_from_unified_tree, save_unified_taxonomy
-                # 1. Modify the local state immediately
+            if st.button("🗑️ Remove", key=f"remove_{path}", help=f"Remove this category", width='stretch'):
+                from src.compileo.features.gui.utils.taxonomy_utils import remove_category_from_unified_tree
                 remove_category_from_unified_tree(path)
-                # 2. Sync to backend silently
-                save_unified_taxonomy(taxonomy, silent=True)
-                # 3. Mark for wizard-wide refresh
-                from src.compileo.features.gui.state.wizard_state import wizard_state
-                wizard_state.needs_refresh = True
-                # 4. Trigger a full script rerun to ensure all widgets are rebuilt correctly
                 st.rerun()
+                return
 
         # Render children recursively
         if children:
@@ -147,7 +132,7 @@ def render_collapsible_category_builder(node: Dict[str, Any], level: int, max_de
                 child_path = f"{path}_{i}"
                 remaining_depth = min(node.get("depth_limit", max_depth - level - 1), max_depth - level - 1)
                 if remaining_depth > 0:
-                    render_collapsible_category_builder(child, level + 1, max_depth, child_path, taxonomy, default_expanded=default_expanded, key_prefix=key_prefix)
+                    render_collapsible_category_builder(child, level + 1, max_depth, child_path, taxonomy)
 
         st.divider()
 
@@ -228,8 +213,8 @@ def render_taxonomy_category_builder(node: Dict[str, Any], level: int, max_depth
 def render_taxonomy_card(taxonomy: Dict[str, Any]):
     """Render a single taxonomy card with actions."""
     with st.container():
-        # Checkbox column
-        col0, col1, col2, col3, col4 = st.columns([0.5, 2, 1, 1, 1])
+        # Checkbox column + details + 3 action buttons
+        col0, col1, col_export, col_edit, col_delete = st.columns([0.5, 2.5, 1, 1, 1])
 
         with col0:
             # Checkbox for selection
@@ -257,18 +242,43 @@ def render_taxonomy_card(taxonomy: Dict[str, Any]):
             st.write(f"**Confidence:** {taxonomy.get('confidence_score', 0.0):.2f}")
             st.write(f"**Created:** {taxonomy.get('created_at', 'Unknown')[:10] if taxonomy.get('created_at') else 'Unknown'}")
 
-        with col2:
-            if st.button("👁️ View", key=f"view_tax_{taxonomy['id']}", width='stretch'):
-                st.session_state.selected_taxonomy = taxonomy
-                st.rerun()
+        with col_export:
+            dl_state_key = f"dl_taxonomy_ready_{taxonomy['id']}"
+            if not st.session_state.get(dl_state_key):
+                if st.button("📤 Export JSON", key=f"export_tax_{taxonomy['id']}", width='stretch'):
+                    st.session_state[dl_state_key] = True
+                    st.rerun()
+            
+            if st.session_state.get(dl_state_key):
+                try:
+                    from src.compileo.features.gui.services.api_client import api_client
+                    import json
+                    import time
+                    response = api_client.get(f"/api/v1/taxonomy/{taxonomy['id']}")
+                    if response:
+                        json_str = json.dumps(response, indent=2)
+                        st.download_button(
+                            label="📥 Download",
+                            data=json_str,
+                            file_name=f"taxonomy_{taxonomy['id']}_{int(time.time())}.json",
+                            mime="application/json",
+                            width='stretch',
+                            key=f"real_dl_tax_{taxonomy['id']}"
+                        )
+                    else:
+                        st.error("No data to export.")
+                        st.session_state[dl_state_key] = False
+                except Exception as e:
+                    st.error(f"Failed to export taxonomy: {e}")
+                    st.session_state[dl_state_key] = False
 
-        with col3:
+        with col_edit:
             if st.button("✏️ Edit", key=f"edit_tax_{taxonomy['id']}", width='stretch'):
                 st.session_state.editing_taxonomy = taxonomy
                 st.rerun()
 
-        with col4:
-            if st.button("🗑️ Delete", key=f"delete_tax_{taxonomy['id']}", width='stretch'):
+        with col_delete:
+            if st.button("🗑️ Delete", key=f"delete_tax_{taxonomy['id']}", width='stretch', type="secondary"):
                 st.session_state.deleting_taxonomy = taxonomy
                 st.rerun()
 

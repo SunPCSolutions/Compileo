@@ -66,19 +66,24 @@ class LazyResultIterator:
         return results
 
     def _execute_query(self, limit: int, offset: int) -> Tuple[List[Dict[str, Any]], int]:
-        """Execute the search query with pagination."""
+        """Execute the search query with pagination for current user."""
         from .result_search import ResultSearchEngine
         search_engine = ResultSearchEngine(self.db_connection)
 
         # Extract parameters
         query = self.query_params.get('query', '')
+        owner_id = self.query_params.get('owner_id')
         categories = self.query_params.get('categories')
         min_confidence = self.query_params.get('min_confidence')
         date_from = self.query_params.get('date_from')
         date_to = self.query_params.get('date_to')
 
+        if not owner_id:
+             raise ValueError("owner_id must be provided for result search")
+
         return search_engine.full_text_search(
             query=query,
+            owner_id=owner_id,
             categories=categories,
             min_confidence=min_confidence,
             date_from=date_from,
@@ -131,6 +136,7 @@ class PaginatedResultSearch:
     def search_with_pagination(
         self,
         query: str,
+        owner_id: str,
         categories: Optional[List[str]] = None,
         min_confidence: Optional[float] = None,
         date_from: Optional[datetime] = None,
@@ -140,7 +146,7 @@ class PaginatedResultSearch:
         use_cache: bool = True
     ) -> Tuple[List[Any], int, Dict[str, Any]]:
         """
-        Search with pagination and metadata.
+        Search with pagination and metadata for current user.
 
         Returns:
             Tuple of (results, total_count, metadata)
@@ -150,7 +156,7 @@ class PaginatedResultSearch:
 
         # Create cache key
         cache_key = self._create_cache_key(
-            query, categories, min_confidence, date_from, date_to, offset, per_page
+            query, owner_id, categories, min_confidence, date_from, date_to, offset, per_page
         )
 
         # Check cache
@@ -165,6 +171,7 @@ class PaginatedResultSearch:
 
         results, total_count = search_engine.full_text_search(
             query=query,
+            owner_id=owner_id,
             categories=categories,
             min_confidence=min_confidence,
             date_from=date_from,
@@ -196,15 +203,17 @@ class PaginatedResultSearch:
     def get_lazy_iterator(
         self,
         query: str,
+        owner_id: str,
         categories: Optional[List[str]] = None,
         min_confidence: Optional[float] = None,
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
         page_size: Optional[int] = None
     ) -> LazyResultIterator:
-        """Get a lazy iterator for large result sets."""
+        """Get a lazy iterator for large result sets for current user."""
         query_params = {
             'query': query,
+            'owner_id': owner_id,
             'categories': categories,
             'min_confidence': min_confidence,
             'date_from': date_from,
@@ -219,16 +228,17 @@ class PaginatedResultSearch:
 
     def get_category_stats_paginated(
         self,
-        project_id: Optional[int] = None,
+        owner_id: str,
+        project_id: Optional[str] = None,
         page: int = 0,
         per_page: int = 20
     ) -> Tuple[List[Dict[str, Any]], int]:
-        """Get category statistics with pagination."""
+        """Get category statistics with pagination for current user."""
         from .result_search import ResultSearchEngine
         search_engine = ResultSearchEngine(self.db_connection)
 
         # Get all stats
-        all_stats = search_engine.get_category_stats(project_id)
+        all_stats = search_engine.get_category_stats(owner_id, project_id)
 
         # Paginate
         categories = list(all_stats['categories'].items())
@@ -243,18 +253,19 @@ class PaginatedResultSearch:
 
     def get_chunk_stats_paginated(
         self,
-        project_id: Optional[int] = None,
+        owner_id: str,
+        project_id: Optional[str] = None,
         page: int = 0,
         per_page: int = 20,
         sort_by: str = 'oldest_result',
         sort_desc: bool = True
     ) -> Tuple[List[Dict[str, Any]], int]:
-        """Get chunk statistics with pagination and sorting."""
+        """Get chunk statistics with pagination and sorting for current user."""
         from .result_search import ResultSearchEngine
         search_engine = ResultSearchEngine(self.db_connection)
 
         # Get all stats
-        all_stats = search_engine.get_chunk_stats(project_id)
+        all_stats = search_engine.get_chunk_stats(owner_id, project_id)
 
         # Sort chunks
         chunks = list(all_stats['chunks'].values())
@@ -302,18 +313,23 @@ class PaginatedResultSearch:
     def get_search_suggestions(
         self,
         partial_query: str,
+        owner_id: str,
         limit: int = 10
     ) -> List[str]:
-        """Get search suggestions based on partial query."""
+        """Get search suggestions based on partial query for current user."""
         cursor = self.db_connection.cursor()
 
         # Get categories that match
         cursor.execute("""
-            SELECT DISTINCT jsonb_array_elements_text(COALESCE(categories, '[]'::jsonb)) as category
-            FROM extraction_results
-            WHERE jsonb_array_elements_text(COALESCE(categories, '[]'::jsonb)) ILIKE ?
+            SELECT DISTINCT category
+            FROM (
+                SELECT jsonb_array_elements_text(COALESCE(categories, '[]'::jsonb)) as category
+                FROM extraction_results
+                WHERE owner_id = ?
+            ) sub
+            WHERE category ILIKE ?
             LIMIT ?
-        """, (f"{partial_query}%", limit))
+        """, (owner_id, f"{partial_query}%", limit))
 
         categories = [row[0] for row in cursor.fetchall()]
 

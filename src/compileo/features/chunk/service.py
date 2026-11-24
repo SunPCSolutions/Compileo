@@ -11,17 +11,17 @@ from ...storage.src.project.database_repositories import ChunkRepository
 logger = logging.getLogger(__name__)
 
 class ChunkService:
-    def __init__(self, db_connection):
-        self.chunk_repo = ChunkRepository(db_connection)
+    def __init__(self, owner_id: str):
+        self.chunk_repo = ChunkRepository(owner_id)
 
-    def delete_chunk(self, chunk_id: str) -> bool:
+    def delete_chunk(self, chunk_id: str, owner_id: str) -> bool:
         """
-        Delete a chunk by ID from both database and filesystem.
+        Delete a chunk by ID for current user from both database and filesystem.
         """
-        # 1. Get chunk to find file path
+        # 1. Get chunk to find file path, ensuring ownership
         chunk = self.chunk_repo.get_chunk_by_id(chunk_id)
         if not chunk:
-            logger.warning(f"Chunk {chunk_id} not found for deletion")
+            logger.warning(f"Chunk {chunk_id} not found or access denied for user {self.chunk_repo.owner_id}")
             return False
         
         # 2. Delete file
@@ -77,9 +77,9 @@ class ChunkService:
             # Even if DB deletion fails, we return False to indicate overall failure
             return False
 
-    def delete_document_chunks(self, document_id: str) -> int:
+    def delete_document_chunks(self, document_id: str, owner_id: str) -> int:
         """
-        Delete all chunks for a document from both database and filesystem.
+        Delete all chunks for a document for current user from both database and filesystem.
         """
         # 1. Get all chunks
         chunks = self.chunk_repo.get_chunks_by_document(document_id)
@@ -139,15 +139,15 @@ class ChunkService:
             logger.error(f"Error deleting chunks for document {document_id} from database: {e}")
             return 0
 
-    def delete_chunks(self, chunk_ids: List[str]) -> int:
+    def delete_chunks(self, chunk_ids: List[str], owner_id: str) -> int:
         """
-        Delete multiple chunks by their IDs from both database and filesystem.
+        Delete multiple chunks by their IDs for current user from both database and filesystem.
         Returns the number of successfully deleted chunks.
         """
         deleted_count = 0
 
         for chunk_id in chunk_ids:
-            if self.delete_chunk(chunk_id):
+            if self.delete_chunk(chunk_id, owner_id=owner_id):
                 deleted_count += 1
 
         return deleted_count

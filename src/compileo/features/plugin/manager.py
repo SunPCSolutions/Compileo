@@ -7,8 +7,12 @@ import sys
 import logging
 import subprocess
 from typing import Dict, List, Type, Any, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pathlib import Path
+from datetime import datetime
+
+from src.compileo.storage.src.database import get_system_db_connection
+from src.compileo.storage.src.project.database_repositories import PluginRepository
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -50,6 +54,9 @@ class PluginManager:
 
         # Manifests map: Plugin ID -> Manifest
         self.plugin_manifests: Dict[str, PluginManifest] = {}
+        
+        # Ownership map: Plugin ID -> owner_id
+        self.plugin_owners: Dict[str, str] = {}
 
         self._initialized = True
         self.load_plugins()
@@ -68,15 +75,19 @@ class PluginManager:
         # Reload plugins to restore the extensions registry
         self.load_plugins()
 
-    def install_plugin(self, zip_path: str) -> str:
+    def install_plugin(self, zip_path: str, owner_id: str) -> str:
         """
-        Installs a plugin from a zip file.
+        Installs a plugin from a zip file and associates it with an owner.
         Returns the plugin ID upon success.
         """
-        logger.info(f"Installing plugin from {zip_path}")
+        logger.info(f"Installing plugin from {zip_path} for owner {owner_id}")
         
+        # Ensure owner directory exists
+        owner_dir = self.plugins_dir / owner_id
+        owner_dir.mkdir(parents=True, exist_ok=True)
+
         # 1. Create a temporary extraction directory
-        temp_dir = self.plugins_dir / ".temp_extract"
+        temp_dir = owner_dir / ".temp_extract"
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
         temp_dir.mkdir()
@@ -107,14 +118,14 @@ class PluginManager:
                 raise ValueError(f"Invalid plugin.yaml format: {str(e)}")
 
             # 4. Atomic Install Preparation - Handle Existing Plugin
-            final_dir = self.plugins_dir / manifest.id
+            final_dir = owner_dir / manifest.id
             
             # If plugin exists, remove it first (update)
             # CRITICAL: Uninstall MUST happen BEFORE installing new dependencies.
             # Otherwise, uninstalling the old plugin might remove dependencies that the new version also needs.
             if final_dir.exists():
                 logger.info(f"Updating existing plugin: {manifest.id}")
-                self.uninstall_plugin(manifest.id)
+                self.uninstall_plugin(manifest.id, owner_id)
 
             # 5. Handle Dependencies (Install for the NEW version)
             requirements_path = temp_dir / "requirements.txt"
@@ -135,6 +146,28 @@ class PluginManager:
                     logger.error(f"Install script failed for {manifest.id}: {e}")
                     # We continue as the files are already installed
             
+            # 8. Record in Database
+            try:
+                with get_system_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO plugins (id, owner_id, name, version, author, description, entry_point, installed_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        manifest.id,
+                        owner_id,
+                        manifest.name,
+                        manifest.version,
+                        manifest.author,
+                        manifest.description,
+                        manifest.entry_point,
+                        datetime.utcnow()
+                    ))
+                    conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to record plugin {manifest.id} in database: {e}")
+                # We don't fail the whole install if DB fails, but it's bad for multi-tenancy
+
             # Reload plugins to activate the new one
             self.load_plugins()
             
@@ -147,15 +180,39 @@ class PluginManager:
             logger.error(f"Plugin installation failed: {str(e)}")
             raise e
 
-    def uninstall_plugin(self, plugin_id: str) -> bool:
+    def uninstall_plugin(self, plugin_id: str, owner_id: str) -> bool:
         """
-        Uninstalls a plugin by deleting its directory.
+        Uninstalls a plugin and removes its database record.
         """
-        plugin_dir = self.plugins_dir / plugin_id
+        # Find the plugin directory. Try scoped path first, then legacy global path.
+        plugin_dir = self.plugins_dir / owner_id / plugin_id
+        if not plugin_dir.exists():
+            plugin_dir = self.plugins_dir / plugin_id
         
         # Security check: Ensure we are deleting inside plugins_dir
-        if not str(plugin_dir.resolve()).startswith(str(self.plugins_dir.resolve())):
+        if plugin_dir.exists() and not str(plugin_dir.resolve()).startswith(str(self.plugins_dir.resolve())):
              raise ValueError("Security Violation: Attempted to delete outside plugin directory")
+
+        # Verify ownership in DB before doing anything
+        try:
+            with get_system_db_connection() as conn:
+                cursor = conn.cursor()
+                # Check if plugin exists and is owned by this user
+                cursor.execute('SELECT * FROM plugins WHERE id = ? AND owner_id = ?', (plugin_id, owner_id))
+                db_plugin = cursor.fetchone()
+                
+                if not db_plugin:
+                    logger.warning(f"User {owner_id} tried to uninstall plugin {plugin_id} they don't own in DB.")
+                    # We still check if it exists in legacy path
+                    if not plugin_dir.exists():
+                        return False
+                
+                # Delete the plugin record
+                cursor.execute('DELETE FROM plugins WHERE id = ? AND owner_id = ?', (plugin_id, owner_id))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to verify/remove plugin {plugin_id} from database: {e}")
+            return False
 
         if plugin_dir.exists():
             # Handle Uninstall Script (Before removing files)
@@ -202,6 +259,16 @@ class PluginManager:
             # For v1, we reload everything after uninstall which is cleaner
             
             shutil.rmtree(plugin_dir)
+            
+            # Remove from Database
+            try:
+                with get_system_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('DELETE FROM plugins WHERE id = ? AND owner_id = ?', (plugin_id, owner_id))
+                    conn.commit()
+            except Exception as e:
+                logger.error(f"Failed to remove plugin {plugin_id} from database: {e}")
+
             logger.info(f"Plugin {plugin_id} uninstalled.")
             
             # Full reload to clean up registry
@@ -322,18 +389,41 @@ class PluginManager:
         self.extensions = {}
         self.loaded_plugins = {}
         self.plugin_manifests = {}
+        self.plugin_owners = {}
         
+        # Load ownership info from DB
+        try:
+            with get_system_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, owner_id FROM plugins")
+                rows = cursor.fetchall()
+                for row in rows:
+                    self.plugin_owners[row['id']] = row['owner_id']
+        except Exception as e:
+            logger.error(f"Failed to load plugin ownership info: {e}")
+
         logger.info("Loading plugins...")
         
         if not self.plugins_dir.exists():
             return
 
-        for plugin_dir in self.plugins_dir.iterdir():
-            if plugin_dir.is_dir() and not plugin_dir.name.startswith("."):
-                try:
-                    self._load_single_plugin(plugin_dir)
-                except Exception as e:
-                    logger.error(f"Failed to load plugin at {plugin_dir}: {str(e)}")
+        # Scan all directories (including owner directories)
+        for entry in self.plugins_dir.iterdir():
+            if entry.is_dir() and not entry.name.startswith("."):
+                # If it contains a plugin.yaml, it's a legacy global plugin (load it)
+                if (entry / "plugin.yaml").exists():
+                    try:
+                        self._load_single_plugin(entry)
+                    except Exception as e:
+                        logger.error(f"Failed to load global plugin at {entry}: {str(e)}")
+                else:
+                    # Otherwise, it might be an owner directory
+                    for plugin_dir in entry.iterdir():
+                        if plugin_dir.is_dir() and not plugin_dir.name.startswith("."):
+                            try:
+                                self._load_single_plugin(plugin_dir)
+                            except Exception as e:
+                                logger.error(f"Failed to load user plugin at {plugin_dir}: {str(e)}")
 
     def _load_single_plugin(self, plugin_dir: Path):
         manifest_path = plugin_dir / "plugin.yaml"
@@ -345,20 +435,27 @@ class PluginManager:
                 manifest_data = yaml.safe_load(f)
             manifest = PluginManifest(**manifest_data)
 
+            logger.debug(
+                "PLUGIN_LOAD_DEBUG: preparing load for plugin_id=%s entry_point=%s plugin_dir=%s",
+                manifest.id,
+                manifest.entry_point,
+                str(plugin_dir),
+            )
+
             # Check dependencies before loading
             if not self._check_dependencies(plugin_dir):
-                logger.warning(f"Skipping plugin {manifest.id}: dependencies not installed")
+                logger.debug(f"Skipping plugin {manifest.id}: optional dependencies not installed")
                 return
-
+            
             # Add plugin src to sys.path so it can import its own modules
             # We add the root of the plugin directory
             if str(plugin_dir) not in sys.path:
                 sys.path.insert(0, str(plugin_dir))
-
+            
             # Dynamic Import
             entry_path_dir = plugin_dir / manifest.entry_point.replace(".", "/") / "__init__.py"
             entry_path_file = plugin_dir / f"{manifest.entry_point.replace('.', '/')}.py"
-
+            
             spec = None
             if entry_path_dir.exists():
                 spec = importlib.util.spec_from_file_location(
@@ -370,15 +467,20 @@ class PluginManager:
                     f"plugins.{manifest.id}",
                     entry_path_file
                 )
-
+            
             if spec and spec.loader:
+                logger.debug(
+                    "PLUGIN_LOAD_DEBUG: importing plugin module=%s origin=%s",
+                    f"plugins.{manifest.id}",
+                    str(spec.origin),
+                )
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[f"plugins.{manifest.id}"] = module
                 spec.loader.exec_module(module)
-
+                
                 self.loaded_plugins[manifest.id] = module
                 self.plugin_manifests[manifest.id] = manifest
-
+                
                 # Register Extensions
                 self._register_extensions(manifest, module)
                 logger.info(f"Loaded plugin: {manifest.name} ({manifest.version})")
@@ -386,7 +488,12 @@ class PluginManager:
                 logger.warning(f"Could not load entry point for {manifest.id}")
 
         except Exception as e:
-            logger.error(f"Error loading plugin {plugin_dir.name}: {str(e)}")
+            logger.error(
+                "Error loading plugin %s: %s",
+                plugin_dir.name,
+                str(e),
+                exc_info=True,
+            )
 
     def _register_extensions(self, manifest: PluginManifest, module: Any):
         """
@@ -395,11 +502,12 @@ class PluginManager:
         for ext_point, items in manifest.extensions.items():
             if ext_point not in self.extensions:
                 self.extensions[ext_point] = {}
-
+            
             for key, class_name in items.items():
                 if hasattr(module, class_name):
                     cls = getattr(module, class_name)
-                    self.extensions[ext_point][key] = cls
+                    # Store as tuple (class, plugin_id) for filtering
+                    self.extensions[ext_point][key] = (cls, manifest.id)
                 else:
                     logger.warning(f"Plugin {manifest.id} declares {class_name} for {ext_point}, but class not found in module.")
 
@@ -407,6 +515,7 @@ class PluginManager:
         """
         Checks if the plugin's dependencies are installed by attempting to import key packages.
         """
+        import importlib
         requirements_path = plugin_dir / "requirements.txt"
         if not requirements_path.exists():
             return True  # No requirements file, assume dependencies are satisfied
@@ -428,22 +537,42 @@ class PluginManager:
             # Try to import each package
             for package in packages_to_check:
                 try:
-                    importlib.import_module(package)
+                    # Convert hyphens to underscores for import (e.g., scrapy-playwright -> scrapy_playwright)
+                    import_name = package.replace('-', '_')
+                    importlib.import_module(import_name)
                 except ImportError:
-                    logger.debug(f"Dependency check failed for {package} in plugin {plugin_dir.name}")
+                    # Only log at debug level - this is expected if user hasn't installed optional deps
+                    logger.debug(f"Dependency '{package}' not found for plugin '{plugin_dir.name}'")
                     return False
 
             return True
 
         except Exception as e:
-            logger.warning(f"Error checking dependencies for plugin {plugin_dir.name}: {e}")
+            logger.debug(f"Error checking dependencies for plugin {plugin_dir.name}: {e}")
             return False
 
-    def get_extensions(self, extension_point: str) -> Dict[str, Any]:
+    def get_extensions(self, extension_point: str, owner_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Returns a dictionary of {key: ImplementationClass} for a given extension point.
+        If owner_id is provided, only returns extensions from plugins owned by that user.
         """
-        return self.extensions.get(extension_point, {})
+        all_exts = self.extensions.get(extension_point, {})
+        
+        filtered = {}
+        for key, value in all_exts.items():
+            # Handle both old style (cls) and new style (cls, plugin_id)
+            if isinstance(value, tuple) and len(value) == 2:
+                cls, plugin_id = value
+            else:
+                cls = value
+                plugin_id = None
+                
+            # If owner_id is None, return all (backward compatibility/admin)
+            # Otherwise check ownership
+            if owner_id is None or (plugin_id and self.plugin_owners.get(plugin_id) == owner_id):
+                filtered[key] = cls
+                
+        return filtered
 
     def get_format_metadata(self, format_type: str) -> Optional[Dict[str, Any]]:
         """
@@ -454,11 +583,32 @@ class PluginManager:
                 return manifest.format_metadata[format_type]
         return None
 
-    def get_all_plugins(self) -> List[Dict[str, Any]]:
+    def get_all_plugins(self, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Returns a list of installed plugins metadata.
+        If owner_id is provided, only returns plugins owned by that user.
         """
-        return [m.dict() for m in self.plugin_manifests.values()]
+        plugins = []
+        for pid, manifest in self.plugin_manifests.items():
+            # If owner_id is specified, filter by it.
+            # Otherwise return all (for backward compatibility or admin view)
+            if owner_id is None or self.plugin_owners.get(pid) == owner_id:
+                plugin_data = manifest.dict()
+                plugin_data["owner_id"] = self.plugin_owners.get(pid)
+                plugins.append(plugin_data)
+        return plugins
+
+    def get_plugin(self, plugin_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Returns metadata for a specific plugin by ID.
+        Returns None if the plugin is not found.
+        """
+        if plugin_id in self.plugin_manifests:
+            manifest = self.plugin_manifests[plugin_id]
+            plugin_data = manifest.dict()
+            plugin_data["owner_id"] = self.plugin_owners.get(plugin_id)
+            return plugin_data
+        return None
 
 # Global Instance
 plugin_manager = PluginManager()

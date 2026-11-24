@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from src.compileo.features.gui.services.api_client import api_client
+from src.compileo.features.gui.services.plugin_cache import get_plugins_cached, invalidate_plugins_cache
+
 
 def render_plugins_tab():
     """Render the plugins management tab."""
@@ -24,15 +26,14 @@ def render_plugins_tab():
                     url = f"{base_url}/api/v1/plugins/upload"
                     
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/zip")}
-                    headers = {}
-                    if api_client.api_key:
-                        headers["X-API-Key"] = str(api_client.api_key)
+                    headers = api_client._get_headers()
                     
                     import requests
                     response = requests.post(url, files=files, headers=headers)
                     
                     if response.status_code == 200:
                         st.success(f"Plugin installed successfully: {response.json().get('plugin_id')}")
+                        invalidate_plugins_cache()
                         st.rerun()
                     else:
                         st.error(f"Failed to install plugin: {response.text}")
@@ -43,45 +44,35 @@ def render_plugins_tab():
     # List Plugins
     st.subheader("Installed Plugins")
     
-    try:
-        # Fetch plugins list
+    # Use cached plugin list
+    plugins = get_plugins_cached()
+    
+    if not plugins:
+        st.info("No plugins installed.")
+    else:
+        # Display as a dataframe or list
         base_url = api_client.base_url
-        url = f"{base_url}/api/v1/plugins/"
-        headers = {}
-        if api_client.api_key:
-            headers["X-API-Key"] = str(api_client.api_key)
+        headers = api_client._get_headers()
         
-        import requests
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            plugins = response.json()
-            if not plugins:
-                st.info("No plugins installed.")
-            else:
-                # Display as a dataframe or list
-                for plugin in plugins:
-                    with st.expander(f"{plugin['name']} (v{plugin['version']})"):
-                        st.write(f"**ID:** {plugin['id']}")
-                        st.write(f"**Author:** {plugin['author']}")
-                        st.write(f"**Description:** {plugin['description']}")
-                        st.write(f"**Entry Point:** {plugin['entry_point']}")
-                        
-                        # Uninstall Button
-                        if st.button("🗑️ Uninstall", key=f"uninstall_{plugin['id']}"):
-                            with st.spinner(f"Uninstalling {plugin['name']}..."):
-                                try:
-                                    del_url = f"{base_url}/api/v1/plugins/{plugin['id']}"
-                                    del_resp = requests.delete(del_url, headers=headers)
-                                    if del_resp.status_code == 200:
-                                        st.success(f"Uninstalled {plugin['name']}")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"Failed to uninstall: {del_resp.text}")
-                                except Exception as e:
-                                    st.error(f"Error uninstalling: {e}")
-        else:
-             st.error(f"Failed to fetch plugins: {response.text}")
-
-    except Exception as e:
-        st.error(f"Error loading plugins: {e}")
+        for plugin in plugins:
+            with st.expander(f"{plugin['name']} (v{plugin['version']})"):
+                st.write(f"**ID:** {plugin['id']}")
+                st.write(f"**Author:** {plugin['author']}")
+                st.write(f"**Description:** {plugin['description']}")
+                st.write(f"**Entry Point:** {plugin['entry_point']}")
+                
+                # Uninstall Button
+                if st.button("🗑️ Uninstall", key=f"uninstall_{plugin['id']}"):
+                    with st.spinner(f"Uninstalling {plugin['name']}..."):
+                        try:
+                            import requests
+                            del_url = f"{base_url}/api/v1/plugins/{plugin['id']}"
+                            del_resp = requests.delete(del_url, headers=headers)
+                            if del_resp.status_code == 200:
+                                st.success(f"Uninstalled {plugin['name']}")
+                                invalidate_plugins_cache()
+                                st.rerun()
+                            else:
+                                st.error(f"Failed to uninstall: {del_resp.text}")
+                        except Exception as e:
+                            st.error(f"Error uninstalling: {e}")

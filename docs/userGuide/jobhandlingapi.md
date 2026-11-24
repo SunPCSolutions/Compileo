@@ -128,6 +128,13 @@ curl "http://localhost:8000/api/v1/jobs/queue/stats"
 }
 ```
 
+**Response Fields:**
+- `active_workers`: Number of worker containers currently running
+- `global_max_concurrent_jobs`: Software limit for concurrent jobs (configurable via GUI)
+- `per_user_max_concurrent_jobs`: Per-user concurrent job limit (configurable via GUI)
+
+**Note**: Total system capacity is determined by both infrastructure (number of workers) and software limits (global max). The actual limit is the lower of these two values.
+
 ---
 
 ## Cancel Job
@@ -169,6 +176,120 @@ curl -X POST "http://localhost:8000/api/v1/jobs/restart/550e8400-e29b-41d4-a716-
   "job_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "pending",
   "message": "Job restarted and re-queued"
+}
+```
+
+---
+
+## Job History
+
+### GET `/history`
+
+Retrieve job history for the current user.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history?limit=50"
+```
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of entries to return (default: 50)
+- `project_id` (optional): Filter by project ID
+- `job_type` (optional): Filter by job type (extraction, dataset_generation, etc.)
+
+**Response:**
+```json
+{
+  "history": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "job_type": "extraction",
+      "status": "completed",
+      "project_id": "proj-123",
+      "document_id": "doc-456",
+      "progress": 100.0,
+      "started_at": "2026-02-16T15:30:00Z",
+      "completed_at": "2026-02-16T15:35:30Z",
+      "duration_seconds": 330,
+      "parameters": {"taxonomy_id": "tax-789"},
+      "result_summary": {"entries_count": 150}
+    }
+  ]
+}
+```
+
+### GET `/history/{history_id}`
+
+Get a specific job history entry by ID.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/550e8400-e29b-41d4-a716-446655440000"
+```
+
+### GET `/history/statistics`
+
+Get job history statistics.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/statistics?project_id=proj-123"
+```
+
+**Response:**
+```json
+{
+  "total_jobs": 150,
+  "completed_count": 145,
+  "failed_count": 5,
+  "avg_duration_seconds": 245.5
+}
+```
+
+### GET `/history/settings/retention`
+
+Get the current job history retention settings.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/settings/retention"
+```
+
+**Response:**
+```json
+{
+  "retention_days": 90
+}
+```
+
+### PUT `/history/settings/retention`
+
+Update the job history retention settings.
+
+**Request:**
+```bash
+curl -X PUT "http://localhost:8000/api/v1/jobs/history/settings/retention" \
+  -H "Content-Type: application/json" \
+  -d '{"days": 60}'
+```
+
+**Parameters:**
+- `days`: Number of days to retain job history (1-365)
+
+### POST `/history/cleanup`
+
+Manually clean up old job history entries.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/jobs/history/cleanup?days=30"
+```
+
+**Response:**
+```json
+{
+  "message": "Cleaned up 25 old job history entries",
+  "deleted_count": 25
 }
 ```
 
@@ -229,14 +350,39 @@ curl -X POST "http://localhost:8000/api/v1/jobs/restart/550e8400-e29b-41d4-a716-
 }
 ```
 
+### Worker Scaling Configuration
+
+The job handling system supports horizontal worker scaling through the `WORKER_REPLICAS` environment variable:
+
+#### Horizontal Scaling (More Workers)
+Increase the number of worker containers:
+```bash
+# Docker Compose
+export WORKER_REPLICAS=4
+docker-compose -f docker-compose.prod.yml up -d
+
+# Or command line
+docker-compose -f docker-compose.prod.yml up -d --scale compileo-worker=4
+```
+
+#### Scaling Examples
+| WORKER_REPLICAS | Total Capacity |
+|-----------------|----------------|
+| 2 | 2 concurrent jobs |
+| 3 | 3 concurrent jobs |
+| 5 | 5 concurrent jobs |
+
+**Note**: The actual concurrent job limit is also constrained by the software setting `global_max_concurrent_jobs` (default: 10). Adjust this in the GUI settings if needed.
+
 ### Performance Characteristics
 
 - **Job Submission**: < 100ms average latency
 - **Status Queries**: < 50ms average response time
-- **Queue Throughput**: 100+ jobs/minute sustained
+- **Queue Throughput**: 100+ jobs/minute sustained (depends on worker scaling)
 - **Memory Usage**: < 2GB per worker process
 - **Cleanup Frequency**: Every 10 minutes (comprehensive)
 - **Worker Monitoring**: Every 5 minutes (health checks)
+- **Concurrent Job Capacity**: WORKER_REPLICAS
 
 ### Best Practices
 

@@ -45,6 +45,10 @@ class ChunkContext(BaseModel):
 class HierarchicalCategory(BaseModel):
     """Represents a category in a hierarchical taxonomy."""
 
+    model_config = ConfigDict(
+        ignored_types=(type(lambda: None),),  # Ignore compiled methods for Cython compatibility
+    )
+
     name: str = Field(..., description="Category name")
     id: Optional[str] = Field(None, description="Category ID")
     description: Optional[str] = Field(None, description="Category description")
@@ -62,7 +66,9 @@ class HierarchicalCategory(BaseModel):
     def validate_name(cls, v):
         """Ensure category name is valid."""
         if not v or not v.strip():
-            raise ValueError("Category name cannot be empty")
+            # Return a default name instead of raising ValueError to prevent
+            # system crashes on invalid/empty AI-generated categories.
+            return "Unnamed Category"
         return v.strip()
 
     @field_validator('confidence_threshold')

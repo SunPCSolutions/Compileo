@@ -81,6 +81,8 @@ Compileo is designed for every workflow:
 
 ### ⚡ High-Concurrency Job Management
 *   **Asynchronous Processing**: All heavy-duty tasks are handled by a robust **Redis-backed queue (RQ)**, allowing for background processing without blocking the API or GUI.
+*   **Scalable Worker Architecture**: Horizontal scaling support via `WORKER_REPLICAS` environment variable.
+*   **Flexible Configuration**: Adjust the number of worker containers to match your processing needs.
 
 <div align="center">
   <a href="img/jobhandle.png"><img src="img/jobhandle.png" width="400" alt="Asynchronous Job Management"></a>
@@ -112,7 +114,7 @@ The fastest way to deploy the full stack (API, GUI, and Redis).
     ```bash
     git clone https://github.com/SunPCSolutions/Compileo.git
     cd compileo
-    cp .env.example .env  # Configure COMPILEO_API_KEYS (optional)
+    cp .env.example .env  # Configure environment variables
     ```
 2.  **Launch**:
     ```bash
@@ -122,22 +124,51 @@ The fastest way to deploy the full stack (API, GUI, and Redis).
     *   **Web GUI**: `http://localhost:8501`
     *   **API Docs**: `http://localhost:8000/docs`
 
-### 🔐 API Authentication & Security
-Compileo implements an **"Auto-Lock"** security model designed for zero-config startup without sacrificing security.
+### 🏭 Production Deployment
+For production environments with high availability and performance:
 
-*   **Unsecured Mode (Default)**: If no API keys are defined, Compileo allows all requests.
-*   **Secured Mode**: As soon as you define an API key, the system "locks" and strictly requires that key for all operations.
+```bash
+# Production deployment with Cython compilation
+docker-compose -f docker-compose.prod.yml up -d
 
-#### **How to Secure Your Instance (Choose One):**
-1.  **GUI (Recommended)**: Launch Compileo, go to **Settings > 🔗 API Configuration**, enter one or more **API Keys**, and click **Save**.
-2.  **CLI**: Start the API with the `--api-key` flag.
-3.  **Environment**: Define `COMPILEO_API_KEY=your_secret_key` in your `.env`.
-
-#### **How to Connect to a Secured Instance:**
-All API requests must include the following header:
-```http
-X-API-Key: your_secret_key
+# Scale workers for high throughput
+export WORKER_REPLICAS=4
+docker-compose -f docker-compose.prod.yml up -d
 ```
+
+**Production Features:**
+- **Cython Compilation**: Source code compiled to C for performance and IP protection
+- **Worker Scaling**: Horizontal scaling via `WORKER_REPLICAS`
+- **Health Checks**: Automated monitoring of all services
+- **Resource Management**: Configurable CPU and memory limits
+
+See the [Docker Installation Guide](userGuide/dockerInstall.md) for detailed production configuration.
+
+### 🔐 Multi-User Authentication & Security
+Compileo implements a **complete multi-user authentication system** with JWT-based security, **physical database isolation**, and encryption at rest.
+
+*   **User Registration**: Create accounts with secure password hashing (bcrypt)
+*   **JWT Authentication**: Token-based access with 24-hour expiration
+*   **Physical Data Isolation**: Each user has a separate SQLite database file (`storage/{user_id}/tenant.db`)
+*   **Encryption at Rest**: API keys and sensitive settings encrypted using Fernet symmetric encryption
+*   **Session Management**: Secure login/logout with automatic token refresh
+*   **File Permissions**: Database files use restrictive permissions (0o600) for security
+
+#### **How to Access Your Instance:**
+1.  **Register**: Create a user account via the GUI or API
+2.  **Login**: Authenticate to receive a JWT token
+3.  **API Access**: Include the JWT token in all API requests
+
+#### **API Authentication:**
+All API requests must include the Authorization header:
+```http
+Authorization: Bearer your_jwt_token
+```
+
+#### **GUI Access:**
+- Open the Web GUI at `http://localhost:8501`
+- Register or login through the user interface
+- All operations are automatically scoped to your user account
 
 ---
 

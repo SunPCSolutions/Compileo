@@ -1,4 +1,7 @@
-"""Enhanced job queue system for background extraction processing."""
+"""
+Enhanced job queue system for production-ready extraction processing.
+Provides advanced background job processing with scheduling, dependencies, resource management, and monitoring.
+"""
 
 from typing import Dict, Any, Optional, List, Callable, Set, Tuple, Union
 from datetime import datetime, timedelta
@@ -13,7 +16,6 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 from contextlib import asynccontextmanager
-from ...core.logging import get_logger
 
 from .models import (
     JobStatus, JobPriority, JobType, ResourceType,
@@ -25,19 +27,25 @@ from .queue_processor import QueueProcessor
 from .resource_manager import ResourceManager
 from .job_scheduler import JobScheduler
 from .result_cache import ResultCache
+from src.compileo.features.plugin.manager import plugin_manager
 
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
+def _parse_progress_value(raw_value: Any) -> float:
+    """Parse progress value from plugin callback payload."""
+    if raw_value is None:
+        return 0.0
+    try:
+        value = float(raw_value)
+    except Exception:
+        return 0.0
 
-
-
-
-
-
-
-
+    # Accept both 0-1 and 0-100 ranges.
+    if 0.0 <= value <= 1.0:
+        return value * 100.0
+    return max(0.0, min(100.0, value))
 
 
 class EnhancedJobQueueInterface:
@@ -96,10 +104,16 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         def get_active_job_counts():
             """Get current active job counts from Redis."""
             try:
+                from rq.job import Job as RQJob
+                from rq.exceptions import NoSuchJobError
+
                 # Count running jobs from Redis
                 cursor = 0
                 global_active = 0
                 user_active = {}
+
+                # Only these RQ states are considered "live" for RUNNING reconciliation.
+                live_rq_states = {'queued', 'started', 'deferred', 'scheduled'}
 
                 while True:
                     cursor, keys = self.redis.scan(cursor, match="compileo:job:*", count=100)
@@ -113,6 +127,40 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
                             if job_data:
                                 job = EnhancedExtractionJob.from_dict(json.loads(job_data))
                                 if job.status == JobStatus.RUNNING:
+                                    # Reconcile stale RUNNING entries so they don't consume capacity forever.
+                                    # Requested behavior: ignore RUNNING jobs that have NO processing lock
+                                    # and NO live RQ state.
+                                    processing_lock_key = f"compileo:job:{job.job_id}:processing"
+                                    has_processing_lock = bool(self.redis.exists(processing_lock_key))
+
+                                    rq_status = None
+                                    has_live_rq_state = False
+                                    if not has_processing_lock:
+                                        try:
+                                            rq_job = RQJob.fetch(job.job_id, connection=self.redis)
+                                            rq_status = rq_job.get_status() if rq_job else None
+                                            has_live_rq_state = rq_status in live_rq_states
+                                        except NoSuchJobError:
+                                            rq_status = None
+                                            has_live_rq_state = False
+                                        except Exception as rq_error:
+                                            # Fail-safe: if we cannot verify RQ state, keep counting to avoid
+                                            # under-counting active work; include debug context for diagnosis.
+                                            logger.debug(
+                                                "DEBUG_ACTIVE_COUNT_RQ_LOOKUP_ERROR: "
+                                                f"job_id={job.job_id}, error={rq_error}"
+                                            )
+                                            has_live_rq_state = True
+
+                                    if (not has_processing_lock) and (not has_live_rq_state):
+                                        logger.debug(
+                                            "DEBUG_ACTIVE_COUNT_SKIP_STALE_RUNNING: "
+                                            f"job_id={job.job_id}, user_id={job.user_id}, "
+                                            f"lock_present={has_processing_lock}, rq_status={rq_status}, "
+                                            "reason=no_processing_lock_and_no_live_rq_state"
+                                        )
+                                        continue
+
                                     global_active += 1
                                     if job.user_id:
                                         user_active[job.user_id] = user_active.get(job.user_id, 0) + 1
@@ -151,26 +199,6 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             # Perform initial cleanup on startup
             logger.info("Performing initial job cleanup on startup...")
             try:
-                # CRITICAL: Always cleanup stale worker registrations for THIS PID before starting
-                # This prevents "active worker already exists" errors when Docker restarts the process
-                from rq import Worker
-                stale_workers = Worker.all(connection=self.redis)
-                current_pid = os.getpid()
-                for worker in stale_workers:
-                    if str(current_pid) in worker.name:
-                        try:
-                            # Use JSON logging as per AGENTS.md
-                            log_msg = {
-                                "event": "stale_worker_cleanup",
-                                "worker_name": worker.name,
-                                "pid": current_pid,
-                                "message": "Cleaning up stale worker registration on startup"
-                            }
-                            logger.info(f"DEBUG: {json.dumps(log_msg)}")
-                            self.redis.delete(f"rq:worker:{worker.name}")
-                        except Exception as e:
-                            logger.warning(f"Failed to cleanup self-stale worker {worker.name}: {e}")
-        
                 # Cleanup stuck jobs immediately on startup
                 stuck_cleaned = self._cleanup_stuck_running_jobs()
                 if stuck_cleaned > 0:
@@ -246,7 +274,8 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
 
                 stale_workers = []
                 for worker in workers:
-                    if worker.last_heartbeat:
+                    # Check if worker has last_heartbeat attribute (some RQ versions don't)
+                    if hasattr(worker, 'last_heartbeat') and worker.last_heartbeat:
                         # Handle both offset-naive and offset-aware datetimes
                         if worker.last_heartbeat.tzinfo is not None:
                             # last_heartbeat is timezone-aware, make current_time aware too
@@ -266,7 +295,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
                         # Remove worker from Redis
                         worker_key = f"rq:worker:{worker.name}"
                         self.redis.delete(worker_key)
-                        logger.info(f"Cleaned up stale worker: {worker.name} (last heartbeat: {worker.last_heartbeat})")
+                        logger.info(f"Cleaned up stale worker: {worker.name}")
                     except Exception as e:
                         logger.warning(f"Failed to cleanup stale worker {worker.name}: {e}")
 
@@ -579,7 +608,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             logger.error(f"Failed to cleanup RQ finished jobs: {e}")
             return 0
 
-    def _cleanup_orphaned_processing_locks(self, minutes_old: int = 10) -> int:
+    def _cleanup_orphaned_processing_locks(self, minutes_old: int = 120) -> int:
         """Clean up orphaned processing locks older than specified minutes."""
         try:
             cursor = 0
@@ -626,55 +655,240 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             return 0
 
     def enqueue_job(self, job: EnhancedExtractionJob) -> str:
-        """Enqueue job for processing."""
+        """Enqueue a job for processing."""
+        logger.debug("DEBUG: ENQUEUE_JOB METHOD CALLED")  # Simple debug print
         from datetime import datetime
-        logger.info(f"Enqueueing job {job.job_id} ({job.job_type})")
+        # DEBUG: [DEBUG_20251003_PDF_PARSE] - EnhancedRedisJobQueue enqueue_job called
+        debug_context = {
+            "timestamp": datetime.now().isoformat(),
+            "level": "INFO",
+            "component": "enhanced_redis_job_queue",
+            "message": "EnhancedRedisJobQueue enqueue_job called",
+            "context": {
+                "job_id": job.job_id,
+                "job_type": str(job.job_type),
+                "user_id": job.user_id or "unknown"
+            }
+        }
+        logger.debug(json.dumps(debug_context))
 
-        self.redis.set(f"compileo:job:{job.job_id}", json.dumps(job.to_dict()))
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Enqueueing job {job.job_id} of type {job.job_type}")
 
+
+        # Serialize the job object to a dictionary and store it in Redis
+        job_data = job.to_dict()
+        self.redis.set(f"compileo:job:{job.job_id}", json.dumps(job_data))
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job {job.job_id} serialized and stored in Redis.")
+
+        # Create job in database for persistence
+        try:
+            from ...storage.src.project.database_repositories import DatasetJobRepository, ExtractionJobRepository
+            from datetime import datetime
+
+            owner_id = job.user_id
+            if not owner_id:
+                # Try to get owner_id from parameters
+                owner_id = job.parameters.get('owner_id') if job.parameters else None
+
+            if owner_id:
+                # Normalize job type to string
+                job_type_str = job.job_type.value if hasattr(job.job_type, 'value') else str(job.job_type)
+
+                # Map job types to appropriate repositories
+                if job_type_str == 'extraction':
+                    job_repo = ExtractionJobRepository(owner_id)
+                    job_repo.create_job({
+                        'id': job.job_id,
+                        'owner_id': owner_id,
+                        'project_id': job.parameters.get('project_id') if job.parameters else None,
+                        'document_id': job.parameters.get('document_id') if job.parameters else None,
+                        'status': 'pending',
+                        'parameters': job.parameters or {},
+                        'progress': 0.0,
+                        'created_at': job.created_at or datetime.utcnow(),
+                        'updated_at': datetime.utcnow()
+                    })
+                else:
+                    # Use dataset_jobs for all other job types
+                    job_repo = DatasetJobRepository(owner_id)
+                    job_repo.create_job({
+                        'id': job.job_id,
+                        'owner_id': owner_id,
+                        'project_id': job.parameters.get('project_id') if job.parameters else None,
+                        'job_type': job_type_str,
+                        'status': 'pending',
+                        'parameters': job.parameters or {},
+                        'progress': 0.0,
+                        'created_at': job.created_at or datetime.utcnow(),
+                        'updated_at': datetime.utcnow(),
+                        'document_id': job.parameters.get('document_id') if job.parameters else None
+                    })
+                logger.info(f"DEBUG: [DEBUG_DB_JOB_CREATE] - Created job {job.job_id} in database for owner {owner_id}")
+            else:
+                logger.warning(f"DEBUG: [DEBUG_DB_JOB_CREATE] - No owner_id available for job {job.job_id}, skipping database creation")
+        except Exception as db_error:
+            logger.error(f"DEBUG: [DEBUG_DB_JOB_CREATE] - Failed to create job {job.job_id} in database: {db_error}")
+
+        # DEBUG: [DEBUG_20251003_PDF_PARSE] - Job data stored in Redis
+        debug_context = {
+            "timestamp": datetime.now().isoformat(),
+            "level": "INFO",
+            "component": "enhanced_redis_job_queue",
+            "message": "Job data stored in Redis",
+            "context": {
+                "job_id": job.job_id,
+                "redis_key": f"compileo:job:{job.job_id}"
+            }
+        }
+        logger.debug(json.dumps(debug_context))
+
+        # Schedule or execute immediately
         if job.schedule.scheduled_time and job.schedule.scheduled_time > datetime.utcnow():
             self.scheduler.schedule_job(job)
+            logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Scheduled job {job.job_id} for later execution.")
+            # DEBUG: [DEBUG_20251003_PDF_PARSE] - Job scheduled for later
+            debug_context = {
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "component": "enhanced_redis_job_queue",
+                "message": "Job scheduled for later execution",
+                "context": {
+                    "job_id": job.job_id,
+                    "scheduled_time": job.schedule.scheduled_time.isoformat()
+                }
+            }
+            logger.debug(json.dumps(debug_context))
         else:
+            # Check resource limits before enqueuing
             if self.resource_manager.check_resource_limits(job.resource_limits, job.user_id):
+                # Resources available - enqueue immediately
+
+                # Use scheduling lock to prevent race condition with QueueProcessor
                 scheduling_lock_key = f"compileo:job:{job.job_id}:scheduling_lock"
                 lock_acquired = self.redis.set(scheduling_lock_key, "locked", ex=10, nx=True)
                 
                 if not lock_acquired:
+                    # QueueProcessor likely beat us to it
+                    logger.warning(f"Job {job.job_id} is currently being scheduled by QueueProcessor (lock active). Skipping direct enqueue.")
                     return job.job_id
 
                 try:
+                    # CRITICAL FIX: Check if job status has changed (e.g., by QueueProcessor) while we were checking resources.
+                    # If QueueProcessor picked it up, it would have set status to RUNNING.
+                    # In that case, we MUST NOT enqueue it again.
                     current_job_data = self.redis.get(f"compileo:job:{job.job_id}")
                     if current_job_data:
-                        current_status = json.loads(current_job_data).get("status")
+                        current_job_dict = json.loads(current_job_data)
+                        current_status = current_job_dict.get("status")
                         if current_status != JobStatus.PENDING.value:
+                            logger.warning(f"Job {job.job_id} status changed to {current_status} during resource check. Skipping direct enqueue to prevent double execution.")
                             return job.job_id
 
                     job.status = JobStatus.RUNNING
                     job.started_at = datetime.utcnow()
+
+                    # IMPORTANT: Save RUNNING status to Redis BEFORE enqueueing to RQ
+                    # This prevents QueueProcessor from picking up the job and double-enqueueing it
+                    # causing "Job already being processed" errors in workers due to race conditions.
                     self.redis.set(f"compileo:job:{job.job_id}", json.dumps(job.to_dict()))
+                    logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Set job {job.job_id} status to RUNNING in Redis before enqueueing.")
                 finally:
+                    # Release lock if we are proceeding (QueueProcessor won't pick it up because status is now RUNNING)
+                    # If we failed or skipped, we release it so QueueProcessor can try again if needed
                     self.redis.delete(scheduling_lock_key)
 
+                # Execute immediately - only pass serializable data to RQ
                 rq_priority = self._priority_to_rq(job.priority)
+                logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Submitting job {job.job_id} to Redis queue.")
+                # DEBUG: [DEBUG_20251003_PDF_PARSE] - Enqueueing job in RQ
+                debug_context = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "enhanced_redis_job_queue",
+                    "message": "Enqueueing job in RQ",
+                    "context": {
+                        "job_id": job.job_id,
+                        "rq_priority": rq_priority
+                    }
+                }
+                logger.debug(json.dumps(debug_context))
+                # Use simple wrapper function that RQ can serialize
+                from .worker_wrapper import process_job
+                debug_context = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "enhanced_redis_job_queue",
+                    "message": "About to enqueue job in RQ",
+                    "context": {
+                        "job_id": job.job_id,
+                        "function": str(process_job),
+                        "queue_name": self.queue.name
+                    }
+                }
+                logger.debug(json.dumps(debug_context))
+
+                # Use a simple string-based function reference that RQ can import
+                logger.debug(f"DEBUG_RQ_ENQUEUE: About to enqueue job {job.job_id} with function 'src.compileo.features.jobhandle.worker_wrapper.process_job'")
                 try:
-                    from .worker_wrapper import process_job
                     rq_job = self.queue.enqueue(
                         'src.compileo.features.jobhandle.worker_wrapper.process_job',
-                        job.job_id,
+                        job.job_id,  # Only pass job_id, reconstruct job in worker
                         priority=rq_priority,
                         timeout=job.schedule.timeout_seconds
                     )
-                    logger.info(f"Job {job.job_id} enqueued (RQ ID: {rq_job.id})")
+                    logger.debug(f"DEBUG_RQ_ENQUEUE: RQ job created with ID: {rq_job.id if rq_job else 'None'}")
                 except Exception as e:
+                    # CRITICAL FIX: If enqueue fails, revert status to PENDING to prevent "stuck in RUNNING"
                     logger.error(f"Failed to enqueue job {job.job_id}: {e}")
                     job.status = JobStatus.PENDING
                     job.started_at = None
                     self.redis.set(f"compileo:job:{job.job_id}", json.dumps(job.to_dict()))
-                    raise
-            else:
-                logger.info(f"Job {job.job_id} queued (pending resources)")
+                    raise  # Re-raise to notify caller
 
+                debug_context = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "enhanced_redis_job_queue",
+                    "message": "Job enqueued successfully in RQ",
+                    "context": {
+                        "job_id": job.job_id,
+                        "rq_job_id": rq_job.id if rq_job else None,
+                        "queue_name": self.queue.name
+                    }
+                }
+                logger.debug(json.dumps(debug_context))
+                logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job {job.job_id} enqueued in Redis. RQ Job ID: {rq_job.id}")
+                # DEBUG: [DEBUG_20251003_PDF_PARSE] - Job enqueued successfully
+                debug_context = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "enhanced_redis_job_queue",
+                    "message": "Job enqueued successfully in RQ",
+                    "context": {
+                        "job_id": job.job_id,
+                        "rq_job_id": rq_job.id
+                    }
+                }
+                logger.debug(json.dumps(debug_context))
+            else:
+                # Resource limits exceeded - leave as PENDING for QueueProcessor to handle
+                logger.info(f"Job {job.job_id} queued (pending resources)")
+                debug_context = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "component": "enhanced_redis_job_queue",
+                    "message": "Job queued pending resources",
+                    "context": {
+                        "job_id": job.job_id,
+                        "status": "pending"
+                    }
+                }
+                logger.debug(json.dumps(debug_context))
+
+        # Invalidate stats cache when job is enqueued
         self._invalidate_stats_cache()
+
+        logger.info(f"Enqueued job {job.job_id} of type {job.job_type}")
         return job.job_id
 
 
@@ -684,7 +898,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         from .progress_context import ProgressContext
         from .job_executors import _execute_chunk_documents, _execute_parse_documents, _execute_taxonomy_processing, _execute_dataset_generation
         # Simple debug print to check if method is called
-        logger.debug(f"_execute_job called for job {job.job_id} with type {job_type}")
+        logger.debug(f"DEBUG: _execute_job called for job {job.job_id} with type {job_type}")
 
         # Create progress context for this job
         progress_context = ProgressContext(job, self.redis)
@@ -695,7 +909,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         else:
             job_type_str = str(job_type)
 
-        logger.debug(f"_execute_job called with job_type={job_type}, job_type_str={job_type_str}, job_id={job.job_id}")
+        logger.debug(f"DEBUG_JOB_START: _execute_job called with job_type={job_type}, job_type_str={job_type_str}, job_id={job.job_id}")
 
         try:
             # Debug: Log job execution path
@@ -713,10 +927,14 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             }
             logger.debug(json.dumps(debug_context))
 
+            # Ensure user_id is in parameters for downstream executors
+            if job.user_id:
+                parameters['owner_id'] = job.user_id
+
             if job_type_str in ['extraction', 'document_processing']:
                 # Handle document parsing and chunking operations
                 operation = parameters.get("operation")
-                logger.debug(f"Processing document processing job with operation={operation}, job_id={job.job_id}")
+                logger.debug(f"DEBUG_JOB_TYPE: Processing document processing job with operation={operation}, job_id={job.job_id}")
                 debug_context = {
                     "timestamp": datetime.now().isoformat(),
                     "level": "INFO",
@@ -765,18 +983,20 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
                 from .job_executors import execute_benchmark_job
                 return execute_benchmark_job(parameters, progress_context)
 
+            elif job_type_str == JobType.PLUGIN_TASK.value:
+                return self._execute_plugin_task(parameters, progress_context, job)
+
             elif job_type_str == 'cleanup':
                 # Simulate cleanup job
                 progress_context.set_total_steps(1)
-                time.sleep(0.5)
-                progress_context.update_progress(message="Cleanup completed")
+                for i in range(20):
+                    time.sleep(0.05)
                 return {"status": "completed", "cleaned_items": 100, **parameters}
 
             elif job_type_str == 'maintenance':
                 # Simulate maintenance job
                 progress_context.set_total_steps(1)
                 time.sleep(1.0)
-                progress_context.update_progress(message="Maintenance completed")
                 return {"status": "completed", "maintenance_tasks": 5, **parameters}
 
             else:
@@ -785,6 +1005,144 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         except Exception as e:
             logger.error(f"Job execution failed: {e}")
             raise
+
+    def _execute_plugin_task(
+        self,
+        parameters: Dict[str, Any],
+        progress_context,
+        job: EnhancedExtractionJob,
+    ) -> Dict[str, Any]:
+        """Execute a plugin-defined background task."""
+        owner_id = parameters.get("owner_id") or job.user_id
+        executor_key = parameters.get("executor_key")
+
+        if not executor_key:
+            raise ValueError("plugin_task requires 'executor_key' in parameters")
+
+        progress_context.update_progress_percent(2, f"Resolving plugin executor '{executor_key}'")
+        plugin_executors = plugin_manager.get_extensions("compileo.job.executor", owner_id=owner_id)
+        raw_executor = plugin_executors.get(executor_key)
+
+        if raw_executor is None:
+            available = ", ".join(sorted(plugin_executors.keys())) or "none"
+            raise ValueError(
+                f"Plugin executor '{executor_key}' not found for owner '{owner_id}'. "
+                f"Available executors: {available}"
+            )
+
+        executor_callable = self._resolve_plugin_executor_callable(raw_executor)
+        if executor_callable is None:
+            raise ValueError(
+                f"Plugin executor '{executor_key}' is not callable and has no execute/run method"
+            )
+
+        def plugin_progress(progress: Any = None, message: str = "") -> None:
+            if progress is None:
+                progress_context.update_progress(message=message)
+                return
+            progress_context.update_progress_percent(_parse_progress_value(progress), message)
+
+        plugin_progress(5, f"Executing plugin task '{executor_key}'")
+
+        result = self._invoke_plugin_executor(
+            executor_callable=executor_callable,
+            parameters=parameters,
+            progress_callback=plugin_progress,
+            progress_context=progress_context,
+            job=job,
+            owner_id=owner_id,
+        )
+
+        if progress_context.get_current_progress() < 100:
+            progress_context.update_progress_percent(100, f"Plugin task '{executor_key}' completed")
+
+        if isinstance(result, dict):
+            return result
+
+        return {
+            "status": "completed",
+            "executor_key": executor_key,
+            "result": result,
+        }
+
+    def _resolve_plugin_executor_callable(self, raw_executor: Any) -> Optional[Callable[..., Any]]:
+        """Resolve plugin executor object to a callable implementation."""
+        candidate = raw_executor
+
+        if isinstance(candidate, type):
+            try:
+                candidate = candidate()
+            except Exception:
+                # Keep class itself as callable fallback.
+                candidate = raw_executor
+
+        if callable(candidate):
+            return candidate
+
+        execute_method = getattr(candidate, "execute", None)
+        if callable(execute_method):
+            return execute_method
+
+        run_method = getattr(candidate, "run", None)
+        if callable(run_method):
+            return run_method
+
+        return None
+
+    def _invoke_plugin_executor(
+        self,
+        executor_callable: Callable[..., Any],
+        parameters: Dict[str, Any],
+        progress_callback: Callable[..., Any],
+        progress_context,
+        job: EnhancedExtractionJob,
+        owner_id: Optional[str],
+    ) -> Any:
+        """Invoke plugin executor with flexible signature support."""
+        import inspect
+
+        call_kwargs = {
+            "parameters": parameters,
+            "progress_callback": progress_callback,
+            "progress_context": progress_context,
+            "job": job,
+            "job_id": job.job_id,
+            "owner_id": owner_id,
+            "user_id": owner_id,
+            "redis": self.redis,
+            "redis_client": self.redis,
+        }
+
+        try:
+            sig = inspect.signature(executor_callable)
+            params = sig.parameters
+            accepts_var_kwargs = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+
+            if accepts_var_kwargs:
+                return executor_callable(**call_kwargs)
+
+            accepted_kwargs = {k: v for k, v in call_kwargs.items() if k in params}
+            if accepted_kwargs:
+                return executor_callable(**accepted_kwargs)
+
+            positional_params = [
+                p for p in params.values() if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            ]
+            if positional_params:
+                return executor_callable(parameters)
+
+            return executor_callable()
+        except (TypeError, ValueError):
+            # Fallback call strategy for dynamically defined plugin callables.
+            try:
+                return executor_callable(parameters=parameters, progress_callback=progress_callback)
+            except TypeError:
+                try:
+                    return executor_callable(parameters, progress_callback)
+                except TypeError:
+                    return executor_callable(parameters)
 
 
 
@@ -809,6 +1167,9 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         if generator_name == "gemini":
             from ...features.taxonomy.gemini_generator import GeminiTaxonomyGenerator
             api_key = backend_settings.get_setting("gemini_api_key")
+            if api_key:
+                os.environ['GEMINI_API_KEY'] = api_key
+                os.environ['GOOGLE_API_KEY'] = api_key
             if not model:
                 model = backend_settings.get_taxonomy_gemini_model()
             generator = GeminiTaxonomyGenerator(api_key=api_key, model=model)
@@ -816,6 +1177,8 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         elif generator_name == "grok":
             from ...features.taxonomy.grok_generator import GrokTaxonomyGenerator
             api_key = backend_settings.get_setting("grok_api_key")
+            if api_key:
+                os.environ['GROK_API_KEY'] = api_key
             if not model:
                 model = backend_settings.get_taxonomy_grok_model()
             generator = GrokTaxonomyGenerator(grok_api_key=api_key, model=model)
@@ -823,6 +1186,8 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         elif generator_name == "openai":
             from ...features.taxonomy.openai_generator import OpenAITaxonomyGenerator
             api_key = backend_settings.get_openai_api_key()
+            if api_key:
+                os.environ['OPENAI_API_KEY'] = api_key
             if not model:
                 model = backend_settings.get_taxonomy_openai_model()
             generator = OpenAITaxonomyGenerator(api_key=api_key, model=model)
@@ -865,11 +1230,24 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
 
     def _execute_dataset_generation(self, parameters: Dict[str, Any], progress_context) -> Dict[str, Any]:
         """Execute dataset generation with progress tracking."""
-        from ...core.settings import backend_settings
+        from ...core.settings import BackendSettings
         from ...features.datasetgen.generator import DatasetGenerator
         from ...features.datasetgen.prompt_builder import PromptBuilder
         from ...features.datasetgen.output_formatter import OutputFormatter
         from ...features.datasetgen.llm_interaction import LLMInteraction
+        from ...storage.src.project.database_repositories import PromptRepository, DatasetParameterRepository
+
+        # Get owner_id from job
+        owner_id = progress_context.job.user_id
+        if not owner_id:
+            raise ValueError("owner_id must be provided for dataset generation job")
+
+        # Initialize repositories with owner_id
+        prompt_repo = PromptRepository(owner_id)
+        dataset_param_repo = DatasetParameterRepository(owner_id)
+
+        # Use user-aware settings
+        backend_settings = BackendSettings(owner_id=owner_id)
 
         # Retrieve generation Ollama parameters
         generation_options = {
@@ -903,14 +1281,21 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         api_key = None
         if llm_provider == "gemini":
             api_key = backend_settings.get_setting("gemini_api_key")
+            if api_key:
+                os.environ['GEMINI_API_KEY'] = api_key
+                os.environ['GOOGLE_API_KEY'] = api_key
             if not generation_model:
                 generation_model = backend_settings.get_generation_gemini_model()
         elif llm_provider == "grok":
             api_key = backend_settings.get_setting("grok_api_key")
+            if api_key:
+                os.environ['GROK_API_KEY'] = api_key
             if not generation_model:
                 generation_model = backend_settings.get_generation_grok_model()
         elif llm_provider == "openai":
             api_key = backend_settings.get_openai_api_key()
+            if api_key:
+                os.environ['OPENAI_API_KEY'] = api_key
             if not generation_model:
                 generation_model = backend_settings.get_generation_openai_model()
         elif llm_provider == "ollama":
@@ -918,7 +1303,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
                 generation_model = backend_settings.get_generation_ollama_model()
 
         # Initialize components
-        prompt_builder = PromptBuilder()
+        prompt_builder = PromptBuilder(prompt_repo, dataset_param_repo)
         output_formatter = OutputFormatter()
         llm_interaction = LLMInteraction(llm_provider=llm_provider, api_key=api_key, model=generation_model)
 
@@ -935,6 +1320,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         progress_context.update_progress(message="Generating dataset")
         result = generator.generate_dataset(
             project_id=project_id,
+            owner_id=owner_id,
             chunks=chunks,
             prompt_name=prompt_name,
             format_type=format_type,
@@ -958,10 +1344,11 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
 
     def _execute_extraction_job(self, parameters: Dict[str, Any], progress_context) -> Dict[str, Any]:
         """Execute taxonomy extraction with progress tracking."""
-        from ...core.settings import backend_settings
+        from ...core.settings import BackendSettings
         from ...features.extraction.taxonomy_extractor import TaxonomyExtractor
         from ...storage.src.project.database_repositories import TaxonomyRepository, ChunkRepository, ExtractionJobRepository, ExtractionResultRepository
         from ...features.extraction.filesystem_storage import HybridStorageManager, FilesystemStorageManager, ExtractionFileManager
+        from ...storage.src.database import get_tenant_db_connection
 
         # Extract parameters
         taxonomy_id = parameters.get('taxonomy_id')
@@ -973,43 +1360,54 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         extraction_type = parameters.get('extraction_type', 'ner')
         extraction_mode = parameters.get('extraction_mode', 'contextual')
 
-        # Check what parameters are available
-        logger.debug(f"parameters keys = {list(parameters.keys())}")
-        logger.debug(f"extraction_mode = {parameters.get('extraction_mode', 'NOT_FOUND')}")
-        logger.debug(f"full parameters = {json.dumps(parameters, default=str)}")
+        # DEBUG: Check what parameters are available
+        logger.debug(f"DEBUG_EXTRACTION_PARAMS: parameters keys = {list(parameters.keys())}")
+        logger.debug(f"DEBUG_EXTRACTION_PARAMS: extraction_mode = {parameters.get('extraction_mode', 'NOT_FOUND')}")
+        logger.debug(f"DEBUG_EXTRACTION_PARAMS: full parameters = {json.dumps(parameters, default=str)}")
         job_id = progress_context.job.job_id
 
         # Get taxonomy information from new taxonomies table
         try:
-            cursor = self.db_connection.cursor()
-            cursor.execute("SELECT project_id, structure FROM taxonomies WHERE id = ?", (taxonomy_id,))
-            tax_record = cursor.fetchone()
-            if not tax_record:
-                raise ValueError(f"Taxonomy {taxonomy_id} not found")
+            owner_id = parameters.get('owner_id')
+            if not owner_id:
+                raise ValueError("owner_id is required for extraction jobs")
+            
+            with get_tenant_db_connection(owner_id) as db:
+                cursor = db.cursor()
+                cursor.execute("SELECT project_id, structure FROM taxonomies WHERE id = ? AND owner_id = ?", (taxonomy_id, owner_id))
+                
+                tax_record = cursor.fetchone()
+                if not tax_record:
+                    raise ValueError(f"Taxonomy {taxonomy_id} not found or access denied")
 
-            project_id, taxonomy_data_json = tax_record
+                project_id, taxonomy_data_json = tax_record
+
+                # Get project name
+                cursor.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
+                project_record = cursor.fetchone()
+                if not project_record:
+                    raise ValueError(f"Project with ID {project_id} not found")
+                project_name = project_record[0]  # Extract name from tuple
         except Exception as e:
             raise ValueError(f"Failed to query taxonomy {taxonomy_id}: {e}")
 
-        # Get project name
-        try:
-            cursor.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
-            project_record = cursor.fetchone()
-            if not project_record:
-                raise ValueError(f"Project with ID {project_id} not found")
-            project_name = project_record[0]  # Extract name from tuple
-        except Exception as e:
-            raise ValueError(f"Failed to query project {project_id}: {e}")
-
         progress_context.update_progress(message="Initializing taxonomy extractor")
 
-        # Create extractor
-        grok_key = backend_settings.get_setting("grok_api_key")
-        gemini_key = backend_settings.get_setting("gemini_api_key")
-        openai_key = backend_settings.get_openai_api_key()
+        # Create extractor with user-specific settings for encrypted API keys
+        user_settings = BackendSettings(owner_id=owner_id)
+        grok_key = user_settings.get_setting("grok_api_key")
+        if grok_key:
+            os.environ['GROK_API_KEY'] = grok_key
+        gemini_key = user_settings.get_setting("gemini_api_key")
+        if gemini_key:
+            os.environ['GEMINI_API_KEY'] = gemini_key
+            os.environ['GOOGLE_API_KEY'] = gemini_key
+        openai_key = user_settings.get_openai_api_key()
+        if openai_key:
+            os.environ['OPENAI_API_KEY'] = openai_key
 
-        taxonomy_repo = TaxonomyRepository(self.db_connection)
-        chunk_repo = ChunkRepository(self.db_connection)
+        taxonomy_repo = TaxonomyRepository(owner_id)
+        chunk_repo = ChunkRepository(owner_id)
         file_manager = ExtractionFileManager()
 
         extractor = TaxonomyExtractor(
@@ -1070,7 +1468,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             # Create taxonomy loader and parse the data
             from ...features.taxonomy.loader import TaxonomyLoader
             from ...storage.src.project.database_repositories import ProjectRepository
-            taxonomy_loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(self.db_connection))
+            taxonomy_loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(owner_id))
             taxonomy_data = taxonomy_loader._parse_taxonomy(taxonomy_raw_data)
         except Exception as e:
             raise ValueError(f"Failed to parse taxonomy data: {e}")
@@ -1112,7 +1510,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
 
         # Store results using hybrid storage
         filesystem_manager = FilesystemStorageManager(file_manager)
-        result_repo = ExtractionResultRepository(self.db_connection)
+        result_repo = ExtractionResultRepository(owner_id)
         hybrid_manager = HybridStorageManager(
             filesystem_manager=filesystem_manager,
             database_repo=result_repo,
@@ -1124,6 +1522,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
             project_id=project_id,
             taxonomy_id=taxonomy_id,
             results=formatted_results,
+            owner_id=owner_id,
             storage_preference="hybrid"
         )
 
@@ -1153,11 +1552,14 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
         }
         return priority_map[priority]
 
-    def get_job_status(self, job_id: str) -> Optional[EnhancedExtractionJob]:
-        """Get job status by ID from Redis."""
+    def get_job_status(self, job_id: str, owner_id: Optional[str] = None) -> Optional[EnhancedExtractionJob]:
+        """Get job status by ID from Redis, with optional ownership check."""
         job_data = self.redis.get(f"compileo:job:{job_id}")
         if job_data:
-            return EnhancedExtractionJob.from_dict(json.loads(job_data))
+            job = EnhancedExtractionJob.from_dict(json.loads(job_data))
+            if owner_id and job.user_id != owner_id:
+                return None
+            return job
         return None
 
     def cancel_job(self, job_id: str) -> bool:
@@ -1192,7 +1594,7 @@ class EnhancedRedisJobQueue(EnhancedJobQueueInterface):
                 if rq_job:
                     rq_job.cancel()
                     rq_job.delete()  # Also delete the job to prevent re-processing
-                    logger.debug(f"Cancelled and deleted RQ job {job_id}")
+                    logger.debug(f"DEBUG: [DEBUG_20251010_RQ_CLEANUP] - Cancelled and deleted RQ job {job_id}")
             except Exception as cancel_error:
                 logger.warning(f"Failed to cancel RQ job {job_id}: {cancel_error}")
 
@@ -1339,6 +1741,7 @@ class EnhancedJobQueueManager:
         redis_url: str = 'redis://localhost:6379/0',
         db_connection=None,
         global_max_jobs: int = 10,
+        per_user_max_jobs: int = 3,
         enable_background_monitoring: bool = True
     ):
         from redis import Redis
@@ -1348,6 +1751,7 @@ class EnhancedJobQueueManager:
             redis_url,
             db_connection=db_connection,
             global_max_jobs=global_max_jobs,
+            per_user_max_jobs=per_user_max_jobs,
             enable_background_monitoring=enable_background_monitoring
         )
 
@@ -1382,11 +1786,15 @@ class EnhancedJobQueueManager:
             }
         }
         logger.debug(json.dumps(debug_context))
-        logger.debug(f"submit_job called for operation: {parameters.get('operation', 'unknown')}")
+        logger.debug(f"DEBUG_JOB_CREATION: submit_job called for operation: {parameters.get('operation', 'unknown')}")
 
         if not job_id:
             job_id = str(uuid.uuid4())
             
+        # Ensure user_id is in parameters for downstream executors
+        if user_id and 'owner_id' not in parameters:
+            parameters['owner_id'] = user_id
+
         job = EnhancedExtractionJob(
             job_id=job_id,
             job_type=job_type,
@@ -1435,9 +1843,9 @@ class EnhancedJobQueueManager:
 
         return result
 
-    def get_job(self, job_id: str) -> Optional[EnhancedExtractionJob]:
-        """Get job by ID."""
-        return self.queue.get_job_status(job_id)
+    def get_job(self, job_id: str, owner_id: Optional[str] = None) -> Optional[EnhancedExtractionJob]:
+        """Get job by ID, with optional ownership check."""
+        return self.queue.get_job_status(job_id, owner_id=owner_id)
 
     def cancel_job(self, job_id: str) -> bool:
         """Cancel a job."""
@@ -1483,16 +1891,18 @@ def initialize_job_queue_manager(
     redis_url: str = 'redis://localhost:6379/0',
     db_connection=None,
     global_max_jobs: int = 10,
+    per_user_max_jobs: int = 3,
     auto_start_worker: bool = False,
     enable_background_monitoring: bool = True
 ) -> EnhancedJobQueueManager:
     """Initialize the global job queue manager with configuration settings."""
-    logger.info("Initializing job queue manager...")
+    logger.info("DEBUG: [DEBUG_20251003_RQ_FLOW] - Initializing job queue manager...")
     # Create the manager instance
     manager = EnhancedJobQueueManager(
         redis_url=redis_url,
         db_connection=db_connection,
         global_max_jobs=global_max_jobs,
+        per_user_max_jobs=per_user_max_jobs,
         enable_background_monitoring=enable_background_monitoring
     )
 
@@ -1598,60 +2008,69 @@ def start_enhanced_worker(
     worker_name: Optional[str] = None,
     default_worker_ttl: int = 270000  # 75 hours for long-running jobs (72h jobs + buffer)
 ):
-    """Start an enhanced RQ worker for processing jobs."""
+    """
+    Start an enhanced RQ worker for processing jobs.
+    
+    This function uses RQ's SimpleWorker which handles job fetching and execution
+    internally. For scaling, use WORKER_REPLICAS (horizontal scaling) in Docker.
+    
+    Args:
+        redis_url: Redis connection URL
+        queue_name: Name of the RQ queue to listen to
+        worker_name: Optional custom worker name
+        default_worker_ttl: Worker timeout in seconds
+    """
     from redis import Redis
     from rq import SimpleWorker
     import time
-
+    
     worker_name = worker_name or f"enhanced_worker_{os.getpid()}"
-    logger.info(f"Starting enhanced worker {worker_name} with TTL {default_worker_ttl}s")
+    
+    logger.info(
+        f"Starting enhanced worker {worker_name} with TTL {default_worker_ttl}s"
+    )
 
     redis_conn = Redis.from_url(redis_url)
-
-    # CRITICAL: Clean up ANY active worker named exactly like us before starting.
-    # This specifically addresses the ValueError: There exists an active worker... already
-    try:
-        from rq import Worker
-        active_workers = Worker.all(connection=redis_conn)
-        for w in active_workers:
-            if w.name == worker_name:
-                log_msg = {
-                    "event": "worker_name_conflict_cleanup",
-                    "worker_name": worker_name,
-                    "message": "Found existing active worker with identical name. Cleaning up registration to prevent ValueError."
-                }
-                logger.warning(f"DEBUG: {json.dumps(log_msg)}")
-                redis_conn.delete(f"rq:worker:{w.name}")
-    except Exception as cleanup_err:
-        logger.warning(f"Failed to check/cleanup existing worker name {worker_name}: {cleanup_err}")
+    queues = [queue_name, f"{queue_name}:intermediate"]
 
     # Restart worker if it exits unexpectedly
     while True:
         try:
-            # Listen to both main queue and intermediate queue to handle serialization issues
-            # Set worker TTL to allow long-running jobs (2 hours default)
-            # Use SimpleWorker for RQ 2.x to run jobs in the same process (no forking)
+            # Use SimpleWorker for job processing
             worker = SimpleWorker(
-                [queue_name, f"{queue_name}:intermediate"],
+                queues,
                 connection=redis_conn,
                 name=worker_name,
                 default_worker_ttl=default_worker_ttl
             )
 
-            # DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - About to call worker.work()
-            logger.info(f"Worker {worker_name} about to call worker.work()")
+            logger.info(
+                f"DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - "
+                f"SimpleWorker {worker_name} about to call worker.work()"
+            )
 
             # In RQ 2.x, setup_logs is removed. Centralized logging is respected automatically
             # if handlers are already configured.
             worker.work()
+            
             # DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - worker.work() returned (should not happen)
-            logger.warning(f"Worker {worker_name} worker.work() returned unexpectedly, restarting...")
+            logger.warning(
+                f"DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - "
+                f"Worker {worker_name} worker.work() returned unexpectedly, restarting..."
+            )
             time.sleep(1)  # Brief pause before restart
 
         except Exception as e:
             # DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - worker.work() failed with exception
-            logger.error(f"Worker {worker_name} worker.work() failed: {e}", exc_info=True)
-            logger.info(f"Restarting worker {worker_name} in 5 seconds...")
+            logger.error(
+                f"DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - "
+                f"Worker {worker_name} worker.work() failed: {e}",
+                exc_info=True
+            )
+            logger.info(
+                f"DEBUG: [DEBUG_20251010_WORKER_LIFECYCLE] - "
+                f"Restarting worker {worker_name} in 5 seconds..."
+            )
             time.sleep(5)  # Wait before restart
 
 

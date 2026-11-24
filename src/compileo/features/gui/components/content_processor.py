@@ -3,11 +3,9 @@ Document Content Processor
 Handles document content loading, sampling, and page extraction for AI analysis.
 """
 
+import logging
 import streamlit as st
 from typing import List, Optional
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 
 from ..services.document_api_service import get_project_documents
 
@@ -116,13 +114,14 @@ def extract_document_pages(content: str, chunk_size: int = 3000) -> List[str]:
     if not content:
         return []
 
-    logger.debug(f"Extracting pages with fixed chunk size: {chunk_size}")
+    logger = logging.getLogger(__name__)
+    logger.debug(f"DEBUG: Extracting pages with fixed chunk size: {chunk_size}")
 
     pages = [content[i:i + chunk_size] for i in range(0, len(content), chunk_size)]
     
     # Filter out any empty pages that might result from the final chunk
     filtered_pages = [page for page in pages if page.strip()]
     
-    logger.debug(f"Final page count: {len(filtered_pages)}")
+    logger.debug(f"DEBUG: Final page count: {len(filtered_pages)}")
     return filtered_pages
 

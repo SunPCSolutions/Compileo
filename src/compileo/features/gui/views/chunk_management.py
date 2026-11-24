@@ -3,6 +3,7 @@ Chunk management view for Compileo GUI.
 Allows viewing and deleting chunks for documents.
 """
 
+import logging
 import streamlit as st
 import pandas as pd
 import time
@@ -62,10 +63,10 @@ def parse_chunk_ids(input_str: str, chunks_data: list) -> list[str]:
 
 def render_chunk_management():
     """Render the chunk management view."""
-    st.title("View & Manage Chunks")
+    st.title("View & Manage Chunks (DEBUG MODE)")
     st.markdown("View and manage generated chunks for your documents.")
     # Version for cache busting
-    st.write("Version: 1.1")
+    st.write("Version: 1.2 (DEBUG)")
 
     # 1. Select Project
     with st.spinner("Loading projects..."):
@@ -145,12 +146,25 @@ def render_chunk_management():
         st.info("No chunks found for this document.")
         st.markdown("Go to **Document Processing** to chunk this document.")
     else:
+        # DEBUG: Show what we received from API
+        logger = logging.getLogger(__name__)
+        logger.debug(f"GUI DEBUG: Received chunks type: {type(chunks)}")
+        if chunks and len(chunks) > 0:
+            c0 = chunks[0]
+            logger.debug(f"GUI DEBUG: First chunk keys: {c0.keys() if isinstance(c0, dict) else 'not dict'}")
+            logger.debug(f"GUI DEBUG: First chunk content: {str(c0.get('content', 'NONE'))[:50]}...")
+            
+            st.error(f"DEBUG DATA: ID={c0.get('id')}")
+            st.error(f"DEBUG DATA: Keys={list(c0.keys())}")
+            content_val = c0.get('content')
+            st.error(f"DEBUG DATA: Content len={len(content_val) if content_val else 0}")
+            
         st.success(f"Found {len(chunks)} chunks.")
-        
+
         # Delete All Button
         col1, col2 = st.columns([1, 3])
         with col1:
-            if st.button("🗑️ Delete All Chunks", type="primary", width='stretch'):
+            if st.button("🗑️ Delete All Chunks", type="primary", use_container_width=True):
                 # Use a confirmation dialog pattern if Streamlit supported modal easily,
                 # but here we'll just use session state for confirmation or just do it if "Are you sure" is implied by the button label being red/primary?
                 # Actually standard pattern is click -> separate confirm button appears.
@@ -221,8 +235,7 @@ def render_chunk_management():
                 full_content = ""
                 if isinstance(c, dict):
                     # Prefer full content if available, fallback to preview
-                    # API returns 'text' field for full content from ChunkLoader
-                    full_content = c.get("text") or c.get("content") or c.get("content_preview", "")
+                    full_content = c.get("content") or c.get("content_preview", "")
                     if not full_content:
                         # Fallback for old chunks or data issues
                         full_content = "(No content available)"

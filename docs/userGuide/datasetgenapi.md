@@ -22,13 +22,13 @@ The Compileo API provides comprehensive endpoints for generating high-quality da
 Submits a dataset generation job with comprehensive configuration options.
 
 - **Endpoint:** `POST /datasets/generate`
-- **Description:** Initiates dataset generation from processed chunks with full configuration control
+- **Description:** Initiates dataset generation from processed chunks with full configuration control. This operation is strictly user-isolated.
 - **Request Body:**
   ```json
   {
-    "project_id": 1,
+    "project_id": "f33e9780-04af-4675-a348-58eacd49ca54",
     "data_source": "Chunks Only",
-    "prompt_name": "default",
+    "prompt_name": "qa_pairs",
     "custom_prompt": "Optional custom prompt content",
     "selected_categories": ["category1", "category2"],
     "generation_mode": "default",
@@ -54,12 +54,12 @@ Submits a dataset generation job with comprehensive configuration options.
   ```
 
 - **Parameters:**
-  - `project_id` (integer, required): Project containing processed chunks
+  - `project_id` (string, required): UUID of the project containing processed chunks.
   - `data_source` (string): Data source mode - "Chunks Only", "Taxonomy", "Extract" (default: "Chunks Only")
   - `extraction_file_id` (string, optional): Specific extraction job ID (UUID) when data_source is "Extract". Use `/api/v1/datasets/extraction-files/{project_id}` to get a list of available extraction jobs.
   - `selected_categories` (array of strings, optional): List of category names to filter by when data_source is "Extract"
   - `prompt_name` (string): Name of prompt template to use (default: "default")
-  - `custom_prompt` (string, optional): Custom prompt content for generation
+  - `custom_prompt` (string, optional): Custom prompt content for generation. When provided, the entry metadata will reflect `prompt_used: "custom"`.
   - `generation_mode` (string): Generation mode - "instruction following", "question and answer", "question", "answer", "summarization"
   - `format_type` (string): Output format - "jsonl", "parquet", or plugin formats (e.g., "anki")
   - `concurrency` (integer): Number of parallel processing threads
@@ -77,8 +77,31 @@ Submits a dataset generation job with comprehensive configuration options.
   - `parsing_model` (string): AI model for document parsing
   - `chunking_model` (string): AI model for text chunking
   - `classification_model` (string): AI model for content classification
-  - `datasets_per_chunk` (integer): Maximum datasets per text chunk
+  - `datasets_per_chunk` (integer): Number of dataset entries to generate per chunk. Use `0` for "Let AI Decide" mode where the AI determines the appropriate number based on content richness (typically generates 1-15 entries depending on content density).
   - `only_validated` (boolean): Filter extraction results to only include data that has passed validation
+
+  **"Let AI Decide" Mode (datasets_per_chunk = 0):**
+  
+  When set to `0`, the AI analyzes the content richness and dynamically determines the appropriate number of entries:
+  - **Sparse content** → 1-3 entries
+  - **Moderate content** → 3-7 entries
+  - **Rich content** → 7-15+ entries
+  
+  This mode is ideal when you want the AI to optimize entry count based on content density rather than using a fixed number.
+
+### Multi-Tenant Model Configuration
+Compileo supports user-specific API keys for external models:
+- **Gemini/Grok/OpenAI**: API keys are retrieved from the user's settings database. If a user has not configured their own key, the system may fall back to the instance default if available.
+- **Ollama**: Local processing remains available without API keys.
+
+### Robust Prompt Formatting
+The generation pipeline employs a **Safe Formatting** strategy. This allows document content to contain special characters like curly braces (common in code snippets or JSON data) without causing formatting errors in the AI prompts.
+
+### Output Metadata
+Every generated entry in the dataset includes:
+- `prompt_used`: The name of the template (e.g., "qa_pairs") or "custom" if a GUI-provided prompt was used.
+- `confidence`: The AI-assigned confidence score (for extraction-based sources).
+- `source_type`: "extraction" or "chunk" indicating the origin of the data.
 
   **Data Source Modes:**
 
@@ -90,7 +113,7 @@ Submits a dataset generation job with comprehensive configuration options.
   - `batch_size` controls memory usage by processing chunks in smaller groups
   - Set to 0 to process all chunks at once (legacy behavior)
   - Smaller batches reduce memory usage but may take longer
-  - Each batch creates a separate output file: `dataset_[job_id]_batch_[N].[format]`. Parquet exports are saved as binary `.parquet` files, while JSON/JSONL are saved as UTF-8 text files.
+  - Each batch creates a separate output file: `dataset_[job_id]_batch_[N].[format]`
 
   **Generation Mode Options:**
   
@@ -125,7 +148,7 @@ Creates comprehensive evaluation datasets with train/validation/test splits.
 Monitors the progress of dataset generation jobs.
 
 - **Endpoint:** `GET /datasets/generate/{job_id}/status`
-- **Description:** Returns current status and progress of dataset generation. This endpoint implements a persistent database fallback, ensuring status is available even after server restarts or worker instance changes.
+- **Description:** Returns current status and progress of dataset generation
 - **Path Parameters:**
   - `job_id` (string, required): Dataset generation job ID
 - **Success Response (200 OK):**
@@ -334,13 +357,30 @@ Triggers regeneration of specific dataset entries.
 
 ### 10. Download Dataset
 
-Downloads generated datasets in the specified format.
+Downloads generated datasets securely in the specified format.
 
-- **Endpoint:** `GET /datasets/{dataset_id}/download`
-- **Description:** Downloads dataset file (JSONL/Parquet)
+- **Endpoint:** `GET /datasets/{project_id}/{filename}/download`
+- **Description:** Directly downloads the generated dataset file (JSONL/Parquet/JSON). Note: this endpoint requires a valid JWT authorization header.
 - **Path Parameters:**
-  - `dataset_id` (string, required): Dataset identifier
-- **Success Response:** File download with appropriate content-type
+  - `project_id` (string, required): The project UUID
+  - `filename` (string, required): The dataset filename (e.g., `dataset_uuid_batch_0.jsonl`)
+- **Success Response:** Direct binary file stream (`application/octet-stream`)
+
+*(Note: There is also a legacy fallback endpoint `GET /datasets/{dataset_id}/download` which returns a JSON containing a `download_url` that redirects clients to the new secure endpoint above)*
+
+### View Dataset Details
+
+- **Endpoint:** `GET /datasets/{dataset_id}/details`
+- **Description:** Retrieves metadata and sample records for a specific dataset.
+- **Query Parameters:**
+  - `project_id` (string): The UUID of the project (recommended for efficiency). If omitted, the system will attempt to resolve it from the dataset filename.
+
+### Delete Dataset
+
+- **Endpoint:** `DELETE /datasets/{dataset_id}/delete`
+- **Description:** Deletes a specific dataset file from storage.
+- **Query Parameters:**
+  - `project_id` (string): The UUID of the project (recommended for efficiency). If omitted, the system will attempt to resolve it from the dataset filename.
 
 ## Integration with Job Management
 

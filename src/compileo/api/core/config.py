@@ -22,9 +22,7 @@ class Settings(BaseModel):
     allowed_hosts: List[str] = ["*"]
 
     # Authentication
-    api_key_header: str = "X-API-Key"
-    api_keys: List[str] = []  # Consolidated list of valid keys from Env, CLI, and DB
-    cli_api_key_override: Optional[str] = None  # Key provided via command line
+    # Legacy X-API-Key removed. Use JWT for authentication.
 
     # Database
     database_url: str = "sqlite:///database.db"
@@ -42,7 +40,7 @@ class Settings(BaseModel):
 
     # Job Handling Limits
     global_max_concurrent_jobs: int = 10  # Global limit for all concurrent jobs
-    # per_user_max_concurrent_jobs: int = 3  # Per-user concurrent job limit - TODO: Uncomment when multi-user architecture is implemented
+    per_user_max_concurrent_jobs: int = 3  # Per-user concurrent job limit
 
     # Logging
     log_level: str = "INFO"
@@ -78,10 +76,6 @@ class Settings(BaseModel):
         if not self.redis_url.startswith("redis://"):
              self.redis_url = f"redis://{self.redis_url}"
 
-        # Initial load
-        self.api_keys = []
-        # We will reload in the middleware
-
         # Override CORS origins from environment
         cors_origins_env = os.getenv("CORS_ORIGINS", "")
         if cors_origins_env:
@@ -90,63 +84,7 @@ class Settings(BaseModel):
         # Override job limits from GUI settings
         backend_settings = BackendSettings()
         self.global_max_concurrent_jobs = backend_settings.get_global_max_concurrent_jobs()
-        # TODO: Uncomment when multi-user architecture is implemented
-        # self.per_user_max_concurrent_jobs = backend_settings.get_per_user_max_concurrent_jobs()
-        # self.per_user_max_concurrent_jobs = self.global_max_concurrent_jobs  # Single-user mode
-        # TODO: Uncomment when multi-user architecture is implemented
-        # self.per_user_max_concurrent_jobs = self.global_max_concurrent_jobs  # Single-user mode - TODO: Remove when multi-user implemented
-
-
-    def set_cli_api_key(self, key: str):
-        """Set the API key provided via CLI."""
-        self.cli_api_key_override = key
-        self.reload_api_keys()
-
-    def reload_api_keys(self):
-        """
-        Reload and consolidate API keys from all sources:
-        1. Environment Variables (COMPILEO_API_KEY, COMPILEO_API_KEYS)
-        2. CLI Argument (--api-key)
-        3. Database (gui_settings table)
-        """
-        all_keys = []
-
-        # 1. Environment Variables
-        import os
-        api_key_single = os.getenv("COMPILEO_API_KEY")
-        api_keys_multi = os.getenv("COMPILEO_API_KEYS")
-
-        if api_key_single:
-            val = api_key_single.strip()
-            if val and val not in all_keys:
-                all_keys.append(val)
-        
-        if api_keys_multi:
-            multi_keys = [k.strip() for k in api_keys_multi.split(",") if k.strip()]
-            for mk in multi_keys:
-                if mk and mk not in all_keys:
-                    all_keys.append(mk)
-
-        # 2. CLI Argument
-        if self.cli_api_key_override:
-            val = self.cli_api_key_override.strip()
-            if val and val not in all_keys:
-                all_keys.append(val)
-
-        # 3. Database (Manageable via GUI)
-        try:
-            # Import BackendSettings here to avoid circular imports if any
-            from ...core.settings import BackendSettings
-            db_key = BackendSettings.get_setting("api_key")
-            if db_key and isinstance(db_key, str):
-                val = db_key.strip()
-                if val and val not in all_keys:
-                    all_keys.append(val)
-        except Exception:
-            # Fallback if DB not ready
-            pass
-
-        self.api_keys = all_keys
+        self.per_user_max_concurrent_jobs = backend_settings.get_per_user_max_concurrent_jobs()
 
 
 # Global settings instance

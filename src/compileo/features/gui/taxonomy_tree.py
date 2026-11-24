@@ -7,7 +7,6 @@ import streamlit as st
 import time
 from typing import Dict, Any, List, Optional
 from src.compileo.features.gui.services.api_client import api_client, APIError
-from src.compileo.features.gui.services.job_monitoring_service import monitor_job_synchronously
 from src.compileo.features.gui.components.taxonomy_tree_selector import TaxonomyTreeSelector
 
 
@@ -90,7 +89,7 @@ def render_classification_extraction():
                         st.markdown("**🤖 Classifier Selection:**")
                         initial_classifier = st.selectbox(
                             "Select Initial Classifier",
-                            options=["grok", "gemini", "ollama"],
+                            options=["gemini", "grok", "ollama"],
                             index=0,
                             help="Choose the AI classifier for the initial classification stage"
                         )
@@ -105,8 +104,8 @@ def render_classification_extraction():
                         if enable_validation_stage:
                             validation_classifier = st.selectbox(
                                 "Select Validation Classifier",
-                                options=["grok", "gemini", "ollama"],
-                                index=0,
+                                options=["gemini", "grok", "ollama"],
+                                index=1,
                                 help="Choose the AI classifier for the validation stage"
                             )
 
@@ -245,14 +244,7 @@ def run_selective_extraction(
                 }
 
                 # Poll for completion with enhanced monitoring
-                if monitor_job_synchronously(job_id, success_text="✅ Selective extraction completed successfully!"):
-                    # Show completion summary
-                    try:
-                        job_response = api_client.get(f"/api/v1/extraction/{job_id}")
-                        if job_response:
-                            display_selective_extraction_results(job_id, job_response)
-                    except Exception:
-                        st.error("Extraction completed, but failed to load results for display.")
+                poll_selective_extraction_status(job_id)
             else:
                 st.error("❌ Failed to start selective extraction job")
                 if response:
@@ -310,6 +302,77 @@ def preview_category_selection(tree_selector: TaxonomyTreeSelector, taxonomy_dat
                     st.caption(category['description'])
 
 
+def poll_selective_extraction_status(job_id: int):
+    """Poll selective extraction job status with enhanced monitoring and results display."""
+    max_attempts = 120  # 10 minutes max for selective extraction
+    attempt = 0
+
+    # Create containers for dynamic updates
+    progress_container = st.empty()
+    status_container = st.empty()
+    results_container = st.empty()
+
+    with progress_container.container():
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+    while attempt < max_attempts:
+        try:
+            response = api_client.get(f"/api/v1/extraction/{job_id}")
+
+            if response:
+                status = response.get("status", "unknown")
+                progress_info = response.get("progress", {})
+
+                # Update progress bar
+                if status == "running" and progress_info:
+                    progress_percent = progress_info.get("progress_percentage", 0)
+                    progress_bar.progress(min(progress_percent / 100, 1.0))
+
+                    # Show detailed progress
+                    processed_chunks = progress_info.get("processed_chunks", 0)
+                    total_chunks = progress_info.get("total_chunks", 0)
+                    current_category = progress_info.get("current_category", "Unknown")
+
+                    status_text.info(f"🔄 Processing: {processed_chunks}/{total_chunks} chunks | Current: {current_category}")
+
+                elif status == "completed":
+                    progress_bar.progress(1.0)
+                    status_text.success("✅ Selective extraction completed successfully!")
+
+                    # Show completion summary
+                    with results_container.container():
+                        display_selective_extraction_results(job_id, response)
+                    break
+
+                elif status == "failed":
+                    progress_bar.empty()
+                    status_text.error("❌ Selective extraction failed")
+                    error_msg = response.get("error_message")
+                    if error_msg:
+                        st.error(f"Error: {error_msg}")
+                    break
+
+                elif status in ["pending", "queued"]:
+                    status_text.info("⏳ Job queued, waiting to start...")
+                    progress_bar.progress(0.1)
+
+                else:
+                    status_text.info(f"📋 Job status: {status}")
+
+            else:
+                status_text.warning("Unable to check job status")
+
+        except APIError as e:
+            status_text.error(f"Error checking job status: {e}")
+            break
+
+        time.sleep(5)  # Wait 5 seconds before checking again
+        attempt += 1
+
+    if attempt >= max_attempts:
+        progress_bar.empty()
+        status_text.warning("⏰ Job is taking longer than expected. Check back later or contact support.")
 
 
 def display_selective_extraction_results(job_id: int, job_response: Dict[str, Any]):
@@ -470,6 +533,73 @@ def run_extraction(project_id: int, taxonomy_name: str, depth: int, confidence: 
         st.error(f"Extraction failed: {e}")
 
 
+def poll_extraction_status(job_id: int):
+    """Poll extraction job status and display results."""
+    import time
+
+    max_attempts = 60  # 5 minutes max
+    attempt = 0
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    while attempt < max_attempts:
+        try:
+            response = api_client.get(f"/api/v1/extraction/{job_id}")
+
+            if response:
+                status = response.get("status", "unknown")
+
+                if status == "completed":
+                    progress_bar.progress(100)
+                    status_text.success("✅ Extraction completed successfully!")
+
+                    # Show results summary
+                    progress_info = response.get("progress", {})
+                    if progress_info:
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Total Results", progress_info.get("total_results", 0))
+                        with col2:
+                            st.metric("Avg Confidence", f"{progress_info.get('avg_confidence', 0):.2f}")
+                        with col3:
+                            st.metric("Categories Found", len(progress_info.get("categories_found", [])))
+
+                    # Option to view detailed results
+                    if st.button("📊 View Detailed Results"):
+                        show_extraction_results(job_id)
+
+                    break
+
+                elif status == "failed":
+                    progress_bar.empty()
+                    status_text.error("❌ Extraction failed")
+                    error_msg = response.get("error_message")
+                    if error_msg:
+                        st.error(f"Error: {error_msg}")
+                    break
+
+                elif status == "processing":
+                    # Show processing status
+                    status_text.info("🔄 Processing extraction job...")
+                    progress_bar.progress(50)  # Show some progress
+
+                else:
+                    status_text.info(f"📋 Job status: {status}")
+
+            else:
+                status_text.warning("Unable to check job status")
+
+        except APIError as e:
+            status_text.error(f"Error checking job status: {e}")
+            break
+
+        time.sleep(5)  # Wait 5 seconds before checking again
+        attempt += 1
+
+    if attempt >= max_attempts:
+        progress_bar.empty()
+        status_text.warning("⏰ Job is taking longer than expected. Check back later.")
 
 
 def show_extraction_results(job_id: int):

@@ -13,9 +13,10 @@ from typing import List, Dict, Any, Optional
 
 from ..services.api_client import api_client, APIError
 from ..services.document_api_service import get_projects
-from ..services.job_monitoring_service import monitor_job_synchronously
+from ..services.unified_job_service import unified_job_service, JobResult
 from ..state.session_state import session_state
 from ...extraction.error_logging import gui_logger
+from ...jobhandle.models import JobType, JobPriority
 
 
 def render_extraction_unified():
@@ -150,7 +151,7 @@ def render_run_extraction():
         validation_classifier = st.selectbox(
             "Validation Classifier",
             options=["grok", "gemini", "openai", "ollama"],
-            index=0,  # grok as default for validation
+            index=1,  # gemini as default for validation
             help="AI model for the validation classification stage",
             key="validation_classifier"
         )
@@ -355,6 +356,12 @@ def render_taxonomy_tree_with_selection(node: Dict[str, Any], taxonomy_id: int, 
                     if category_id not in current_selected:
                         current_selected.append(category_id)
                         st.session_state[f'selected_categories_{taxonomy_id}'] = current_selected
+                else:
+                    # Remove from session state if present
+                    current_selected = st.session_state.get(f'selected_categories_{taxonomy_id}', [])
+                    if category_id in current_selected:
+                        current_selected.remove(category_id)
+                        st.session_state[f'selected_categories_{taxonomy_id}'] = current_selected
 
         with col2:
             # Expander for category details (similar to taxonomy browser)
@@ -417,7 +424,7 @@ def start_extraction_job(project_id: int, taxonomy_id: int, depth: int,
                          initial_classifier: str, enable_validation: bool,
                          validation_classifier: Optional[str], extraction_type: str,
                          extraction_mode: str):
-    """Start a new extraction job."""
+    """Start a new extraction job using unified job service."""
     try:
         # Get selected categories from session state
         selected_categories = st.session_state.get(f'selected_categories_{taxonomy_id}', [])
@@ -426,40 +433,40 @@ def start_extraction_job(project_id: int, taxonomy_id: int, depth: int,
             st.error("❌ No categories selected. Please select at least one category for extraction.")
             return
 
-        with st.spinner("🚀 Starting extraction job..."):
-            job_data = {
-                "project_id": project_id,
-                "taxonomy_id": taxonomy_id,
-                "selected_categories": selected_categories,
-                "parameters": {
-                    "extraction_depth": depth,
-                    "confidence_threshold": confidence,
-                    "batch_size": batch_size,
-                    "max_chunks": max_chunks
-                },
-                "initial_classifier": initial_classifier,
-                "enable_validation_stage": enable_validation,
-                "validation_classifier": validation_classifier,
-                "extraction_type": extraction_type,
-                "extraction_mode": extraction_mode
-            }
+        job_data = {
+            "operation": "extraction",  # Required for job queue routing
+            "project_id": project_id,
+            "taxonomy_id": taxonomy_id,
+            "selected_categories": selected_categories,
+            "parameters": {
+                "extraction_depth": depth,
+                "confidence_threshold": confidence,
+                "batch_size": batch_size,
+                "max_chunks": max_chunks
+            },
+            "initial_classifier": initial_classifier,
+            "enable_validation_stage": enable_validation,
+            "validation_classifier": validation_classifier,
+            "extraction_type": extraction_type,
+            "extraction_mode": extraction_mode
+        }
 
-            response = api_client.post("/api/v1/extraction/", data=job_data)
+        # Use unified job service for submission and monitoring
+        result = unified_job_service.submit_and_monitor(
+            job_type=JobType.EXTRACTION,
+            parameters=job_data,
+            priority=JobPriority.NORMAL,
+            title="Running Extraction",
+            timeout=7200,  # 2 hours
+            poll_interval=5
+        )
 
-            if response and 'job_id' in response:
-                job_id = response['job_id']
-                st.success(f"✅ Extraction job started successfully! Job ID: {job_id}")
-                
-                # Monitor job synchronously (Wizard-style)
-                success = monitor_job_synchronously(job_id, success_text="Extraction completed!")
-                
-                if success:
-                    # Switch to Browse tab and refresh
-                    st.session_state['extraction_active_tab'] = 1
-                    st.session_state['selected_result_job'] = job_id
-                    st.rerun()
-            else:
-                st.error("❌ Failed to start extraction job. Please try again.")
+        if result.success:
+            st.success(f"✅ Extraction job completed successfully! Job ID: {result.job_id}")
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.error(f"❌ Extraction failed: {result.error_message}")
 
     except Exception as e:
         st.error(f"❌ Failed to start extraction job: {e}")
@@ -875,19 +882,15 @@ def render_extraction_job_card(job: Dict[str, Any]):
                 st.markdown(f"<span style='color: {status_color}; font-weight: bold;'>{status}</span>", unsafe_allow_html=True)
 
             with col3:
-                status_lower = job['status'].lower()
-                if status_lower == 'running':
-                    st.info("🔄 Running...")
-                elif status_lower == 'pending':
-                    st.warning("⏳ Pending...")
-                elif status_lower == 'completed':
-                    st.success("✅ Done")
-                elif status_lower == 'failed':
-                    st.error("❌ Failed")
-                elif status_lower == 'cancelled':
-                    st.text("🚫 Cancelled")
-                else:
-                    st.text(f"Status: {status}")
+                status = job.get('status', 'unknown').capitalize()
+                status_icon = {
+                    'Completed': '✅',
+                    'Running': '🔄',
+                    'Failed': '❌',
+                    'Pending': '⏳',
+                    'Cancelled': '🚫'
+                }.get(status, '❓')
+                st.markdown(f"{status_icon} {status}")
 
             # Management actions
             col1, col2, col3, col4 = st.columns(4)
@@ -900,9 +903,17 @@ def render_extraction_job_card(job: Dict[str, Any]):
                     st.rerun()
 
             with col2:
-                if st.button("📤 Export JSON", key=f"export_extraction_{job['job_id']}", width='stretch'):
+                # Fix Streamlit anti-pattern using session state for download button
+                dl_state_key = f"dl_extraction_ready_{job['job_id']}"
+                if not st.session_state.get(dl_state_key):
+                    if st.button("📤 Export JSON", key=f"export_extraction_{job['job_id']}", width='stretch'):
+                        st.session_state[dl_state_key] = True
+                        st.rerun()
+                
+                if st.session_state.get(dl_state_key):
                     try:
-                        response = api_client.get(f"/api/v1/extraction/{job['job_id']}/results?page=1&page_size=100")
+                        # Fetch more results for export
+                        response = api_client.get(f"/api/v1/extraction/{job['job_id']}/results?page=1&page_size=1000")
                         if response and 'results' in response:
                             import json
                             json_str = json.dumps(response, indent=2, default=str)
@@ -911,10 +922,15 @@ def render_extraction_job_card(job: Dict[str, Any]):
                                 data=json_str,
                                 file_name=f"extraction_results_job_{job['job_id']}.json",
                                 mime="application/json",
-                                width='stretch'
+                                width='stretch',
+                                key=f"real_dl_extraction_{job['job_id']}"
                             )
+                        else:
+                            st.error("No results to export.")
+                            st.session_state[dl_state_key] = False
                     except APIError as e:
                         st.error(f"Failed to export job results: {e}")
+                        st.session_state[dl_state_key] = False
 
             with col3:
                 if job['status'] in ['failed', 'cancelled']:
@@ -933,7 +949,52 @@ def render_extraction_job_card(job: Dict[str, Any]):
             if st.session_state.get(f'extraction_delete_confirm_{job["job_id"]}', False):
                 render_individual_delete_confirmation_extractions(job)
 
+            # Details View
+            if st.session_state.get('selected_result_job') == job['job_id']:
+                with st.expander("📋 Extraction Details", expanded=True):
+                    render_extraction_job_details(job)
+
         st.divider()
+
+
+def render_extraction_job_details(job: Dict[str, Any]):
+    """Render details and sample results for an extraction job."""
+    st.markdown("**Basic Information:**")
+    st.write(f"**Job ID:** {job.get('job_id')}")
+    st.write(f"**Status:** {job.get('status')}")
+    
+    if job.get('error_message'):
+        st.error(f"**Error:** {job.get('error_message')}")
+        
+    try:
+        response = api_client.get(f"/api/v1/extraction/{job['job_id']}/results?page=1&page_size=5")
+        if response and 'results' in response:
+            results = response['results']
+            total = response.get('total_results', 0)
+            st.markdown(f"**Results:** {total} total items extracted.")
+            
+            if results:
+                st.markdown("**Sample Extracted Items:**")
+                for i, res in enumerate(results[:5], 1):
+                    with st.container():
+                        st.markdown(f"**Sample {i}** (Confidence: {res.get('confidence_score', 0):.2f})")
+                        cats = res.get('categories_matched', [])
+                        st.markdown(f"*Categories:* {', '.join(cats) if cats else 'None'}")
+                        
+                        # Handle different structure shapes from backend
+                        classifications = res.get('classifications', {})
+                        if isinstance(classifications, dict):
+                            st.json(classifications)
+                        else:
+                            st.write(classifications)
+                        st.divider()
+        else:
+            st.info("No detailed results available for this job.")
+    except Exception as e:
+        if job.get('status') not in ['completed']:
+            st.info("Detailed results are only available for completed jobs.")
+        else:
+            st.error(f"Failed to fetch results: {e}")
 
 
 def render_individual_delete_confirmation_extractions(job: Dict[str, Any]):

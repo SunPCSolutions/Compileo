@@ -15,40 +15,61 @@ class SessionState:
         self._initialize_session_state()
 
     def _initialize_session_state(self):
-        """Initialize all session state variables."""
-        st.session_state.initialized = True
-        st.session_state.user_id = "default_user"  # Default user for single-user GUI operation
-        st.session_state.api_key = None
-        st.session_state.current_project = None
-        st.session_state.selected_project_id = None
-        st.session_state.processing_job_id = None
-        st.session_state.generation_job_id = None
-        st.session_state.wizard_state = {}
-        st.session_state.last_activity = datetime.utcnow()
-        st.session_state.notifications = []
-        st.session_state.job_status_cache = {}
-        st.session_state.overlap_pages = 1
-        st.session_state.job_just_completed = False
+        """Initialize all session state variables only if not already initialized."""
+        if not st.session_state.get('initialized', False):
+            st.session_state.initialized = True
+            st.session_state.user = None  # Full user object from API
+            st.session_state.authenticated = False
+            st.session_state.jwt_token = None
+            st.session_state.current_project = None
+            st.session_state.selected_project_id = None
+            st.session_state.processing_job_id = None
+            st.session_state.generation_job_id = None
+            st.session_state.wizard_state = {}
+            st.session_state.last_activity = datetime.utcnow()
+            st.session_state.notifications = []
+            st.session_state.job_status_cache = {}
+            st.session_state.overlap_pages = 1
+            # Only set current_page if not already set
+            if 'current_page' not in st.session_state:
+                st.session_state.current_page = 'home'
+
+    @property
+    def user(self) -> Optional[Dict]:
+        """Get current user object."""
+        return st.session_state.get('user')
+
+    @user.setter
+    def user(self, value: Optional[Dict]):
+        """Set current user object."""
+        st.session_state.user = value
 
     @property
     def user_id(self) -> Optional[str]:
         """Get current user ID."""
-        return st.session_state.get('user_id')
-
-    @user_id.setter
-    def user_id(self, value: Optional[str]):
-        """Set current user ID."""
-        st.session_state.user_id = value
+        if st.session_state.get('user'):
+            return st.session_state.user.get('id')
+        return None
 
     @property
-    def api_key(self) -> Optional[str]:
-        """Get API key."""
-        return st.session_state.get('api_key')
+    def authenticated(self) -> bool:
+        """Check if user is authenticated."""
+        return st.session_state.get('authenticated', False)
 
-    @api_key.setter
-    def api_key(self, value: Optional[str]):
-        """Set API key."""
-        st.session_state.api_key = value
+    @authenticated.setter
+    def authenticated(self, value: bool):
+        """Set authentication status."""
+        st.session_state.authenticated = value
+
+    @property
+    def jwt_token(self) -> Optional[str]:
+        """Get JWT token."""
+        return st.session_state.get('jwt_token')
+
+    @jwt_token.setter
+    def jwt_token(self, value: Optional[str]):
+        """Set JWT token."""
+        st.session_state.jwt_token = value
 
     @property
     def current_project(self) -> Optional[Dict]:
@@ -110,16 +131,6 @@ class SessionState:
     def overlap_pages(self, value: int):
         """Set overlap pages."""
         st.session_state.overlap_pages = value
-
-    @property
-    def job_just_completed(self) -> bool:
-        """Get job just completed flag."""
-        return st.session_state.get('job_just_completed', False)
-
-    @job_just_completed.setter
-    def job_just_completed(self, value: bool):
-        """Set job just completed flag."""
-        st.session_state.job_just_completed = value
 
     @property
     def current_page(self) -> str:

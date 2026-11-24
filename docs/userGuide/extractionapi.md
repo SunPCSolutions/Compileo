@@ -33,11 +33,9 @@ The extraction system implements intelligent contextual filtering to ensure accu
 
 2. **Context Relevance Check**: For each text chunk, the system determines if the parent categories of selected child categories are relevant to the content.
 
-3. **Hierarchical Prompt Construction**: The system builds a structured prompt for the AI that groups child categories under their respective parents. **Note**: Since the 2025-12-24 update, this grouping occurs even if the parent category itself is also selected as a target for extraction.
+3. **Selective Extraction**: Child categories are only processed for extraction if their parent context is present in the text (explicitly or implied).
 
-4. **Selective Extraction**: Child categories are only processed for extraction if their parent context is present in the text (explicitly or implied).
-
-5. **Empty Results for Irrelevant Content**: If a parent category is not relevant to a chunk, all its child categories return empty results rather than extracting unrelated content.
+4. **Empty Results for Irrelevant Content**: If a parent category is not relevant to a chunk, all its child categories return empty results rather than extracting unrelated content.
 
 ### Example Behavior
 

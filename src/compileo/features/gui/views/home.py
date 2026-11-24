@@ -10,7 +10,7 @@ from src.compileo.features.gui.services.api_client import api_client
 
 def render_home():
     """Render the home/dashboard page."""
-    st.title("🏠 Dashboard")
+    st.title("🏠 Compileo Dashboard")
     st.markdown("Welcome to the Compileo Dataset Creation Platform")
 
     # Quick stats
@@ -36,17 +36,17 @@ def render_home():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("📁 Create New Project", width='stretch'):
+        if st.button("📁 Create New Project", use_container_width=True):
             session_state.current_page = "projects"
             st.rerun()
 
     with col2:
-        if st.button("🧙 Start Dataset Wizard", width='stretch'):
+        if st.button("🧙 Start Dataset Wizard", use_container_width=True):
             session_state.current_page = "wizard"
             st.rerun()
 
     with col3:
-        if st.button("📊 View Quality Metrics", width='stretch'):
+        if st.button("📊 View Quality Metrics", use_container_width=True):
             session_state.current_page = "quality"
             st.rerun()
 

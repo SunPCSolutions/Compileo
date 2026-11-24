@@ -3,14 +3,12 @@ This module provides a function to classify a text chunk based on a hierarchical
 using the Google Gemini API.
 """
 
+import logging
 import json
 from google import genai
 from google.genai import types
 from typing import Dict, List, Any, Optional
 from .context_models import DocumentContext, ChunkContext, HierarchicalCategory
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 def _classify_with_categories(
     text: str,
@@ -21,6 +19,7 @@ def _classify_with_categories(
     taxonomy: Optional[HierarchicalCategory] = None,
     model: Optional[str] = None
 ) -> Dict[str, Any]:
+    logger = logging.getLogger(__name__)
     client = genai.Client(api_key=api_key)
 
     # Use provided model or default
@@ -88,6 +87,7 @@ def _generate_categories_with_gemini(text: str, num_categories: int, api_key: st
     """
     Generates a list of high-level categories from a text chunk using the Gemini API.
     """
+    logger = logging.getLogger(__name__)
     client = genai.Client(api_key=api_key)
 
     # Use provided model or default

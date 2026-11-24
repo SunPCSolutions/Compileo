@@ -1,14 +1,14 @@
 """Request logging middleware for the Compileo API."""
 
+import logging
 import time
 import uuid
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from ...core.logging import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

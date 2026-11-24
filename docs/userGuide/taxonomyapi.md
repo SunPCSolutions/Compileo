@@ -95,7 +95,7 @@ curl -X POST "http://localhost:8000/api/v1/taxonomy/generate" \
 - `documents`: Array of document IDs (required) - documents must be parsed and chunked
 - `depth`: Taxonomy hierarchy depth (default: 3)
 - `generator`: AI model (`gemini`, `grok`, `ollama`, `openai`) (default: `gemini`)
-- `domain`: Content domain (default: `general`)
+- `domain`: Content domain (default: `general`). This is a free-text string (e.g., `"medical"`, `"preventive nutrition"`) used to provide knowledge context to the AI generator.
 - `batch_size`: Number of complete chunks to process per batch (default: 10)
 - `category_limits`: Max categories per level (optional)
 - `specificity_level`: Specificity level 1-5 (default: 1)

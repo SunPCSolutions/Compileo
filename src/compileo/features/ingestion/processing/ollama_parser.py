@@ -1,5 +1,6 @@
 import requests
 import base64
+import logging
 from PIL import Image
 import io
 import os
@@ -7,9 +8,8 @@ import time
 from typing import Optional, List, Literal
 from pydantic import BaseModel
 from .image_utils import convert_pdf_to_optimized_images
-from ....core.logging import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class DiagramElement(BaseModel):
     name: str
@@ -34,6 +34,7 @@ def query_ollama_vlm(prompt, image=None, images: Optional[List[Image.Image]] = N
         model: Ollama model name (optional)
         options: Dict of generation options to override defaults (optional)
     """
+    logger = logging.getLogger(__name__)
     from ....core.settings import backend_settings
     api_url = f"{backend_settings.get_ollama_base_url()}/api/generate"
 
@@ -147,11 +148,11 @@ Do not extract content."""
                 logger.debug("Analyzing document structure with Ollama...")
                 return query_ollama_vlm(prompt, images=images, model=model)
             except Exception as e:
-                logger.warning(f"Ollama batch analysis failed, trying first page only: {e}")
+                logger.debug(f"Ollama batch analysis failed, trying first page only: {e}")
                 return query_ollama_vlm(prompt, image=images[0], model=model)
-                
+
     except Exception as e:
-        logger.error(f"Ollama structure analysis failed: {e}")
+        logger.debug(f"Ollama structure analysis failed: {e}")
         return ""
     return ""
 
@@ -193,7 +194,7 @@ def _parse_pdf_with_ollama(pdf_path: str, model: Optional[str] = None, options: 
 
     for i, image in enumerate(images):
         logger.debug(f"Processing page {i+1}/{len(images)}...")
-        
+
         # Inject style guide
         style_instruction = ""
         if style_guide:

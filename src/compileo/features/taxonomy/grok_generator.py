@@ -39,7 +39,7 @@ class GrokTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1,
@@ -71,7 +71,7 @@ class GrokTaxonomyGenerator:
                 chunks=chunks,
                 domain=domain,
                 depth=depth,
-                batch_size=batch_size or 10,
+                batch_size=batch_size or 10,  # Default to 10 if None
                 category_limits=category_limits,
                 specificity_level=specificity_level
             )
@@ -89,7 +89,7 @@ class GrokTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
@@ -144,7 +144,7 @@ class GrokTaxonomyGenerator:
         self,
         existing_taxonomy: Dict[str, Any],
         chunks: List[str],
-        additional_depth: Optional[int] = 2,
+        additional_depth: int = 2,
         domain: str = "general",
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,

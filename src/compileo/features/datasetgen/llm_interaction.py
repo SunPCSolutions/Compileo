@@ -1,13 +1,12 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union, List
 import ollama
-from google import genai
+import google.genai as genai
+from google.genai import types
 import requests
 import json
 import openai
+import logging
 from datetime import datetime, timezone
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 class LLMInteraction:
     """
@@ -15,6 +14,7 @@ class LLMInteraction:
     """
 
     def __init__(self, llm_provider: str, api_key: Optional[str] = None, model: Optional[str] = None):
+        self.logger = logging.getLogger(__name__)
         """
         Initializes the LLMInteraction.
 
@@ -23,36 +23,36 @@ class LLMInteraction:
             api_key: The API key for the LLM provider.
             model: Specific model to use. If None, uses settings defaults.
         """
-        from ...core.settings import backend_settings
-
         self.llm_provider = llm_provider
         self.model = model  # Store the model parameter
-        self.api_key = api_key
+        self.api_key = api_key  # Store API key for all providers
         self._gemini_client = None
 
         if llm_provider == 'gemini':
             if not api_key:
                 raise ValueError("API key required for Gemini provider")
-            # API key will be handled by the client
         elif llm_provider == 'grok':
             if not api_key:
                 raise ValueError("API key required for Grok provider")
+            if not model:
+                raise ValueError("model is required for grok provider")
             self.grok_api_key = api_key
             self.grok_api_url = "https://api.x.ai/v1/chat/completions"
-            # Use provided model or settings default
-            self.grok_model = model or backend_settings.get_generation_grok_model()
+            self.grok_model = model
         elif llm_provider == 'openai':
             if not api_key:
                 raise ValueError("API key required for OpenAI provider")
+            if not model:
+                raise ValueError("model is required for openai provider")
             self.openai_client = openai.OpenAI(api_key=api_key)
-            # Use provided model or settings default
-            self.openai_model = model or backend_settings.get_generation_openai_model()
+            self.openai_model = model
         elif llm_provider == 'ollama':
-            pass  # No API key needed for Ollama
+            if not model:
+                raise ValueError("model is required for ollama provider")
         else:
             raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 
-    def generate(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def generate(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
         Generates content using the selected LLM.
 
@@ -61,13 +61,14 @@ class LLMInteraction:
             options: Optional Ollama API options to override defaults
 
         Returns:
-            A dictionary containing the generated response with reasoning metadata.
+            A dictionary or list of dictionaries containing the generated response with reasoning metadata.
         """
         timestamp = datetime.now(timezone.utc).isoformat() + "Z"
 
         if self.llm_provider == 'ollama':
             from ...core.settings import backend_settings
-            ollama_model = self.model or backend_settings.get_generation_ollama_model()
+            # Model is already validated in __init__, use it directly
+            ollama_model = self.model
 
             # Default options from settings
             default_options = {
@@ -87,19 +88,86 @@ class LLMInteraction:
             # Merge provided options with defaults
             merged_options = {**default_options, **(options or {})}
 
+            # Check if prompt expects an array response
+            prompt_lower = prompt.lower()
+            expects_array = (
+                "json array" in prompt_lower
+                or "question-answer pairs" in prompt_lower
+                or "instruction-response pairs" in prompt_lower
+                or "array of objects" in prompt_lower
+                or "array of instruction" in prompt_lower
+            )
+
+            # Define the response schema for a single QA item
+            qa_item_schema = {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "answer": {"type": "string"},
+                    "reasoning": {"type": "string"},
+                    "confidence_score": {"type": "number"},
+                    "reasoning_steps": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    }
+                },
+                "required": ["question", "answer", "reasoning", "confidence_score", "reasoning_steps"]
+            }
+
+            if expects_array:
+                # For array responses, wrap in an object with a field name (Ollama best practice)
+                ollama_schema = {
+                    "type": "object",
+                    "properties": {
+                        "qa_pairs": {
+                            "type": "array",
+                            "items": qa_item_schema
+                        }
+                    },
+                    "required": ["qa_pairs"]
+                }
+                # Don't add schema to prompt text - the format parameter handles it
+                final_prompt = prompt
+            else:
+                # Single object response
+                ollama_schema = qa_item_schema
+                # Simple field description instead of full schema
+                final_prompt = f"{prompt}\n\nOutput MUST be a single JSON object with these fields: question, answer, reasoning, confidence_score (0-1), reasoning_steps (array of strings)."
+
             request_data = {
                 "model": ollama_model,
-                "messages": [{'role': 'user', 'content': prompt}],
+                "messages": [{'role': 'user', 'content': final_prompt}],
                 "stream": False,
+                "format": ollama_schema,
                 "options": merged_options
             }
 
-            response = ollama.chat(**request_data)
-            content = response['message']['content']
-            return self._parse_response(content, ollama_model, timestamp)
+            try:
+                response = ollama.chat(**request_data)
+                content = response.get('message', {}).get('content', '')
+                
+                # Fallback: If empty, retry without schema (some older Ollama versions/models struggle with schemas)
+                if not content:
+                    import logging
+                    logging.warning(f"Ollama returned empty content with schema, retrying with format='json'...")
+                    request_data["format"] = "json"
+                    request_data["messages"][0]["content"] = prompt # Original prompt
+                    response = ollama.chat(**request_data)
+                    content = response.get('message', {}).get('content', '')
+
+                # DEBUG: Log raw content from Ollama
+                self.logger.info(f"Ollama raw response length: {len(content)}")
+                if not content:
+                    self.logger.warning(f"Ollama returned empty content for model {ollama_model}")
+                return self._parse_response(content, ollama_model, timestamp)
+            except Exception as e:
+                self.logger.error(f"Ollama chat failed: {e}")
+                raise
         elif self.llm_provider == 'gemini':
-            from ...core.settings import backend_settings
-            gemini_model = self.model or backend_settings.get_generation_gemini_model()
+            # Model must be provided - no fallback to settings
+            if not self.model:
+                raise ValueError("model is required for gemini provider")
+            gemini_model = self.model
 
             # Use cached client or create new one
             if self._gemini_client is None:
@@ -110,23 +178,59 @@ class LLMInteraction:
                 self._gemini_client = genai.Client(api_key=self.api_key)
 
             try:
+                # Use structured output for Gemini to ensure JSON consistency
+                # Define schema for a single QA item
+                qa_item_schema = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "question": {"type": "STRING"},
+                        "answer": {"type": "STRING"},
+                        "reasoning": {"type": "STRING"},
+                        "confidence_score": {"type": "NUMBER"},
+                        "reasoning_steps": {
+                            "type": "ARRAY",
+                            "items": {"type": "STRING"}
+                        }
+                    },
+                    "required": ["question", "answer", "reasoning", "confidence_score", "reasoning_steps"]
+                }
+
+                # Check if we expect a list (based on prompt instructions)
+                prompt_lower = prompt.lower()
+                if (
+                    "json array" in prompt_lower
+                    or "instruction-response pairs" in prompt_lower
+                    or "array of objects" in prompt_lower
+                    or "array of instruction" in prompt_lower
+                ):
+                    response_schema = {
+                        "type": "ARRAY",
+                        "items": qa_item_schema
+                    }
+                else:
+                    response_schema = qa_item_schema
+
                 response = self._gemini_client.models.generate_content(
                     model=gemini_model,
-                    contents=prompt
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=response_schema
+                    )
                 )
-                content = response.text
+                content = response.text or ""
                 return self._parse_response(content, gemini_model, timestamp)
             except Exception as e:
                 # Check if the error is about client being closed
                 if "client has been closed" in str(e).lower():
-                    logger.warning(f"Gemini client was closed, recreating client and retrying...")
+                    self.logger.debug(f"Gemini client was closed, recreating client and retrying...")
                     # Recreate the client and retry once
                     self._gemini_client = genai.Client(api_key=self.api_key)
                     response = self._gemini_client.models.generate_content(
                         model=gemini_model,
                         contents=prompt
                     )
-                    content = response.text
+                    content = response.text or ""
                     return self._parse_response(content, gemini_model, timestamp)
                 else:
                     # Re-raise other exceptions
@@ -140,7 +244,7 @@ class LLMInteraction:
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
 
-    def _parse_response(self, content: str, model: str, timestamp: str) -> Dict[str, Any]:
+    def _parse_response(self, content: str, model: str, timestamp: str, include_raw: bool = False) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
         Parse the LLM response, attempting to extract reasoning metadata from JSON.
         Handles thinking models that include <think> tags.
@@ -176,40 +280,91 @@ class LLMInteraction:
                 json_content = json_content[:-3]
             json_content = json_content.strip()
 
+            if not json_content:
+                self.logger.debug(f"DEBUG: Empty JSON content from LLM")
+                raise ValueError("Empty JSON content")
+
             parsed = json.loads(json_content)
+            if isinstance(parsed, list):
+                # Handle raw JSON array - model returned multiple items as array
+                self.logger.debug(f"DEBUG: Successfully parsed JSON array with {len(parsed)} items")
+                results = []
+                for item in parsed:
+                    if isinstance(item, dict):
+                        result_item = {
+                            "question": item.get("question", item.get("instruction", "")),
+                            "answer": item.get("answer", item.get("output", item.get("summary", ""))),
+                            "thinking": thinking_content,
+                            "reasoning": item.get("reasoning", ""),
+                            "confidence_score": item.get("confidence_score", 0.8),
+                            "reasoning_steps": item.get("reasoning_steps", []),
+                            "generation_model": model,
+                            "generation_timestamp": timestamp
+                        }
+                        if include_raw:
+                            result_item["raw_response"] = content
+                        results.append(result_item)
+                if results:
+                    return results
+                # If no valid items, fall through to dict handling
+                parsed = {"items": parsed}  # Wrap for fallback handling
+            
             if isinstance(parsed, dict):
+                # Check for common nested list patterns (e.g., {"qa_pairs": [...]}, {"qa": [...]})
+                # This handles cases where models return multiple pairs in one call despite instructions
+                for key in ["qa_pairs", "qa", "pairs", "results", "entries", "data", "items"]:
+                    if key in parsed and isinstance(parsed[key], list):
+                        self.logger.info(f"Found nested list in key '{key}' with {len(parsed[key])} items")
+                        results = []
+                        for item in parsed[key]:
+                            if isinstance(item, dict):
+                                result_item = {
+                                    "question": item.get("question", item.get("instruction", "")),
+                                    "answer": item.get("answer", item.get("output", item.get("summary", ""))),
+                                    "thinking": thinking_content,
+                                    "reasoning": item.get("reasoning", ""),
+                                    "confidence_score": item.get("confidence_score", 0.8),
+                                    "reasoning_steps": item.get("reasoning_steps", []),
+                                    "generation_model": model,
+                                    "generation_timestamp": timestamp
+                                }
+                                if include_raw:
+                                    result_item["raw_response"] = content
+                                results.append(result_item)
+                        if results:
+                            return results
+
                 # Extract fields with defaults
-                res = {
-                    "instruction": parsed.get("instruction", ""),
-                    "input": parsed.get("input", ""),
-                    "output": parsed.get("output", ""),
-                    "question": parsed.get("question", ""),
-                    "answer": parsed.get("answer", ""),
+                result = {
+                    "question": parsed.get("question", parsed.get("instruction", "")),
+                    "answer": parsed.get("answer", parsed.get("output", parsed.get("summary", json_content))),
                     "thinking": thinking_content,  # Add thinking field for thinking models
                     "reasoning": parsed.get("reasoning", ""),
                     "confidence_score": parsed.get("confidence_score", 0.5),
                     "reasoning_steps": parsed.get("reasoning_steps", []),
                     "generation_model": model,
-                    "generation_timestamp": timestamp,
-                    "raw_response": content
+                    "generation_timestamp": timestamp
                 }
-                
-                # Support plural/specialized schemas
-                if "questions" in parsed:
-                    res["questions"] = parsed["questions"]
-                if "answers" in parsed:
-                    res["answers"] = parsed["answers"]
-                if "summary" in parsed:
-                    res["summary"] = parsed["summary"]
-                if "key_points" in parsed:
-                    res["key_points"] = parsed["key_points"]
-                    
-                return res
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.debug(f"JSON parsing failed: {e}, content: {json_content[:200]}...")
+                if include_raw:
+                    result["raw_response"] = content
+                return result
+            elif isinstance(parsed, list):
+                # Return list directly if requested
+                self.logger.debug(f"DEBUG: Successfully parsed JSON array with {len(parsed)} items")
+                # Add metadata to each item
+                for item in parsed:
+                    if isinstance(item, dict):
+                        item.setdefault("generation_model", model)
+                        item.setdefault("generation_timestamp", timestamp)
+                return parsed
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            # DEBUG: Log full content for analysis
+            self.logger.error(f"JSON parsing failed: {e}")
+            self.logger.debug(f"FULL LLM CONTENT: {content}")
+            self.logger.debug(f"JSON parsing failed: {e}, content: {json_content[:200]}...")
 
         # Fallback: treat as plain text answer
-        return {
+        result = {
             "question": "",
             "answer": json_content,
             "thinking": thinking_content,  # Always include thinking field
@@ -217,9 +372,11 @@ class LLMInteraction:
             "confidence_score": 0.5,
             "reasoning_steps": [],
             "generation_model": model,
-            "generation_timestamp": timestamp,
-            "raw_response": content
+            "generation_timestamp": timestamp
         }
+        if include_raw:
+            result["raw_response"] = content
+        return result
 
     def _call_grok_api(self, prompt: str) -> str:
         """
@@ -231,14 +388,61 @@ class LLMInteraction:
         Returns:
             Generated content string.
         """
+        # Check if prompt expects an array response
+        prompt_lower = prompt.lower()
+        expects_array = (
+            "json array" in prompt_lower
+            or "question-answer pairs" in prompt_lower
+            or "instruction-response pairs" in prompt_lower
+            or "array of objects" in prompt_lower
+            or "array of instruction" in prompt_lower
+        )
+        
         # Use OpenAI-compatible structured output format for Grok
         request_data = {
             "model": self.grok_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4000,
-            "temperature": 0.3,
-            "response_format": { "type": "json_object" }
+            "messages": [{"role": "user", "content": prompt}]
+            # Note: max_tokens and temperature use API defaults per user request
         }
+        
+        # Use Grok's structured outputs via json_schema
+        if not expects_array:
+            request_data["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "qa_response",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "The generated question"
+                            },
+                            "answer": {
+                                "type": "string",
+                                "description": "The answer to the question"
+                            },
+                            "reasoning": {
+                                "type": "string",
+                                "description": "Brief explanation of the reasoning process"
+                            },
+                            "confidence_score": {
+                                "type": "number",
+                                "description": "Confidence score between 0.0 and 1.0"
+                            },
+                            "reasoning_steps": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Array of reasoning steps"
+                            }
+                        },
+                        "required": ["question", "answer", "reasoning", "confidence_score", "reasoning_steps"],
+                        "additionalProperties": False
+                    }
+                }
+            }
 
         headers = {
             "Authorization": f"Bearer {self.grok_api_key}",
@@ -252,6 +456,10 @@ class LLMInteraction:
                 headers=headers,
                 timeout=60
             )
+            if not response.ok:
+                error_body = response.text
+                raise Exception(f"Grok API request failed with status {response.status_code}: {error_body}")
+            
             response.raise_for_status()
 
             response_json = response.json()
@@ -262,7 +470,7 @@ class LLMInteraction:
 
             return content
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             raise Exception(f"Grok API request failed: {e}")
 
     def _call_openai_api(self, prompt: str) -> str:
@@ -276,13 +484,65 @@ class LLMInteraction:
             Generated content string.
         """
         try:
-            response = self.openai_client.chat.completions.create(
-                model=self.openai_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=4000,
-                temperature=0.3,
-                response_format={ "type": "json_object" }
+            # Check if prompt expects an array response
+            prompt_lower = prompt.lower()
+            expects_array = (
+                "json array" in prompt_lower
+                or "question-answer pairs" in prompt_lower
+                or "instruction-response pairs" in prompt_lower
+                or "array of objects" in prompt_lower
+                or "array of instruction" in prompt_lower
             )
+            
+            request_kwargs = {
+                "model": self.openai_model,
+                "messages": [{"role": "user", "content": prompt}]
+                # Note: max_tokens and temperature use API defaults per user request
+            }
+            
+            # Only use structured output for single items; arrays are handled via prompt instructions
+            if not expects_array:
+                request_kwargs["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "qa_response",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "The generated question"
+                                },
+                                "answer": {
+                                    "type": "string",
+                                    "description": "The answer to the question"
+                                },
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Brief explanation of the reasoning process"
+                                },
+                                "confidence_score": {
+                                    "type": "number",
+                                    "minimum": 0.0,
+                                    "maximum": 1.0,
+                                    "description": "Confidence score between 0.0 and 1.0"
+                                },
+                                "reasoning_steps": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "Array of reasoning steps"
+                                }
+                            },
+                            "required": ["question", "answer", "reasoning", "confidence_score", "reasoning_steps"],
+                            "additionalProperties": False
+                        },
+                        "strict": True
+                    }
+                }
+            
+            response = self.openai_client.chat.completions.create(**request_kwargs)
 
             content = response.choices[0].message.content
 

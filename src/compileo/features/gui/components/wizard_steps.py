@@ -2,85 +2,336 @@
 Wizard step components for the dataset creation workflow.
 """
 
-import streamlit as st
 import os
-from typing import List, Dict, Any
-import json
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
+import time
+import streamlit as st
+from typing import List, Dict, Any, Optional
 
 from src.compileo.features.gui.state.wizard_state import wizard_state
 from src.compileo.features.gui.services.api_client import api_client, APIError
-from src.compileo.features.gui.state.session_state import session_state
+from src.compileo.features.gui.services.unified_job_service import unified_job_service, JobResult
+from src.compileo.features.gui.utils.settings_storage import settings_storage
+from ...jobhandle.models import JobType, JobPriority
+
+# Cache for settings to avoid repeated DB calls
+_settings_cache = None
+_settings_cache_time = 0
+_SETTINGS_CACHE_TTL = 5  # 5 seconds - refresh quickly to pick up setting changes
+
+def _get_settings():
+    """Get settings from database with caching."""
+    global _settings_cache, _settings_cache_time
+    current_time = time.time()
+    if _settings_cache is None or (current_time - _settings_cache_time) > _SETTINGS_CACHE_TTL:
+        # Get current user ID from session state if available
+        owner_id = None
+        try:
+            from ..state.session_state import session_state
+            if session_state.user_id:
+                owner_id = session_state.user_id
+        except:
+            pass
+        _settings_cache = settings_storage.load_settings(owner_id=owner_id)
+        _settings_cache_time = current_time
+    return _settings_cache
+
+def _clear_settings_cache():
+    """Clear the settings cache to force a refresh on next access."""
+    global _settings_cache, _settings_cache_time
+    _settings_cache = None
+    _settings_cache_time = 0
+
+def _get_model_for_provider(task: str, provider: str) -> str:
+    """Get the configured model name for a task and provider."""
+    settings = _get_settings()
+    key = f"{task}_{provider}_model"
+    
+    # Debug: Log settings lookup
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Looking for setting: {key}")
+    logger.debug(f"Available settings keys: {list(settings.keys())}")
+    
+    default_models = {
+        "parsing_gemini": "gemini-2.5-flash",
+        "parsing_grok": "grok-4-fast-reasoning",
+        "parsing_openai": "gpt-4o",
+        "parsing_ollama": "mistral:latest",
+        "chunking_gemini": "gemini-2.5-flash",
+        "chunking_grok": "grok-4-fast-reasoning",
+        "chunking_openai": "gpt-4o",
+        "chunking_ollama": "mistral:latest",
+        "classification_gemini": "gemini-2.5-flash",
+        "classification_grok": "grok-4-fast-reasoning",
+        "classification_openai": "gpt-4o",
+        "classification_ollama": "mistral:latest",
+        "generation_gemini": "gemini-2.5-flash",
+        "generation_grok": "grok-4-fast-reasoning",
+        "generation_openai": "gpt-4o",
+        "generation_ollama": "mistral:latest",
+    }
+    
+    value = settings.get(key, default_models.get(key, provider))
+    logger.debug(f"Found value for {key}: {value}")
+    return value
 
 # Project selection is now in wizard/project_selection.py
 
-def check_project_has_chunks(project_id: str) -> bool:
-    """Check if a project already has chunks in the database."""
-    try:
-        resp = api_client.get(f"/api/v1/chunks/project/{project_id}?limit=1")
-        if resp and resp.get("chunks") and len(resp.get("chunks", [])) > 0:
-            return True
-    except:
-        pass
-    return False
+def _wait_for_job_completion(job_id: str, poll_interval: int = 3) -> bool:
+    """
+    Wait for a job to complete by polling the job status endpoint.
+    Polls indefinitely until job completes or fails.
+    
+    Args:
+        job_id: The job ID to wait for
+        poll_interval: Seconds between status checks
+        
+    Returns:
+        True if job completed successfully, False if failed
+    """
+    import time
+    
+    while True:
+        try:
+            status_response = api_client.get(f"/api/v1/jobs/status/{job_id}")
+            
+            if status_response:
+                status = status_response.get("status", "unknown")
+                
+                if status == "completed":
+                    return True
+                elif status == "failed":
+                    error = status_response.get("error", "Unknown error")
+                    st.error(f"Job failed: {error}")
+                    return False
+                # Otherwise continue polling (pending, running, queued, processing)
+            
+            time.sleep(poll_interval)
+            
+        except Exception:
+            # If endpoint fails, wait and retry
+            time.sleep(poll_interval)
 
-def render_combined_setup():
-    """Render the combined setup step with project, models, upload, and chunking configuration."""
-    st.header("⚙️ Step 2: Parse & Chunk & Taxonomy")
+def render_document_upload():
+    """Render the document upload step."""
+    st.header("📤 Step 2: Document Upload")
 
-    # Check if we just completed a job (session state flag) - auto-refresh like document processing
-    job_just_completed = hasattr(session_state, 'job_just_completed') and session_state.job_just_completed
-    if job_just_completed:
-        session_state.job_just_completed = False  # Clear the flag
-        st.success("✅ Processing completed! Validation updated.")
-        st.rerun()  # Refresh to update validation status
-
-    # ============================================================================
-    # PROJECT SELECTION
-    # ============================================================================
-    st.subheader("🏗️ Project")
-
-    # Get available projects
-    try:
-        projects_response = api_client.get("/api/v1/projects?per_page=1000")
-        if projects_response:
-            projects = projects_response.get("projects", [])
-        else:
-            projects = []
-    except Exception as e:
-        st.error(f"Failed to load projects: {e}")
-        projects = []
-
-    if not projects:
-        st.error("❌ No projects available. Please create a project first.")
+    project_id = wizard_state.get_step_data("project_selection").get("project_id")
+    if not project_id:
+        st.error("Please select a project first")
         return
 
-    # Project selection dropdown
-    project_options = {f"{p['name']} (ID: {p['id']})": p['id'] for p in projects}
-    selected_project_display = st.selectbox(
-        "Select Project",
-        options=list(project_options.keys()),
-        help="Choose the project for dataset creation",
-        key="combined_project_select"
+    st.markdown("Upload documents to process for your dataset. Supported formats: PDF, Office (DOCX, PPTX, XLSX), TXT, MD, CSV, JSON, XML")
+
+    # Check for existing documents in the project
+    try:
+        documents_response = api_client.get(f"/api/v1/documents?project_id={project_id}")
+        existing_documents = documents_response.get("documents", []) if documents_response else []
+    except APIError as e:
+        st.error(f"Failed to check existing documents: {e}")
+        existing_documents = []
+    except Exception as e:
+        st.error(f"Error checking existing documents: {e}")
+        existing_documents = []
+
+    # Display existing documents if any
+    if existing_documents:
+        st.subheader("📁 Existing Project Documents")
+        st.info(f"This project already has {len(existing_documents)} document(s). You can proceed to the next step or upload additional documents.")
+
+        for doc in existing_documents:
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"📄 {doc['file_name']}")
+            with col2:
+                st.write(f"ID: {doc['id']}")
+            with col3:
+                created_date = doc['created_at']
+                if isinstance(created_date, str) and len(created_date) > 10:
+                    created_date = created_date[:10]
+                st.write(created_date)
+
+        st.success("✅ Project has existing documents. You can proceed to the next step.")
+
+        # Store existing documents in wizard state
+        wizard_state.update_step_data("document_upload", "existing_documents", existing_documents)
+        wizard_state.update_step_data("document_upload", "existing_count", len(existing_documents))
+
+        st.divider()
+        st.subheader("Or Upload Additional Documents")
+    else:
+        st.info("No documents found in this project. Please upload documents to proceed.")
+
+    # Initialize session state for tracking uploaded files
+    if 'uploaded_file_names' not in st.session_state:
+        st.session_state.uploaded_file_names = set()
+    
+    # Track current project to detect project changes
+    if 'wizard_current_project_id' not in st.session_state:
+        st.session_state.wizard_current_project_id = None
+    
+    # Track if we need to clear state (on project change or first load)
+    state_key = f"wizard_state_cleared_for_project_{project_id}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = False
+    
+    # Clear uploaded files if project has changed or on first load for this project
+    if st.session_state.wizard_current_project_id != project_id or not st.session_state.get(state_key, False):
+        st.session_state.uploaded_file_names = set()
+        st.session_state.wizard_current_project_id = project_id
+        st.session_state[state_key] = True
+        # Also clear wizard state upload data for the new project
+        wizard_state.set_step_data("document_upload", {
+            "uploaded_files": [],
+            "uploaded_count": 0,
+            "existing_documents": existing_documents,
+            "existing_count": len(existing_documents)
+        })
+        # Clear state for other projects to prevent memory buildup
+        for key in list(st.session_state.keys()):
+            if key.startswith("wizard_state_cleared_for_project_") and key != state_key:
+                del st.session_state[key]
+
+    # File uploader with automatic upload - use a unique key
+    uploaded_files = st.file_uploader(
+        "Choose files",
+        accept_multiple_files=True,
+        type=["pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "txt", "md", "csv", "json", "xml"],
+        help="Select one or more documents to upload. Files will be uploaded automatically.",
+        key="wizard_file_uploader"
     )
-    selected_project_id = project_options[selected_project_display]
 
-    # Store project selection
-    wizard_state.update_step_data("project_selection", "project_id", selected_project_id)
-    wizard_state.update_step_data("project_selection", "project_name", selected_project_display.split(" (ID: ")[0])
+    # Filter out already uploaded files to prevent duplicate uploads
+    if uploaded_files:
+        new_files = [f for f in uploaded_files if f.name not in st.session_state.uploaded_file_names]
+    else:
+        new_files = []
 
-    st.success(f"✅ Selected project: {selected_project_display.split(' (ID: ')[0]}")
+    # Auto-upload when new files are selected
+    if new_files and not st.session_state.get('upload_in_progress', False):
+        st.session_state.upload_in_progress = True
 
-    # Check if chunks already exist
-    if selected_project_id and check_project_has_chunks(selected_project_id):
-        st.success("✨ This project already has processed chunks. You can upload more or proceed to the next step.")
-        
-    # ============================================================================
-    # AI MODEL SELECTION
-    # ============================================================================
-    st.subheader("🤖 AI Models")
+        st.subheader("📤 Uploading Files")
+        with st.spinner("Uploading documents..."):
+            try:
+                # Prepare files for upload
+                files = []
+                for file in new_files:
+                    file_content = file.read()
+                    files.append(("files", (file.name, file_content, file.type)))
+
+                # Prepare form data
+                data = {"project_id": str(project_id)}
+
+                # Upload via API
+                response = api_client.post(
+                    "/api/v1/documents/upload",
+                    files=files,
+                    data=data
+                )
+
+                uploaded_count = response.get("files_count", 0) if response else 0
+                if response:
+                    st.success(f"✅ Successfully uploaded {uploaded_count} documents")
+                else:
+                    st.error("❌ Failed to upload documents")
+                    st.session_state.upload_in_progress = False
+                    return
+
+                # Track uploaded file names to prevent re-upload
+                for file in new_files:
+                    st.session_state.uploaded_file_names.add(file.name)
+
+                # Merge with existing uploaded files in wizard state
+                existing_uploaded = wizard_state.get_step_data("document_upload").get("uploaded_files", [])
+                all_uploaded = list(set(existing_uploaded + [f.name for f in new_files]))
+                wizard_state.update_step_data("document_upload", "uploaded_files", all_uploaded)
+                wizard_state.update_step_data("document_upload", "uploaded_count", len(all_uploaded))
+
+                # Clear the upload state and refresh
+                st.session_state.upload_in_progress = False
+                st.rerun()
+
+            except APIError as e:
+                st.error(f"❌ Failed to upload documents: {e}")
+                st.session_state.upload_in_progress = False
+            except Exception as e:
+                st.error(f"❌ Error uploading documents: {e}")
+                st.session_state.upload_in_progress = False
+
+    # Show upload status
+    elif uploaded_files and st.session_state.get('upload_in_progress', False):
+        st.info("📤 Upload in progress...")
+
+    # Show uploaded documents with delete option
+    uploaded_docs = wizard_state.get_step_data("document_upload").get("uploaded_files", [])
+    if uploaded_docs:
+        st.subheader("📄 Uploaded Documents")
+
+        # Get current project documents to find IDs for deletion
+        try:
+            docs_response = api_client.get(f"/api/v1/documents?project_id={project_id}")
+            current_docs = docs_response.get("documents", []) if docs_response else []
+        except:
+            current_docs = []
+
+        for doc_name in uploaded_docs:
+            # Find the document in current docs
+            doc_info = next((doc for doc in current_docs if doc['file_name'] == doc_name), None)
+
+            if doc_info:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    st.write(f"📄 {doc_name}")
+                with col2:
+                    st.write(f"ID: {doc_info['id']}")
+                with col3:
+                    if st.button("🗑️", key=f"delete_uploaded_{doc_info['id']}", help=f"Delete {doc_name}"):
+                        try:
+                            api_client.delete(f"/api/v1/documents/{doc_info['id']}")
+                            st.success(f"Deleted {doc_name}")
+
+                            # Remove from wizard state
+                            updated_uploaded = [d for d in uploaded_docs if d != doc_name]
+                            wizard_state.update_step_data("document_upload", "uploaded_files", updated_uploaded)
+                            wizard_state.update_step_data("document_upload", "uploaded_count", len(updated_uploaded))
+
+                            st.rerun()
+                        except APIError as e:
+                            st.error(f"Failed to delete {doc_name}: {e}")
+                        except Exception as e:
+                            st.error(f"Error deleting {doc_name}: {e}")
+            else:
+                # Document not found in API (might have been deleted already)
+                st.write(f"📄 {doc_name} (not found)")
+
+def render_processing_config():
+    """Render the processing configuration step."""
+    # Clear settings cache to ensure we get fresh model settings
+    _clear_settings_cache()
+    
+    st.header("⚙️ Step 3: Processing Configuration")
+
+    # Check prerequisites
+    project_data = wizard_state.get_step_data("project_selection")
+    upload_data = wizard_state.get_step_data("document_upload")
+
+    if not project_data.get("project_id"):
+        st.error("❌ Please complete Project Selection first.")
+        st.info("You need to select a project before configuring processing options.")
+        return
+
+    if not upload_data.get("uploaded_files") and not upload_data.get("existing_documents"):
+        st.error("❌ Please complete Document Upload first.")
+        st.info("You need to upload documents or have existing project documents before configuring processing.")
+        return
+
+    project_id = project_data.get("project_id")
+    
+    st.markdown("Configure how your documents will be processed and chunked.")
+
+    # AI Model Selections
+    st.subheader("AI Models & Software")
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -89,23 +340,19 @@ def render_combined_setup():
         all_parsers = ["grok", "gemini", "ollama", "openai", "huggingface", "unstructured", "pypdf", "novlm"]
         supported_parsers = all_parsers.copy()
         
-        # Check uploaded files if they exist in session state (Streamlit retains them)
-        check_files = st.session_state.get(f"combined_upload_{st.session_state.get('combined_upload_key', 0)}")
-        if check_files:
-            if not isinstance(check_files, list):
-                check_files = [check_files]
-                
-            has_non_pdf = any(not f.name.lower().endswith('.pdf') for f in check_files)
+        # Check uploaded files if they exist in session state (from Step 2)
+        uploaded_files = wizard_state.get_step_data("document_upload").get("uploaded_files", [])
+        if uploaded_files:
+            has_non_pdf = any(not f.lower().endswith('.pdf') for f in uploaded_files)
             if has_non_pdf:
                 # Restrict to parsers that handle non-PDFs
-                # gemini and ollama support .txt/.md; unstructured/novlm support everything
                 text_extensions = {'.txt', '.md', '.csv', '.json', '.xml'}
-                has_complex_format = any(os.path.splitext(f.name)[1].lower() not in text_extensions and not f.name.lower().endswith('.pdf') for f in check_files)
+                has_complex_format = any(os.path.splitext(f)[1].lower() not in text_extensions and not f.lower().endswith('.pdf') for f in uploaded_files)
                 
                 if has_complex_format:
-                    supported_parsers = ["unstructured"]
+                    supported_parsers = ["unstructured", "novlm"]
                 else:
-                    supported_parsers = ["unstructured", "gemini", "ollama"]
+                    supported_parsers = ["unstructured", "novlm", "gemini", "ollama"]
         
         # Determine default index
         default_parser = "grok" if "grok" in supported_parsers else "novlm"
@@ -115,422 +362,466 @@ def render_combined_setup():
             default_index = 0
 
         parsing_model = st.selectbox(
-            "Parsing",
+            "Document Parsing",
             options=supported_parsers,
             index=default_index,
-            help="AI model for document parsing. Available models filtered based on uploaded file types.",
-            key="combined_parsing_model"
+            help="AI model for document parsing. Available models filtered based on uploaded file types."
         )
 
     with col2:
         chunking_model = st.selectbox(
-            "Chunking",
+            "Text Chunking",
             options=["grok", "gemini", "openai", "ollama"],
-            index=0,  # grok as default
-            help="AI model for text chunking",
-            key="combined_chunking_model"
+            help="AI model for intelligent text chunking"
         )
 
     with col3:
         classification_model = st.selectbox(
-            "Classification",
+            "Document Classification",
             options=["grok", "gemini", "openai", "ollama"],
-            index=0,  # grok as default
-            help="AI model for document classification",
-            key="combined_classification_model"
+            help="AI model for document classification"
         )
 
     with col4:
         generation_model = st.selectbox(
-            "Generation",
+            "Dataset Generation",
             options=["grok", "gemini", "openai", "ollama"],
-            index=0,  # grok as default
-            help="AI model for dataset generation",
-            key="combined_generation_model"
+            help="AI model for generating dataset entries and responses"
         )
 
-    # ============================================================================
-    # DOCUMENT UPLOAD
-    # ============================================================================
-    st.subheader("📄 Documents")
+    # Document Selection
+    st.subheader("Document Selection")
 
-    # Check for existing documents
-    try:
-        documents_response = api_client.get(f"/api/v1/documents?project_id={selected_project_id}")
-        if documents_response:
-            existing_documents = documents_response.get("documents", [])
+    project_id = wizard_state.get_step_data("project_selection").get("project_id")
+    if project_id:
+        try:
+            documents_response = api_client.get(f"/api/v1/documents?project_id={project_id}")
+            all_documents = documents_response.get("documents", []) if documents_response else []
+        except APIError as e:
+            st.error(f"Failed to load documents: {e}")
+            all_documents = []
+        except Exception as e:
+            st.error(f"Error loading documents: {e}")
+            all_documents = []
+
+        if all_documents:
+            # Create options for multiselect
+            doc_options = [f"{doc['file_name']} (ID: {doc['id']})" for doc in all_documents]
+            doc_ids = [doc['id'] for doc in all_documents]
+
+            # Get previously selected documents or default to all
+            selected_doc_ids = st.session_state.get('selected_document_ids', doc_ids)
+
+            selected_options = st.multiselect(
+                "Select documents to process",
+                options=doc_options,
+                default=[opt for opt, doc_id in zip(doc_options, doc_ids) if doc_id in selected_doc_ids],
+                help="Choose which documents to include in dataset generation. All documents are selected by default."
+            )
+
+            # Convert selected options back to document IDs
+            selected_document_ids = []
+            for option in selected_options:
+                # Extract ID from option string
+                for doc in all_documents:
+                    if f"{doc['file_name']} (ID: {doc['id']})" == option:
+                        selected_document_ids.append(doc['id'])
+                        break
+
+            # Store selected document IDs
+            st.session_state.selected_document_ids = selected_document_ids
+
+            st.info(f"Selected {len(selected_document_ids)} of {len(all_documents)} documents")
         else:
-            existing_documents = []
-    except Exception as e:
-        st.error(f"Error checking existing documents: {e}")
-        existing_documents = []
-
-    if existing_documents:
-        st.info(f"📁 Project has {len(existing_documents)} existing document(s)")
-        use_existing = st.checkbox("Use existing documents", value=True, key="use_existing_docs")
+            st.warning("No documents available in this project. Please upload documents first.")
+            selected_document_ids = []
     else:
-        use_existing = False
-        st.info("📤 No existing documents. Upload new documents below.")
+        st.error("No project selected")
+        selected_document_ids = []
 
-    # File uploader
-    if 'combined_upload_key' not in st.session_state:
-        st.session_state.combined_upload_key = 0
-
-    uploaded_files = st.file_uploader(
-        "Upload Documents",
-        accept_multiple_files=True,
-        type=["pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "txt", "md", "csv", "json", "xml"],
-        help="Drag and drop files here • Limit 200MB per file • PDF, Office (DOCX, PPTX, XLSX), TXT, MD, CSV, JSON, XML",
-        key=f"combined_upload_{st.session_state.combined_upload_key}"
-    )
-
-    # ============================================================================
-    # CHUNKING CONFIGURATION
-    # ============================================================================
-    st.subheader("✂️ Chunking Strategy")
-
-    chunk_strategy = st.selectbox(
-        "Strategy",
-        options=["character", "token", "semantic", "delimiter", "schema"],
-        help="Method to split documents into chunks",
-        key="combined_chunk_strategy"
-    )
-
-    # Initialize default values for all parameters
+    # Initialize default values for all parameters BEFORE the UI section
     chunk_size = 512
     overlap = 50
+    delimiters = ["\n\n", "\n"]
     semantic_prompt = ""
-    common_delimiters = ["# (Headers)", "\n\n (Paragraphs)"]
-    custom_delimiter = ""
     schema_json = ""
 
-    # Strategy-specific parameters
+    # Chunking strategy
+    st.subheader("Text Splitting Strategy")
+    chunk_strategy = st.selectbox(
+        "Choose chunking method",
+        options=["character", "token", "semantic", "delimiter", "schema"],
+        help="Method to split documents into chunks"
+    )
+
+    # Parameters based on strategy
     if chunk_strategy == "character":
-        col_a, col_b = st.columns(2)
-        with col_a:
-            chunk_size = st.slider("Chunk Size", 100, 4000, 1000, 100, help="Characters per chunk", key="combined_char_size")
-        with col_b:
-            overlap = st.slider("Overlap", 0, 500, 100, 25, help="Overlap characters", key="combined_char_overlap")
+        col3, col4 = st.columns(2)
+        with col3:
+            chunk_size = st.slider("Chunk Size", 100, 4000, 1000, 100, help="Characters per chunk")
+        with col4:
+            overlap = st.slider("Overlap", 0, 500, 100, 25, help="Overlap characters")
     elif chunk_strategy == "token":
-        col_a, col_b = st.columns(2)
-        with col_a:
-            chunk_size = st.slider("Chunk Size", 100, 2000, 512, 50, help="Tokens per chunk", key="combined_token_size")
-        with col_b:
-            overlap = st.slider("Overlap", 0, 200, 50, 10, help="Overlap tokens", key="combined_token_overlap")
+        col3, col4 = st.columns(2)
+        with col3:
+            chunk_size = st.slider("Chunk Size", 100, 2000, 512, 50, help="Tokens per chunk")
+        with col4:
+            overlap = st.slider("Overlap", 0, 200, 50, 10, help="Overlap tokens")
     elif chunk_strategy == "semantic":
         semantic_prompt = st.text_area(
-            "Prompt",
-            height=80,
+            "Semantic Prompt",
+            height=100,
             placeholder="Custom prompt for semantic chunking...",
             help="Leave empty for default",
-            key="combined_semantic_prompt"
+            key="semantic_prompt"
         )
     elif chunk_strategy == "delimiter":
-        st.write("**Delimiters**")
-        col_a, col_b = st.columns(2)
-        with col_a:
+        st.markdown("**Common Delimiters**")
+        col_delim1, col_delim2 = st.columns(2)
+
+        with col_delim1:
             common_delimiters = st.multiselect(
-                "Common",
-                ["# (Headers)", "--- (Rules)", "### (H3)", "\n\n (Paragraphs)", "\n (Lines)"],
-                ["# (Headers)", "\n\n (Paragraphs)"],
-                help="Select common delimiters",
-                key="combined_common_delims"
+                "Quick Select",
+                ["# (Markdown headers)", "--- (Horizontal rule)", "### (H3 headers)", "## (H2 headers)", "\n\n (Double newline)", "\n (Single newline)", ". ", "! ", "? "],
+                ["# (Markdown headers)"],
+                help="Common split patterns - select what appears in parentheses",
+                key="common_delimiters"
             )
-        with col_b:
+
+            # Extract actual delimiter values from the display strings
+            actual_delimiters = []
+            for delim in common_delimiters:
+                if " (Markdown headers)" in delim:
+                    actual_delimiters.append("#")
+                elif " (Horizontal rule)" in delim:
+                    actual_delimiters.append("---")
+                elif " (H3 headers)" in delim:
+                    actual_delimiters.append("###")
+                elif " (H2 headers)" in delim:
+                    actual_delimiters.append("##")
+                elif " (Double newline)" in delim:
+                    actual_delimiters.append("\n\n")
+                elif " (Single newline)" in delim:
+                    actual_delimiters.append("\n")
+                elif delim in [". ", "! ", "? "]:
+                    actual_delimiters.append(delim)
+
+            common_delimiters = actual_delimiters
+
+        with col_delim2:
             custom_delimiter = st.text_input(
-                "Custom",
-                placeholder="e.g., #, ---, <div>",
-                help="Additional delimiters",
-                key="combined_custom_delim"
+                "Custom Delimiter",
+                placeholder="e.g., #, ---, <div>, etc.",
+                help="Enter any custom delimiter or pattern",
+                key="custom_delimiter"
             )
+
+        # Combine common and custom delimiters
+        delimiters = common_delimiters.copy()
+        if custom_delimiter.strip():
+            # Allow multiple custom delimiters separated by commas
+            custom_list = [d.strip() for d in custom_delimiter.split(",") if d.strip()]
+            delimiters.extend(custom_list)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        delimiters = [d for d in delimiters if not (d in seen or seen.add(d))]
+
+        if delimiters:
+            st.info(f"📋 Using {len(delimiters)} delimiter(s): {', '.join(repr(d) for d in delimiters[:3])}{'...' if len(delimiters) > 3 else ''}")
+        else:
+            st.warning("⚠️ No delimiters selected. Add common delimiters or enter a custom one.")
     else:  # schema
         schema_json = st.text_area(
             "Schema JSON",
-            height=100,
+            height=150,
             placeholder='{"rules": [{"type": "pattern", "value": "#"}], "combine": "any"}',
             help="JSON schema for chunking rules",
-            key="combined_schema_json"
+            key="schema_json"
         )
 
-    # ============================================================================
-    # AUTO-SAVE CURRENT STATE (for navigation)
-    # ============================================================================
-    current_doc_ids = []
-    if use_existing and existing_documents:
-        current_doc_ids = [d["id"] for d in existing_documents]
-        
-    st.session_state.processing_config = {
+    # Auto-save configuration (will be saved when Next is pressed)
+    config = {
         "parsing_model": parsing_model,
         "chunking_model": chunking_model,
         "classification_model": classification_model,
         "generation_model": generation_model,
         "chunk_strategy": chunk_strategy,
-        "selected_document_ids": current_doc_ids,
-        "chunk_job_id": st.session_state.get("processing_config", {}).get("chunk_job_id")
+        "selected_document_ids": selected_document_ids
     }
 
-    # ============================================================================
-    # SUBMIT BUTTON
-    # ============================================================================
+    if chunk_strategy == "character":
+        config.update({"chunk_size": chunk_size, "overlap": overlap})
+    elif chunk_strategy == "token":
+        config.update({"chunk_size": chunk_size, "overlap": overlap})
+    elif chunk_strategy == "semantic":
+        config.update({"semantic_prompt": semantic_prompt})
+    elif chunk_strategy == "delimiter":
+        config.update({"delimiters": delimiters})
+    else:  # schema
+        config.update({"schema_json": schema_json})
+
+    # Store config in session state for auto-save
+    st.session_state.processing_config = config
+
+    st.markdown("---")
+
+    # Get current document status (refresh from server)
+    try:
+        docs_response = api_client.get(f"/api/v1/documents?project_id={project_id}")
+        documents = docs_response.get("documents", []) if docs_response else []
+    except:
+        documents = []
+
+    # Filter to selected documents
+    selected_docs = [doc for doc in documents if doc["id"] in selected_document_ids]
+    
+    if not selected_docs:
+        st.warning("⚠️ No documents selected. Please select documents above.")
+        return
+
+    unparsed_docs = [doc for doc in selected_docs if doc.get("status") == "uploaded"]
+
+    # Get wizard state for chunking status
+    # IMPORTANT: Reset chunking_status if project has changed to prevent stale state
+    # from previous projects being carried over
+    processing_data = wizard_state.get_step_data("processing_config") or {}
+    stored_project_id = processing_data.get("stored_project_id")
+    if stored_project_id != project_id:
+        # Project changed - reset chunking status
+        chunking_status = "not_started"
+        wizard_state.update_step_data("processing_config", "stored_project_id", project_id)
+        wizard_state.update_step_data("processing_config", "chunking_status", "not_started")
+    else:
+        chunking_status = processing_data.get("chunking_status", "not_started")
+
+    if chunking_status == "completed":
+        st.success("✅ Documents have been processed and are ready for taxonomy generation!")
+    elif chunking_status == "running":
+        st.info("⏳ Processing is in progress... Please wait for it to complete.")
+
+    button_label = "🔄 Re-Generate Chunks" if chunking_status == "completed" else "🚀 Generate Chunks"
+
+    if st.button(button_label, type="primary", key="generate_chunks_btn"):
+        wizard_state.update_step_data("processing_config", "chunking_status", "running")
+
+        # Get user ID for job attribution (same as non-wizard document processing)
+        try:
+            from ..state.session_state import session_state
+            user_id = session_state.user_id
+            if not user_id:
+                st.error("❌ You must be logged in to process documents.")
+                return
+        except Exception as e:
+            st.error(f"❌ Authentication error: {e}")
+            return
+
+        # Step 1: Parse unparsed documents
+        if unparsed_docs:
+            st.info(f"🚀 Submitting parsing job for {len(unparsed_docs)} documents...")
+            
+            # NOTE: We intentionally do NOT pass "model" here to use the same pipeline as non-wizard
+            # The non-wizard document processing (document_processing_service.py) does not pass "model"
+            # and instead relies on the backend settings to determine the default model.
+            # This ensures consistency and allows AI models to use their default parameters.
+            
+            parse_parameters = {
+                "operation": "parse_documents",
+                "project_id": project_id,
+                "document_ids": [doc["id"] for doc in unparsed_docs],
+                "parser": parsing_model,
+                "pages_per_split": 50,
+                "overlap_pages": 0,
+                "page_selection": None
+            }
+            
+            # Use unified job service (same as non-wizard document processing)
+            parse_result = unified_job_service.submit_and_monitor(
+                job_type=JobType.DOCUMENT_PROCESSING,
+                parameters=parse_parameters,
+                priority=JobPriority.NORMAL,
+                user_id=user_id,
+                title=f"Parsing {len(unparsed_docs)} Document(s)",
+                timeout=1800,
+                poll_interval=3
+            )
+            
+            if not parse_result.success:
+                st.error(f"❌ Parsing failed: {parse_result.error_message}")
+                wizard_state.update_step_data("processing_config", "chunking_status", "failed")
+                return
+            
+            st.success(f"✅ Successfully parsed {len(unparsed_docs)} document(s)!")
+
+        # Step 2: Chunk all selected documents
+        # In re-generate scenarios, we chunk everything again
+        docs_to_chunk = [doc["id"] for doc in selected_docs]
+        if docs_to_chunk:
+                st.info(f"🚀 Submitting chunking job for {len(docs_to_chunk)} documents...")
+                
+                # NOTE: We intentionally do NOT pass "model" here to use the same pipeline as non-wizard
+                # The non-wizard document processing does not pass "model" and instead relies on
+                # the backend settings to determine the default model.
+                
+                # Determine effective chunk strategy
+                effective_chunk_strategy = chunk_strategy
+                if chunk_strategy == "schema" and config.get("schema_json"):
+                    effective_chunk_strategy = "schema"
+                
+                chunk_parameters = {
+                    "operation": "chunk_documents",
+                    "project_id": project_id,
+                    "document_ids": docs_to_chunk,
+                    "chunker": chunking_model,
+                    "chunk_strategy": effective_chunk_strategy,
+                    "skip_parsing": True,
+                    "sliding_window": True
+                }
+                
+                # Add strategy-specific parameters
+                if effective_chunk_strategy == "character":
+                    chunk_parameters.update({
+                        "chunk_size": config.get("chunk_size", 512),
+                        "overlap": config.get("overlap", 50)
+                    })
+                elif effective_chunk_strategy == "token":
+                    chunk_parameters.update({
+                        "chunk_size": config.get("chunk_size", 512),
+                        "overlap": config.get("overlap", 50)
+                    })
+                elif effective_chunk_strategy == "semantic":
+                    chunk_parameters.update({
+                        "semantic_prompt": config.get("semantic_prompt", "")
+                    })
+                elif effective_chunk_strategy == "schema":
+                    chunk_parameters.update({
+                        "schema_definition": config.get("schema_json", "")
+                    })
+                elif effective_chunk_strategy == "delimiter":
+                    chunk_parameters.update({
+                        "delimiters": config.get("delimiters", ["\n\n", "\n"])
+                    })
+                
+                # Use unified job service (same as non-wizard document processing)
+                chunk_result = unified_job_service.submit_and_monitor(
+                    job_type=JobType.DOCUMENT_PROCESSING,
+                    parameters=chunk_parameters,
+                    priority=JobPriority.NORMAL,
+                    user_id=user_id,
+                    title=f"Chunking {len(docs_to_chunk)} Document(s)",
+                    timeout=3600,
+                    poll_interval=3
+                )
+                
+                if chunk_result.success:
+                    st.success("✅ Processing completed!")
+                    wizard_state.update_step_data("processing_config", "chunking_status", "completed")
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error(f"❌ Processing failed: {chunk_result.error_message}")
+                    wizard_state.update_step_data("processing_config", "chunking_status", "failed")
+
+def render_taxonomy_selection():
+    """Render the taxonomy selection step."""
+    st.header("🏷️ Step 4: Taxonomy Selection")
+
+    # Check prerequisites
+    project_data = wizard_state.get_step_data("project_selection")
+    processing_data = wizard_state.get_step_data("processing_config")
+
+    if not project_data.get("project_id"):
+        st.error("❌ Please complete Project Selection first.")
+        st.info("You need to select a project before managing taxonomies.")
+        return
+
+    if not processing_data.get("selected_document_ids"):
+        st.error("❌ Please complete Processing Configuration first.")
+        st.info("You need to configure processing options and select documents before managing taxonomies.")
+        return
+
+    project_id = project_data.get("project_id")
+
+    st.markdown("Choose or create a taxonomy for categorizing your dataset.")
+
+    # Get available taxonomies
+    try:
+        taxonomies_response = api_client.get(f"/api/v1/taxonomy?project_id={project_id}")
+        taxonomies = taxonomies_response.get("taxonomies", []) if taxonomies_response else []
+    except APIError as e:
+        st.error(f"Failed to load taxonomies: {e}")
+        taxonomies = []
+
+    if taxonomies:
+        st.subheader("Available Taxonomies")
+        for tax in taxonomies:
+            with st.expander(f"🏷️ {tax['name']} - {tax['categories_count']} categories"):
+                st.write(f"**Description:** {tax['description'] or 'No description'}")
+                st.write(f"**Confidence:** {tax['confidence_score']:.2f}")
+                st.write(f"**Created:** {tax['created_at']}")
+
+                if st.button(f"Select {tax['name']}", key=f"select_tax_{tax['id']}"):
+                    wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", tax)
+                    st.success(f"Selected taxonomy: {tax['name']}")
+    else:
+        st.info("No taxonomies available for this project.")
+
     st.divider()
 
-    # Validate inputs
-    has_documents = (uploaded_files and len(uploaded_files) > 0) or (use_existing and existing_documents)
-    can_proceed = has_documents
+    # Create new taxonomy option
+    st.subheader("Create New Taxonomy")
+    if st.button("Generate Taxonomy from Documents"):
+        # Get selected document IDs from processing config
+        processing_config = wizard_state.get_step_data("processing_config") or {}
+        selected_document_ids = processing_config.get("selected_document_ids", [])
+        
+        if not selected_document_ids:
+            st.error("No documents selected. Please go back to Processing Configuration and select documents.")
+            return
 
-    if can_proceed:
-        if st.button("🚀 Start Processing: Parse, Chunk, and Generate Taxonomy", type="primary", width='stretch'):
-            st.info("🔄 Starting document processing workflow...")
+        # Generate taxonomy using API endpoint with complete processing mode
+        with st.spinner("Generating taxonomy from chunks..."):
+            try:
+                # Get selected models for taxonomy generation
+                taxonomy_generator = processing_config.get("classification_model", "gemini")
+                # NOTE: We intentionally do NOT pass "model" here to use the same pipeline as non-wizard
+                # The backend will use default model settings
 
-            # Step 1: Upload files if any
-            document_ids_to_process = []
+                st.info(f"🏷️ **Taxonomy Generation:** Using {taxonomy_generator} model (Complete Mode)")
 
-            if uploaded_files:
-                with st.spinner("📤 Uploading documents..."):
-                    try:
-                        files = []
-                        for file in uploaded_files:
-                            file_content = file.read()
-                            files.append(("files", (file.name, file_content, file.type)))
+                # Prepare taxonomy generation request with complete processing mode
+                # Do NOT pass "model" - let the backend use default settings (same as non-wizard)
+                taxonomy_request = {
+                    "project_id": project_id,
+                    "name": f"Auto-generated taxonomy for project {project_id}",
+                    "documents": selected_document_ids,
+                    "depth": 3,
+                    "generator": taxonomy_generator,
+                    "domain": "general",
+                    "batch_size": 10,
+                    "specificity_level": 1,
+                    "processing_mode": "complete"  # Use complete mode for full chunk coverage
+                }
 
-                        data = {"project_id": str(selected_project_id)}
-                        response = api_client.post("/api/v1/documents/upload", files=files, data=data)
+                taxonomy_response = api_client.post("/api/v1/taxonomy/generate", data=taxonomy_request)
 
-                        if response and "uploaded_files" in response:
-                            document_ids_to_process.extend([doc["id"] for doc in response["uploaded_files"]])
-                            st.success(f"✅ Uploaded {len(response['uploaded_files'])} documents")
-                        else:
-                            st.error("❌ Failed to upload documents")
-                            return
-                    except Exception as e:
-                        st.error(f"❌ Upload error: {e}")
-                        return
-
-            # Step 2: Add existing documents if selected
-            if use_existing and existing_documents:
-                document_ids_to_process.extend([doc["id"] for doc in existing_documents])
-
-            if not document_ids_to_process:
-                st.error("❌ No documents to process")
-                return
-
-            # Step 3: Submit parsing job
-            with st.spinner("📄 Starting document parsing..."):
-                try:
-                    parse_request = {
-                        "project_id": selected_project_id,
-                        "document_ids": document_ids_to_process,
-                        "parser": parsing_model,
-                        "skip_parsing": False
-                    }
-
-                    parse_response = api_client.post("/api/v1/documents/process", data=parse_request)
-
-                    if parse_response and parse_response.get("job_id"):
-                        parse_job_id = parse_response["job_id"]
-                        st.success(f"✅ Parsing job started: {parse_job_id}")
-
-                        # Wait for parsing to complete
-                        import time
-                        max_wait = 300  # 5 minutes max
-                        wait_count = 0
-
-                        # Create placeholders for status updates
-                        progress_placeholder = st.empty()
-                        status_placeholder = st.empty()
-
-                        while wait_count < max_wait:
-                            try:
-                                status_response = api_client.get(f"/api/v1/jobs/status/{parse_job_id}")
-                                if status_response:
-                                    status = status_response.get("status", "unknown")
-                                    progress = status_response.get("progress", 0)
-                                    current_step = status_response.get("current_step", "Processing...")
-
-                                    # Update placeholders (replaces content instead of adding new rows)
-                                    progress_placeholder.progress(progress / 100)
-                                    status_placeholder.info(f"📄 Parsing {status}...")
-
-                                    if status == "completed":
-                                        progress_placeholder.empty()
-                                        status_placeholder.success("✅ Parsing completed!")
-                                        break
-                                    elif status == "failed":
-                                        progress_placeholder.empty()
-                                        status_placeholder.error("❌ Parsing failed")
-                                        return
-                                else:
-                                    status_placeholder.warning("Could not check parsing status")
-                            except Exception as e:
-                                status_placeholder.warning(f"Status check error: {e}")
-
-                            time.sleep(5)
-                            wait_count += 5
-
-                        # Clear placeholders if timeout
-                        if wait_count >= max_wait:
-                            progress_placeholder.empty()
-                            status_placeholder.warning("⚠️ Parsing is taking longer than expected. You can proceed and check status later.")
-
-                        if wait_count >= max_wait:
-                            st.warning("⚠️ Parsing is taking longer than expected. You can proceed and check status later.")
-                    else:
-                        st.error("❌ Failed to start parsing job")
-                        return
-
-                except Exception as e:
-                    st.error(f"❌ Parsing error: {e}")
+                if taxonomy_response:
+                    # Store the generated taxonomy in wizard state
+                    wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", taxonomy_response)
+                    st.success(f"Taxonomy '{taxonomy_response.get('name', 'Generated')}' generated successfully!")
+                    st.rerun()
+                else:
+                    st.error("Failed to generate taxonomy")
                     return
 
-            # Step 4: Submit chunking job
-            with st.spinner("✂️ Starting document chunking..."):
-                try:
-                    # Prepare chunking parameters
-                    chunk_params = {
-                        "project_id": selected_project_id,
-                        "document_ids": document_ids_to_process,
-                        "chunker": chunking_model,
-                        "chunk_strategy": chunk_strategy,
-                        "skip_parsing": True  # Documents already parsed
-                    }
-
-                    # Add strategy-specific parameters
-                    if chunk_strategy == "character":
-                        chunk_params.update({
-                            "chunk_size": chunk_size,
-                            "overlap": overlap
-                        })
-                    elif chunk_strategy == "token":
-                        chunk_params.update({
-                            "chunk_size": chunk_size,
-                            "overlap": overlap
-                        })
-                    elif chunk_strategy == "semantic":
-                        chunk_params["semantic_prompt"] = semantic_prompt or ""
-                    elif chunk_strategy == "delimiter":
-                        delimiters = []
-                        # Process common delimiters
-                        delim_map = {
-                            "# (Headers)": "#",
-                            "--- (Rules)": "---",
-                            "### (H3)": "###",
-                            "\n\n (Paragraphs)": "\n\n",
-                            "\n (Lines)": "\n"
-                        }
-                        for delim in common_delimiters:
-                            if delim in delim_map:
-                                delimiters.append(delim_map[delim])
-
-                        # Add custom delimiters
-                        if custom_delimiter.strip():
-                            custom_list = [d.strip() for d in custom_delimiter.split(",") if d.strip()]
-                            delimiters.extend(custom_list)
-
-                        chunk_params["delimiters"] = delimiters
-                    else:  # schema
-                        # Validate schema JSON
-                        if not schema_json.strip():
-                            st.error("❌ Schema JSON is required for schema chunking")
-                            return
-
-                        # Validate JSON
-                        try:
-                            json.loads(schema_json)
-                            chunk_params["schema_definition"] = schema_json
-                        except json.JSONDecodeError as e:
-                            st.error(f"❌ Invalid JSON schema: {e}")
-                            return
-
-                    # Submit chunking job
-                    chunk_response = api_client.post("/api/v1/documents/process", data=chunk_params)
-
-                    if chunk_response and chunk_response.get("job_id"):
-                        chunk_job_id = chunk_response["job_id"]
-                        st.success(f"✅ Chunking job started: {chunk_job_id}")
-
-                        # Store configuration in both session state (for wizard.py commit) and wizard state
-                        config_data = {
-                            "parsing_model": parsing_model,
-                            "chunking_model": chunking_model,
-                            "classification_model": classification_model,
-                            "generation_model": generation_model,
-                            "chunk_strategy": chunk_strategy,
-                            "selected_document_ids": document_ids_to_process,
-                            "chunk_job_id": chunk_job_id
-                        }
-                        st.session_state.processing_config = config_data
-                        wizard_state.set_step_data("processing_config", config_data)
-
-                        # Wait for chunking to complete
-                        wait_count = 0
-                        while wait_count < max_wait:
-                            try:
-                                status_response = api_client.get(f"/api/v1/jobs/status/{chunk_job_id}")
-                                if status_response:
-                                    status = status_response.get("status", "unknown")
-                                    progress = status_response.get("progress", 0)
-                                    progress_placeholder.progress(progress / 100)
-                                    status_placeholder.info(f"✂️ Chunking {status}...")
-
-                                    if status == "completed":
-                                        status_placeholder.success("✅ Chunking completed!")
-                                        break
-                                    elif status == "failed":
-                                        status_placeholder.error("❌ Chunking failed")
-                                        return
-                                else:
-                                    status_placeholder.warning("Could not check chunking status")
-                            except Exception as e:
-                                status_placeholder.warning(f"Status check error: {e}")
-
-                            time.sleep(5)
-                            wait_count += 5
-
-                        # Step 5: Automatic Taxonomy Generation
-                        with st.spinner("🏷️ Automatically generating taxonomy..."):
-                            try:
-                                taxonomy_request = {
-                                    "project_id": selected_project_id,
-                                    "name": f"Wizard Taxonomy {selected_project_id}",
-                                    "documents": document_ids_to_process,
-                                    "depth": None,  # Liberated: Let AI decide depth
-                                    "generator": classification_model,
-                                    "domain": "general",
-                                    "sample_size": 5,
-                                    "mode": "complete",
-                                    "category_limits": None  # Liberated: Let AI decide category limits
-                                }
-                                taxonomy_response = api_client.post("/api/v1/taxonomy/generate", data=taxonomy_request)
-                                if taxonomy_response:
-                                    wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", taxonomy_response)
-                                    st.success("🎉 Processing complete! Documents parsed, chunked, and taxonomy generated.")
-                                else:
-                                    st.warning("⚠️ Processing complete, but automatic taxonomy generation failed. You can select one manually.")
-                            except Exception as e:
-                                st.warning(f"⚠️ Automatic taxonomy generation failed: {e}. You can select or generate one below.")
-
-                        # Set flag for auto-refresh
-                        session_state.job_just_completed = True
-
-                        # Reset uploader
-                        st.session_state.combined_upload_key += 1
-                        st.rerun()
-
-                    else:
-                        st.error("❌ Failed to start chunking job")
-
-                except Exception as e:
-                    st.error(f"❌ Chunking error: {e}")
-
-    else:
-        st.warning("⚠️ Please upload documents or select existing documents to proceed.")
-        st.button("🚀 Start Processing: Parse & Chunk Documents", disabled=True, width='stretch')
-
-
+            except APIError as e:
+                st.error(f"Failed to generate taxonomy: {e}")
+            except Exception as e:
+                st.error(f"Error generating taxonomy: {e}")
 
 def render_generation_params():
     """Render the generation parameters step - simplified version for wizard."""
-    st.header("🔧 Step 4: Generation Parameters")
+    st.header("🔧 Step 5: Generation Parameters")
 
     # Check prerequisites - taxonomy is optional, will fallback to chunks
     project_data = wizard_state.get_step_data("project_selection")
@@ -541,85 +832,21 @@ def render_generation_params():
         st.info("You need to select a project before configuring generation parameters.")
         return
 
-    # Verify the project still exists
-    project_id = project_data.get("project_id")
-    try:
-        projects_response = api_client.get("/api/v1/projects")
-        if projects_response:
-            projects = projects_response.get("projects", [])
-            project_exists = any(p["id"] == project_id for p in projects)
-            if not project_exists:
-                st.error("❌ The selected project no longer exists. Please go back to Step 1 to select a different project.")
-                # Clear the invalid project from wizard state
-                wizard_state.update_step_data("project_selection", "project_id", None)
-                wizard_state.update_step_data("project_selection", "project_name", None)
-                return
-    except Exception as e:
-        st.warning(f"Could not verify project exists: {e}")
-
-    # Robust check for selected documents - fallback to all project documents if state is missing
-    selected_document_ids = processing_data.get("selected_document_ids", [])
-    if not selected_document_ids and project_id:
-        try:
-            # Attempt to recover documents from the project if wizard state is empty
-            docs_resp = api_client.get(f"/api/v1/documents?project_id={project_id}")
-            if docs_resp and "documents" in docs_resp:
-                # Filter documents that have chunks
-                for d in docs_resp["documents"]:
-                    chunks_resp = api_client.get(f"/api/v1/chunks/document/{d['id']}")
-                    if chunks_resp and chunks_resp.get("chunks"):
-                        selected_document_ids.append(d["id"])
-                
-                if selected_document_ids:
-                    # Update wizard state with recovered documents
-                    wizard_state.update_step_data("processing_config", "selected_document_ids", selected_document_ids)
-                    st.info(f"🔄 Recovered {len(selected_document_ids)} processed documents from project state.")
-        except Exception as e:
-            logger.debug(f"State recovery failed: {e}")
-
-    if not selected_document_ids:
+    if not processing_data.get("selected_document_ids"):
         st.error("❌ Please complete Processing Configuration first.")
         st.info("You need to configure processing options and select documents before setting generation parameters.")
         return
 
     st.markdown("Configure the dataset generation parameters.")
-    
-    # Load existing parameters if not in state
-    gen_data = wizard_state.get_step_data("generation_params")
-    if (not gen_data.get("generation_mode") or wizard_state.needs_refresh) and project_id:
-        try:
-            resp = api_client.get(f"/api/v1/datasets/parameters/{project_id}")
-            if resp and resp.get("parameters"):
-                p = resp["parameters"]
-                gen_data = {
-                    "generation_mode": p.get("generation_mode") or "instruction following",
-                    "output_format": p.get("dataset_format") or "jsonl",
-                    "entries_per_chunk": gen_data.get("entries_per_chunk", 3),
-                    "quality_threshold": gen_data.get("quality_threshold", 0.7),
-                    "custom_prompt": gen_data.get("custom_prompt", ""),
-                    "custom_audience": p.get("custom_audience", ""),
-                    "custom_purpose": p.get("custom_purpose", ""),
-                    "complexity_level": p.get("complexity_level", "intermediate"),
-                    "domain": p.get("domain", "")
-                }
-                wizard_state.set_step_data("generation_params", gen_data)
-                st.info("🔄 Loaded existing generation parameters from project.")
-        except:
-            pass
 
     # Compact layout: Place all options except Custom Prompt side by side
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         # Dataset generation mode selection (required field) - match exact options from Dataset Generation GUI
-        mode_options = ["instruction following", "question and answer", "question", "answer", "summarization"]
-        default_mode = gen_data.get("generation_mode", "instruction following")
-        mode_index = mode_options.index(default_mode) if default_mode in mode_options else 0
-        
         generation_mode = st.selectbox(
             "Dataset Generation Mode",
-            options=mode_options,
-            index=mode_index,
+            options=["instruction following", "question and answer", "question", "answer", "summarization"],
             format_func=lambda x: {
                 "instruction following": "Instruction Following",
                 "question and answer": "Question and Answer",
@@ -631,32 +858,24 @@ def render_generation_params():
         )
 
     with col2:
-        st.markdown("**📄 Output Format**")
-        # Get available formats dynamically including plugins
-        try:
-            formats_response = api_client.get("/api/v1/plugins/dataset-formats")
-            available_formats = formats_response.get("formats", ["jsonl", "parquet"]) if formats_response else ["jsonl", "parquet"]
-        except Exception as e:
-            available_formats = ["jsonl", "parquet"]
-
-        default_format = gen_data.get("output_format", "jsonl")
-        format_index = available_formats.index(default_format) if default_format in available_formats else 0
-        
+        # Output format (required field)
         output_format = st.selectbox(
-            "Format",
-            options=available_formats,
-            index=format_index,
-            help="Output file format: JSONL for line-delimited JSON (common for AI training), Parquet for compressed columnar storage, or plugin formats like 'anki' for specialized outputs."
+            "Output Format",
+            options=["jsonl", "parquet"],
+            help="Format for the generated dataset"
         )
 
     with col3:
         # Entries per chunk (required field) - changed to number_input for free text with no max
         entries_per_chunk = st.number_input(
             "Entries per Chunk",
-            min_value=1,
-            value=gen_data.get("entries_per_chunk", 3),
+            min_value=0,
+            value=3,
             step=1,
-            help="Number of dataset entries to generate per document chunk"
+            help="""Number of dataset entries to generate per document chunk.
+
+• **1-10**: Fixed number of entries per chunk
+• **0**: Let AI Decide - AI determines the appropriate number based on content richness"""
         )
 
     with col4:
@@ -665,83 +884,18 @@ def render_generation_params():
             "Quality Filter",
             min_value=0.0,
             max_value=1.0,
-            value=gen_data.get("quality_threshold", 0.7),
+            value=0.7,
             step=0.1,
             help="Minimum quality score for generated entries (0.0 = accept all, 1.0 = highest quality only)"
         )
 
-    # High-Level Prompts - New Section aligned with Core Dataset Generation
-    st.divider()
-    st.subheader("📝 High-Level Prompts")
-    
-    # Fetch defaults from API
-    try:
-        hl_config = api_client.get("/api/v1/datasets/config/high-level-prompts")
-        if hl_config:
-            audience_opts = hl_config.get("audience_defaults", [])
-            purpose_opts = hl_config.get("purpose_defaults", [])
-            complexity_opts = hl_config.get("complexity_options", ["beginner", "intermediate", "advanced", "expert"])
-            domain_opts = hl_config.get("domain_defaults", [])
-        else:
-            # Fallback defaults
-            audience_opts = ["healthcare professionals", "students", "patients", "researchers"]
-            purpose_opts = ["patient education", "research", "medical education", "clinical decision support"]
-            complexity_opts = ["beginner", "intermediate", "advanced", "expert"]
-            domain_opts = ["general"]
-    except Exception:
-        audience_opts = []
-        purpose_opts = []
-        complexity_opts = ["beginner", "intermediate", "advanced", "expert"]
-        domain_opts = []
-
-    col_hl1, col_hl2 = st.columns(2)
-
-    with col_hl1:
-        # Audience free text field
-        custom_audience = st.text_input(
-            "Target Audience",
-            value=gen_data.get("custom_audience", ""),
-            placeholder="e.g., policy makers, engineers",
-            help="Specify the target audience."
-        )
-
-        # Purpose free text field
-        custom_purpose = st.text_input(
-            "Purpose",
-            value=gen_data.get("custom_purpose", ""),
-            placeholder="e.g., sentiment analysis, entity extraction",
-            help="Describe how the dataset will be used."
-        )
-
-    with col_hl2:
-        default_complexity = gen_data.get("complexity_level", "intermediate")
-        complexity_index = complexity_opts.index(default_complexity) if default_complexity in complexity_opts else 1
-        
-        complexity_level = st.selectbox(
-            "Complexity Level",
-            options=complexity_opts,
-            index=complexity_index,
-            help="Content complexity level."
-        )
-
-        # Domain free text field
-        domain = st.text_input(
-            "Domain",
-            value=gen_data.get("domain", ""),
-            placeholder="e.g., finance, law",
-            help="Specific subject domain."
-        )
-
     # Custom prompt (optional field) - placed below in full width
-    st.divider()
-    st.markdown("**✏️ Custom Prompt** *(Optional)*")
     custom_prompt = st.text_area(
-        "Enter your custom prompt for dataset generation",
-        value=gen_data.get("custom_prompt", ""),
-        placeholder="e.g., Generate clinical questions that would help medical students prepare for board exams...",
+        "Custom Prompt",
+        value="",
         height=100,
-        help="Override the default generation prompts. Use {chunk} to reference source text. Leave empty for system-generated prompts.",
-        key="wizard_custom_prompt"
+        placeholder="Optional: Provide a custom prompt template. Use {chunk} as placeholder for text content.",
+        help="Optional custom prompt for dataset generation. Leave blank to use default prompts."
     )
 
     # Store parameters in wizard state
@@ -751,13 +905,10 @@ def render_generation_params():
         "entries_per_chunk": entries_per_chunk,
         "quality_threshold": quality_threshold,
         "custom_prompt": custom_prompt,
-        "custom_audience": custom_audience,
-        "custom_purpose": custom_purpose,
-        "complexity_level": complexity_level,
-        "domain": domain,
-        # Default batch settings
-        "chunks_per_batch": 50,
-        "workers_per_batch": 2
+        # Fixed defaults as specified
+        "chunks_per_batch": 1,
+        "workers_per_batch": 1,
+        "complexity_level": ""  # Leave blank unless mandatory
     }
 
     # Store params in session state for auto-save
@@ -769,8 +920,8 @@ def render_generation_params():
         validation_errors.append("Dataset Generation Mode is required")
     if not output_format:
         validation_errors.append("Output Format is required")
-    if entries_per_chunk < 1:
-        validation_errors.append("Entries per Chunk must be at least 1")
+    if entries_per_chunk < 0:
+        validation_errors.append("Entries per Chunk must be >= 0 (0 = AI decides)")
     if quality_threshold < 0.0 or quality_threshold > 1.0:
         validation_errors.append("Quality Filter must be between 0.0 and 1.0")
 
@@ -783,7 +934,7 @@ def render_generation_params():
 
 def render_review_generate():
     """Render the review and generate step."""
-    st.header("✅ Step 5: Review & Generate")
+    st.header("✅ Step 6: Review & Generate")
 
     # Check prerequisites
     project_data = wizard_state.get_step_data("project_selection")
@@ -795,117 +946,53 @@ def render_review_generate():
         st.info("You need to select a project before generating datasets.")
         return
 
-    # Verify the project still exists
-    project_id = project_data.get("project_id")
-    try:
-        projects_response = api_client.get("/api/v1/projects")
-        if projects_response:
-            projects = projects_response.get("projects", [])
-            project_exists = any(p["id"] == project_id for p in projects)
-            if not project_exists:
-                st.error("❌ The selected project no longer exists. Please go back to Step 1 to select a different project.")
-                # Clear the invalid project from wizard state
-                wizard_state.update_step_data("project_selection", "project_id", None)
-                wizard_state.update_step_data("project_selection", "project_name", None)
-                return
-    except Exception as e:
-        st.warning(f"Could not verify project exists: {e}")
-
-    # Robust check for selected documents
-    selected_document_ids = processing_data.get("selected_document_ids", [])
-    
-    # Recovery fallback for documents
-    if not selected_document_ids and project_id:
-        try:
-            docs_resp = api_client.get(f"/api/v1/documents?project_id={project_id}")
-            if docs_resp and "documents" in docs_resp:
-                for d in docs_resp["documents"]:
-                    chunks_resp = api_client.get(f"/api/v1/chunks/document/{d['id']}")
-                    if chunks_resp and chunks_resp.get("chunks"):
-                        selected_document_ids.append(d["id"])
-                if selected_document_ids:
-                    wizard_state.update_step_data("processing_config", "selected_document_ids", selected_document_ids)
-                    processing_data["selected_document_ids"] = selected_document_ids
-        except:
-            pass
-
-    if not selected_document_ids:
+    if not processing_data.get("selected_document_ids"):
         st.error("❌ Please complete Processing Configuration first.")
         st.info("You need to configure processing options and select documents before generating datasets.")
         return
 
-    # Recovery fallback for generation params
     if not gen_data.get("generation_mode"):
-        # Try to recover from session state
-        if "generation_params" in st.session_state:
-            gen_data = st.session_state.generation_params
-            wizard_state.set_step_data("generation_params", gen_data)
-        else:
-            st.error("❌ Please complete Generation Parameters first.")
-            st.info("You need to configure generation parameters before creating datasets.")
-            return
+        st.error("❌ Please complete Generation Parameters first.")
+        st.info("You need to configure generation parameters before creating datasets.")
+        return
 
     st.markdown("Review your configuration and start dataset generation.")
 
     st.subheader("📋 Configuration Summary")
 
+    # Display summary
+    st.subheader("Configuration Summary")
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("**Project:**")
+        project_data = wizard_state.get_step_data("project_selection")
         st.info(project_data.get("project_name", "Not selected"))
 
         st.markdown("**Documents:**")
+        processing_data = wizard_state.get_step_data("processing_config")
+        selected_document_ids = processing_data.get("selected_document_ids", [])
         selected_count = len(selected_document_ids)
         st.info(f"{selected_count} documents selected")
 
         st.markdown("**Processing:**")
-        # Fallback to session state if wizard state is missing strategy
-        chunk_strategy = processing_data.get("chunk_strategy")
-        if not chunk_strategy and "processing_config" in st.session_state:
-            chunk_strategy = st.session_state.processing_config.get("chunk_strategy")
-        if not chunk_strategy and project_id:
-            try:
-                # Query chunks table to find what strategy was actually used
-                resp = api_client.get(f"/api/v1/chunks/project/{project_id}?limit=1")
-                if resp and resp.get("chunks"):
-                    chunk_strategy = resp["chunks"][0].get("chunk_strategy")
-                    if chunk_strategy:
-                        wizard_state.update_step_data("processing_config", "chunk_strategy", chunk_strategy)
-            except:
-                pass
-
-        if not chunk_strategy:
-            chunk_strategy = "character" # Default fallback
-            
-        parsing_model = processing_data.get("parsing_model") or st.session_state.get("processing_config", {}).get("parsing_model", "grok")
-        chunking_model = processing_data.get("chunking_model") or st.session_state.get("processing_config", {}).get("chunking_model", "grok")
-        
-        st.info(f"Strategy: {chunk_strategy}")
-        st.info(f"Parser: {parsing_model} | Chunker: {chunking_model}")
+        processing_data = wizard_state.get_step_data("processing_config")
+        chunk_strategy = processing_data.get("chunk_strategy", "Not configured")
+        parsing_model = processing_data.get("parsing_model", "Not configured")
+        st.info(f"Strategy: {chunk_strategy} | Parser: {parsing_model}")
 
     with col2:
         st.markdown("**Taxonomy:**")
         taxonomy_data = wizard_state.get_step_data("taxonomy_selection")
         selected_tax = taxonomy_data.get("selected_taxonomy")
-        
-        # Recovery fallback for taxonomy
-        if not selected_tax and project_id:
-            try:
-                tax_resp = api_client.get(f"/api/v1/taxonomy?project_id={project_id}")
-                if tax_resp and tax_resp.get("taxonomies"):
-                    # Use the most recent taxonomy
-                    selected_tax = tax_resp["taxonomies"][-1]
-                    wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", selected_tax)
-            except:
-                pass
-
         if selected_tax:
             st.info(selected_tax.get("name", "Unknown"))
         else:
             st.warning("No taxonomy selected")
 
         st.markdown("**Generation:**")
+        gen_data = wizard_state.get_step_data("generation_params")
         generation_mode = gen_data.get("generation_mode", "instruction following")
         mode_display = {
             "instruction following": "Instruction Following",
@@ -916,27 +1003,15 @@ def render_review_generate():
         }.get(generation_mode, generation_mode)
 
         # Determine data source for display
-        data_source_display = "Taxonomy-aware Chunks" if selected_tax else "Chunks Only"
+        taxonomy_data = wizard_state.get_step_data("taxonomy_selection")
+        selected_tax = taxonomy_data.get("selected_taxonomy")
+        data_source_display = "Taxonomy" if selected_tax else "Chunks Only"
 
         st.info(f"Mode: {mode_display} | Source: {data_source_display}")
-        
-        classification_model = processing_data.get("classification_model") or st.session_state.get("processing_config", {}).get("classification_model", "grok")
-        generation_model = processing_data.get("generation_model") or st.session_state.get("processing_config", {}).get("generation_model", "grok")
-        st.info(f"Classifier: {classification_model} | Generator: {generation_model}")
 
         st.markdown("**Output:**")
         output_format = gen_data.get("output_format", "jsonl")
         st.info(f"Format: {output_format.upper()}")
-
-    # High-level prompt summary
-    st.markdown("**📝 High-Level Parameters:**")
-    col_hl_sum1, col_hl_sum2 = st.columns(2)
-    with col_hl_sum1:
-        st.info(f"Audience: {gen_data.get('custom_audience') or 'Not specified'}")
-        st.info(f"Purpose: {gen_data.get('custom_purpose') or 'Not specified'}")
-    with col_hl_sum2:
-        st.info(f"Complexity: {gen_data.get('complexity_level') or 'intermediate'}")
-        st.info(f"Domain: {gen_data.get('domain') or 'Not specified'}")
 
     # Generate button
     st.divider()
@@ -958,39 +1033,43 @@ def render_review_generate():
         processing_data = wizard_state.get_step_data("processing_config")
 
         # Debug: Log the model selections
-        parsing_model = processing_data.get("parsing_model") or st.session_state.get("processing_config", {}).get("parsing_model", "grok")
-        chunking_model = processing_data.get("chunking_model") or st.session_state.get("processing_config", {}).get("chunking_model", "grok")
-        classification_model = processing_data.get("classification_model") or st.session_state.get("processing_config", {}).get("classification_model", "grok")
-        generation_model = processing_data.get("generation_model") or st.session_state.get("processing_config", {}).get("generation_model", "grok")
+        parsing_model = processing_data.get("parsing_model", "gemini")
+        chunking_model = processing_data.get("chunking_model", "gemini")
+        classification_model = processing_data.get("classification_model", "gemini")
+        generation_model = processing_data.get("generation_model", "gemini")
 
         st.info(f"🔧 **AI Models Selected:** Parsing: {parsing_model} | Chunking: {chunking_model} | Classification: {classification_model} | Generation: {generation_model}")
 
-        # Get parameters from wizard state
+        # Get high-level parameters from wizard state
         gen_data = wizard_state.get_step_data("generation_params")
+        high_level_params = gen_data.get("high_level_params", {})
 
         # First, save dataset parameters to the database
         dataset_params_request = {
             "project_id": project_id,
-            "purpose": gen_data.get("custom_purpose", "Dataset Generation"),
-            "audience": gen_data.get("custom_audience", "General"),
-            "extraction_rules": "default",
+            "purpose": gen_data.get("dataset_purpose", "question_answering"),
+            "audience": gen_data.get("target_audience", "intermediate"),
+            "extraction_rules": "default",  # Default value
             "dataset_format": output_format,
-            "question_style": "factual",
-            "answer_style": "comprehensive",
-            "negativity_ratio": 0.1,
-            "data_augmentation": "none",
+            "question_style": "factual",  # Default value
+            "answer_style": "comprehensive",  # Default value
+            "negativity_ratio": 0.1,  # Default value
+            "data_augmentation": "none",  # Default value
             # High-level prompt parameters
-            "custom_audience": gen_data.get("custom_audience", ""),
-            "custom_purpose": gen_data.get("custom_purpose", ""),
-            "complexity_level": gen_data.get("complexity_level", "intermediate"),
-            "domain": gen_data.get("domain", "general")
+            "custom_audience": high_level_params.get("custom_audience", ""),
+            "custom_purpose": high_level_params.get("custom_purpose", ""),
+            "complexity_level": high_level_params.get("complexity_level", "intermediate"),
+            "domain": high_level_params.get("domain", "general")
         }
 
         try:
             st.info("💾 Saving dataset parameters...")
             params_response = api_client.post("/api/v1/datasets/parameters", data=dataset_params_request)
-            param_id = params_response.get('parameter_id') if params_response else "Unknown"
-            st.success(f"✅ Dataset parameters saved (ID: {param_id})")
+            if params_response:
+                st.success(f"✅ Dataset parameters saved (ID: {params_response.get('parameter_id')})")
+            else:
+                st.error("Failed to save dataset parameters")
+                return
         except APIError as e:
             st.error(f"Failed to save dataset parameters: {e}")
             return
@@ -998,50 +1077,39 @@ def render_review_generate():
             st.error(f"Error saving dataset parameters: {e}")
             return
 
-        # Get custom prompt, provide default if empty
+        # Get custom prompt - only send to backend if user explicitly provided one
+        # This allows the backend to use its own default prompts based on generation_mode
+        # which properly respects datasets_per_chunk parameter
         custom_prompt = gen_data.get("custom_prompt", "").strip()
         generation_mode = gen_data.get("generation_mode", "instruction following")
-
-        # Provide default prompts based on generation mode if no custom prompt is specified
-        if not custom_prompt:
-            # Fetch defaults from API
-            try:
-                prompts_resp = api_client.get("/api/v1/datasets/config/default-prompts")
-                if prompts_resp and "prompts" in prompts_resp:
-                    default_prompts = prompts_resp["prompts"]
-                else:
-                    raise Exception("Failed to fetch default prompts")
-            except Exception:
-                # Fallback defaults
-                default_prompts = {
-                    "instruction following": "Generate an instruction-response pair based on the following text. Create a natural language instruction that could be given to an AI assistant, and provide the appropriate response.\n\nText: {chunk}\n\nInstruction:",
-                    "question and answer": "Generate a question and answer pair based on the following text.\n\nText: {chunk}\n\nQuestion:",
-                    "question": "Generate a question based on the following text.\n\nText: {chunk}\n\nQuestion:",
-                    "answer": "Provide a comprehensive answer based on the following text.\n\nText: {chunk}\n\nAnswer:",
-                    "summarization": "Analyze the following text and provide concise summaries for different aspects or sections. If the text contains clear sections with headers (like # Section Title), summarize each section individually. If no clear sections exist, identify the key topics or aspects within the text and provide a separate summary for each topic.\n\nText: {chunk}\n\nSummaries:"
-                }
-            custom_prompt = default_prompts.get(generation_mode, default_prompts.get("question and answer", ""))
+        
+        # Map wizard UI mode names to backend expected mode names
+        if generation_mode == "instruction following":
+            generation_mode = "instruction_following"
 
         # Get selected document IDs from processing config
         processing_data = wizard_state.get_step_data("processing_config")
         selected_document_ids = processing_data.get("selected_document_ids", [])
 
-        # Wizard always uses Taxonomy as data source
-        if not taxonomy_name:
-            st.error("❌ No taxonomy selected. Please complete Step 4: Taxonomy Selection.")
-            return
-        data_source = "Taxonomy"
+        # Determine data source: default to "Taxonomy" with fallback to "Chunks Only"
+        data_source = "Taxonomy" if taxonomy_name else "Chunks Only"
 
         # Build the dataset generation request
+        # Get entries per chunk and map to datasets_per_chunk
+        entries_per_chunk = gen_data.get("entries_per_chunk", 3)
+        
         generation_request = {
             "project_id": project_id,
-            "document_ids": selected_document_ids,  # Use selected documents
-            "custom_prompt": custom_prompt,
+            # Only include custom_prompt if user explicitly provided it
+            # Otherwise, let the backend use its default prompts based on generation_mode
+            # which properly respects the datasets_per_chunk parameter
+            **({"custom_prompt": custom_prompt} if custom_prompt else {}),
             "generation_mode": generation_mode,
             "format_type": output_format,
-            "data_source": data_source,
-            "concurrency": gen_data.get("workers_per_batch", 2),
-            "batch_size": gen_data.get("chunks_per_batch", 50),
+            "data_source": data_source,  # Use Taxonomy if available, otherwise Chunks Only
+            "datasets_per_chunk": entries_per_chunk,  # Map entries_per_chunk to datasets_per_chunk
+            "concurrency": 1,  # Fixed default as per wizard specification
+            "batch_size": 50,  # Default batch size
             "include_evaluation_sets": gen_data.get("include_evaluation_sets", False),
             "taxonomy_project": str(project_id) if taxonomy_name else None,  # Use project ID as taxonomy project
             "taxonomy_name": taxonomy_name,
@@ -1051,341 +1119,122 @@ def render_review_generate():
             "enable_versioning": gen_data.get("enable_versioning", False),
             "run_benchmarks": gen_data.get("run_benchmarks", False),
             "benchmark_suite": "glue",
-            "parsing_model": parsing_model,
-            "chunking_model": chunking_model,
-            "classification_model": classification_model,
-            "generation_model": generation_model,
-            "custom_audience": gen_data.get("custom_audience", ""),
-            "custom_purpose": gen_data.get("custom_purpose", ""),
-            "complexity_level": gen_data.get("complexity_level", "intermediate"),
-            "domain": gen_data.get("domain", "general"),
-            "datasets_per_chunk": gen_data.get("entries_per_chunk", 3)
+            # Pass generation_model as classification_model because the background job expects the provider there
+            "classification_model": generation_model,
+            # Pass the selected documents directly to the worker
+            "document_ids": selected_document_ids,
+            # Add required fields with defaults
+            "prompt_name": "qa_pairs",
+            "dataset_name": None,
+            "extraction_file_id": None,
+            "selected_categories": None,
+            "only_validated": False
         }
 
-        # Start dataset generation
+        # Start dataset generation using unified job service (same as non-wizard)
         with st.spinner("Starting dataset generation..."):
             try:
-                response = api_client.post("/api/v1/datasets/generate", data=generation_request)
+                # Get user ID for job attribution
+                try:
+                    from ..state.session_state import session_state
+                    user_id = session_state.user_id
+                    if not user_id:
+                        st.error("❌ You must be logged in to generate datasets.")
+                        return
+                except Exception as e:
+                    st.error(f"❌ Authentication error: {e}")
+                    return
 
-                job_id = response.get("job_id") if response else None
-                if job_id:
-                    st.success(f"✅ Dataset generation started! Job ID: {job_id}")
+                # Use unified job service for submission and monitoring
+                result = unified_job_service.submit_and_monitor(
+                    job_type=JobType.DATASET_GENERATION,
+                    parameters=generation_request,
+                    priority=JobPriority.NORMAL,
+                    user_id=user_id,
+                    title="Generating Dataset",
+                    timeout=7200,  # 2 hours
+                    poll_interval=5
+                )
 
-                    # Store job info in wizard state
-                    wizard_state.update_step_data("review_generate", "job_id", job_id)
+                if result.success:
+                    dataset_result = result.result or {}
+                    # Unwrap nested result if present (common pattern from worker response)
+                    if "result" in dataset_result and isinstance(dataset_result["result"], dict):
+                        dataset_result = dataset_result["result"]
+                    
+                    dataset_id = dataset_result.get("dataset_id", "Unknown")
+                    entries_count = dataset_result.get("entries_count", 0)
+                    
+                    st.success(f"🎉 Dataset generation completed! Dataset ID: {dataset_id} with {entries_count} entries")
+                    
+                    # Store job info in wizard state - we use the API job_id for fetching files
+                    # since filenames are generated using the job_id, not the version_id
+                    wizard_state.update_step_data("review_generate", "job_id", result.job_id)
                     wizard_state.update_step_data("review_generate", "generation_started", True)
-
-                    # Show status monitoring
-                    st.subheader("Generation Status")
-                    status_placeholder = st.empty()
-
-                    # Poll for status updates
-                    import time
-                    max_polls = 60  # 5 minutes max
-                    poll_count = 0
-                    final_status = "running"
-                    final_status_response = {}
-
-                    while poll_count < max_polls:
-                        try:
-                            status_response = api_client.get(f"/api/v1/datasets/generate/{job_id}/status")
-                            status = status_response.get("status", "unknown") if status_response else "unknown"
-                            progress = status_response.get("progress", 0) if status_response else 0
-                            current_step = status_response.get("current_step", "Processing...") if status_response else "Processing..."
-
-                            with status_placeholder.container():
-                                st.progress(progress / 100)
-                                st.info(f"Status: {status} | {current_step}")
-
-                            if status in ["completed", "failed"]:
-                                final_status = status
-                                final_status_response = status_response
-                                break
-
-                        except Exception as e:
-                            st.warning(f"Could not get status update: {e}")
-
-                        time.sleep(5)  # Wait 5 seconds between polls
-                        poll_count += 1
-
-                    # Final status
-                    if final_status == "completed":
-                        result = final_status_response.get("result", {}) if final_status_response else {}
-                        dataset_id = result.get("dataset_id", "Unknown")
-                        entries_count = result.get("entries_count", 0)
-                        st.success(f"🎉 Dataset generation completed! Dataset ID: {dataset_id} with {entries_count} entries")
-                        
-                        # Add Download Button
-                        try:
-                            # Construct download URL
-                            api_base = api_client.base_url
-                            download_url = f"{api_base}/api/v1/datasets/{dataset_id}/download"
-                            
-                            # Display download link
-                            st.markdown(f"### 📥 Result")
-                            st.success(f"Dataset generated successfully with {entries_count} entries.")
-                            st.markdown(f"**[📥 Click here to download the generated dataset]({download_url})**")
-                            
-                        except Exception as e:
-                            logger.error(f"Failed to setup download: {e}")
-                            
-                    elif final_status == "failed":
-                        error = final_status_response.get("error", "Unknown error") if final_status_response else "Unknown error"
-                        st.error(f"❌ Dataset generation failed: {error}")
-                    else:
-                        st.warning("⚠️ Dataset generation is still running. Check back later for results.")
-
+                    wizard_state.update_step_data("review_generate", "entries_count", entries_count)
+                    
+                    # Try to pre-fetch the download URL now so we can render st.download_button immediately
+                    try:
+                        response = api_client.get(f"/api/v1/datasets/{result.job_id}/download?project_id={project_id}")
+                        if response and response.get('download_url'):
+                            wizard_state.update_step_data("review_generate", "download_url", response['download_url'])
+                    except Exception as e:
+                        pass
                 else:
-                    st.error("Failed to start dataset generation - no job ID received")
+                    st.error(f"❌ Dataset generation failed: {result.error_message}")
 
-            except APIError as e:
-                st.error(f"Failed to start dataset generation: {e}")
             except Exception as e:
                 st.error(f"Error starting dataset generation: {e}")
 
-def render_edit_taxonomy_step():
-    """Render a simplified taxonomy selection and editing step for the wizard."""
-    st.header("🏗️ Step 3: Edit Taxonomy")
-    
-    project_data = wizard_state.get_step_data("project_selection")
-    project_id = project_data.get("project_id")
-    
-    if not project_id:
-        st.error("Please select a project first.")
-        return
-
-    # ============================================================================
-    # 1. TAXONOMY SELECTION
-    # ============================================================================
-    st.subheader("🏷️ Select Taxonomy")
-    
-    # Get available taxonomies for this project
-    try:
-        taxonomies_response = api_client.get(f"/api/v1/taxonomy?project_id={project_id}")
-        taxonomies = taxonomies_response.get("taxonomies", []) if taxonomies_response else []
-    except Exception as e:
-        st.error(f"Failed to load taxonomies: {e}")
-        taxonomies = []
-
-    selected_tax = None
-    if taxonomies:
-        taxonomy_options = {f"{t['name']} (ID: {t['id']})": t for t in taxonomies}
+    # Check if dataset was successfully generated in a previous interaction
+    review_data = wizard_state.get_step_data("review_generate")
+    if review_data and review_data.get("generation_started") and review_data.get("job_id"):
+        job_id = review_data.get("job_id")
+        entries_count = review_data.get("entries_count", 0)
+        project_id = project_data.get("project_id")
+        download_url = review_data.get("download_url")
         
-        # Determine current selection for default
-        current_step_data = wizard_state.get_step_data("taxonomy_selection")
-        selected_tax_obj = current_step_data.get("selected_taxonomy") if current_step_data else None
-        current_sel_id = selected_tax_obj.get("id") if selected_tax_obj else None
+        st.success(f"✅ Your dataset (job id: {job_id}) is ready with {entries_count} entries!")
         
-        default_index = 0
-        for i, t in enumerate(taxonomies):
-            if t['id'] == current_sel_id:
-                default_index = i
-                break
-        
-        # UI layout with buttons next to selectbox
-        st.write("Choose a taxonomy to work with")
-        col_sel, col_reg, col_del, col_spacer = st.columns([0.7, 0.05, 0.05, 0.2])
-        
-        with col_sel:
-            selected_tax_key = st.selectbox(
-                "Choose a taxonomy to work with",
-                options=list(taxonomy_options.keys()),
-                index=default_index,
-                key="wizard_taxonomy_selectbox",
-                label_visibility="collapsed"
-            )
-            selected_tax = taxonomy_options[selected_tax_key] if selected_tax_key else None
-        
-        with col_reg:
-            if st.button("🔄", help="Regenerate this taxonomy (Overwrites original)", key="wizard_regen_tax_btn"):
-                if selected_tax:
-                    # Logic to regenerate
-                    try:
-                        # Load full data to get source docs
-                        resp = api_client.get(f"/api/v1/taxonomy/{selected_tax['id']}")
-                        metadata = resp.get('metadata', {}) if resp else {}
-                        doc_ids = metadata.get('source_document_ids')
+        # If we didn't fetch the URL previously, try now
+        if not download_url:
+            try:
+                response = api_client.get(f"/api/v1/datasets/{job_id}/download?project_id={project_id}")
+                if response and response.get('download_url'):
+                    download_url = response['download_url']
+                    wizard_state.update_step_data("review_generate", "download_url", download_url)
+            except Exception:
+                pass
+                
+        if download_url:
+            col1, col2 = st.columns(2)
+            with col1:
+                # Use a state variable to track if we should fetch
+                if not st.session_state.get(f"fetch_{job_id}"):
+                    if st.button("📥 Download Dataset", type="primary", use_container_width=True, help="Fetch and save the dataset file"):
+                        st.session_state[f"fetch_{job_id}"] = True
+                        st.rerun()
+                
+                if st.session_state.get(f"fetch_{job_id}"):
+                    # Need to use caching to avoid downloading a large file multiple times
+                    @st.cache_data(ttl=3600, show_spinner="Fetching dataset file from server...")
+                    def get_cached_file(url):
+                        return api_client.get_file(url)
                         
-                        if not doc_ids:
-                            # Fallback to current wizard docs
-                            proc_data = wizard_state.get_step_data("processing_config")
-                            doc_ids = proc_data.get("selected_document_ids")
-                            
-                        if not doc_ids:
-                            # Final fallback: get all documents in the project
-                            try:
-                                docs_resp = api_client.get(f"/api/v1/documents?project_id={selected_tax['project_id']}")
-                                if docs_resp and "documents" in docs_resp:
-                                    doc_ids = [d["id"] for d in docs_resp["documents"]]
-                                    logger.debug(f"Regenerating using all {len(doc_ids)} project documents as fallback")
-                            except Exception as e:
-                                logger.debug(f"Failed fallback document fetch: {e}")
-                            
-                        if not doc_ids:
-                            st.error("No source documents found to regenerate from.")
-                        else:
-                            with st.spinner("🔄 Regenerating..."):
-                                taxonomy_request = {
-                                    "project_id": selected_tax['project_id'],
-                                    "name": selected_tax['name'],
-                                    "documents": doc_ids,
-                                    "depth": None,
-                                    "generator": "grok", # Default to grok
-                                    "domain": metadata.get('domain', 'general'),
-                                    "sample_size": 100,
-                                    "mode": "complete",
-                                    "category_limits": None
-                                }
-                                new_resp = api_client.post("/api/v1/taxonomy/generate", data=taxonomy_request)
-                                if new_resp and 'id' in new_resp:
-                                    # Delete old
-                                    api_client.delete(f"/api/v1/taxonomy/{selected_tax['id']}")
-                                    # Update state
-                                    wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", new_resp)
-                                    if "unified_taxonomy" in st.session_state:
-                                        del st.session_state.unified_taxonomy
-                                    st.success("✅ Taxonomy regenerated!")
-                                    import time
-                                    time.sleep(1)
-                                    st.rerun()
-                    except Exception as e:
-                        st.error(f"Regeneration failed: {e}")
-
-        with col_del:
-            if st.button("🗑️", help="Delete this taxonomy", key="wizard_delete_tax_btn"):
-                if selected_tax:
-                    try:
-                        with st.spinner("🗑️ Deleting..."):
-                            api_client.delete(f"/api/v1/taxonomy/{selected_tax['id']}")
-                            wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", None)
-                            if "unified_taxonomy" in st.session_state:
-                                del st.session_state.unified_taxonomy
-                            st.success("✅ Taxonomy deleted!")
-                            import time
-                            time.sleep(1)
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Deletion failed: {e}")
-
-        if selected_tax:
-            # Update wizard state and initialize editor if changed
-            if current_sel_id != selected_tax['id']:
-                wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", selected_tax)
-                if "unified_taxonomy" in st.session_state:
-                    del st.session_state.unified_taxonomy
-                st.rerun()
-    else:
-        st.info("No taxonomies available. Please complete Step 2 to generate one automatically.")
-        return
-
-    # ============================================================================
-    # 2. REACTIVE TAXONOMY EDITOR (Using Fragments)
-    # ============================================================================
-    if taxonomies and selected_tax:
-        st.divider()
-        render_reactive_taxonomy_editor(selected_tax)
-
-@st.fragment()
-def render_reactive_taxonomy_editor(selected_tax: Dict[str, Any]):
-    """Fragment-based taxonomy editor for immediate GUI reactivity."""
-    st.subheader("🏗️ Refine Taxonomy Structure")
-    
-    # Pre-populate unified_taxonomy in session state
-    if "unified_taxonomy" not in st.session_state:
-        try:
-            response = api_client.get(f"/api/v1/taxonomy/{selected_tax['id']}")
-            full_tax_data = response.get('taxonomy', {}) if response else {}
-            
-            st.session_state.unified_taxonomy = {
-                "name": full_tax_data.get('name', selected_tax.get('name', 'Taxonomy')),
-                "description": full_tax_data.get('description', selected_tax.get('description', '')),
-                "project_id": selected_tax.get('project_id'),
-                "creation_mode": "hybrid",
-                "depth": full_tax_data.get('depth', 3),
-                "categories": full_tax_data.get('children', []),
-                "loaded_taxonomy_id": selected_tax['id'],
-                "ai_config": {
-                    "generator": "grok",
-                    "domain": "general",
-                    "batch_size": 10,
-                    "specificity_level": 1,
-                    "category_limits": None,  # Liberated for wizard only
-                    "selected_documents": []
-                }
-            }
-        except Exception as e:
-            st.error(f"Failed to load taxonomy details: {e}")
-            return
-
-    taxonomy = st.session_state.unified_taxonomy
-
-    # Taxonomy Name - User can rename it
-    taxonomy_name_input = st.text_input(
-        "Taxonomy Name",
-        value=taxonomy["name"],
-        help="You can rename your taxonomy here.",
-        key="wizard_taxonomy_name_input"
-    )
-    
-    if taxonomy_name_input != taxonomy["name"]:
-        taxonomy["name"] = taxonomy_name_input
-        from src.compileo.features.gui.utils.taxonomy_utils import save_unified_taxonomy
-        # Auto-save rename silently
-        save_unified_taxonomy(taxonomy, silent=True)
-        # We still set needs_refresh so that Step 5 summary is correct when user navigates
-        wizard_state.needs_refresh = True
-        # Fragment will auto-rerun to update its local display
-    
-    st.write("**Edit Categories**")
-    
-    # Add top-level category button
-    if st.button("➕ Add Top-Level Category", type="secondary", width='stretch'):
-        taxonomy["categories"].append({
-            "name": "", "description": "", "confidence_threshold": 0.8, "children": [],
-            "depth_limit": taxonomy["depth"] - 1
-        })
-        from src.compileo.features.gui.utils.taxonomy_utils import save_unified_taxonomy
-        # Auto-save structural change silently
-        save_unified_taxonomy(taxonomy, silent=True)
-        # Set refresh flag and rerun to ensure new category is visible
-        wizard_state.needs_refresh = True
-        st.rerun()
-
-    # Render collapsible taxonomy tree builder
-    if taxonomy["categories"]:
-        # Use a stable but unique key prefix based on the taxonomy structure
-        # This ensures that when a category is removed, all remaining categories
-        # get fresh widget identities, preventing Streamlit from using stale states.
-        import hashlib
-        tree_state = json.dumps(taxonomy["categories"], sort_keys=True)
-        state_hash = hashlib.md5(tree_state.encode()).hexdigest()[:8]
-        
-        from src.compileo.features.gui.components.taxonomy_components import render_collapsible_category_builder
-        for i, category in enumerate(taxonomy["categories"]):
-            # Path MUST start with 'cat' for taxonomy_utils functions to work
-            render_collapsible_category_builder(
-                category, 0, taxonomy["depth"], f"cat_{i}", taxonomy,
-                default_expanded=False, key_prefix=f"wiz_{state_hash}"
-            )
-    else:
-        st.info("Your taxonomy is empty. Add categories above.")
-
-    # Explicit Apply Changes Button
-    if st.button("💾 Apply & Finish Editing", type="primary", width='stretch'):
-        from src.compileo.features.gui.utils.taxonomy_utils import save_unified_taxonomy
-        save_unified_taxonomy(taxonomy)
-        
-        wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", {
-            "id": taxonomy.get("loaded_taxonomy_id"),
-            "name": taxonomy["name"],
-            "description": taxonomy["description"],
-            "categories_count": len(taxonomy["categories"]),
-            "project_id": taxonomy["project_id"]
-        })
-        
-        if "unified_taxonomy" in st.session_state:
-            del st.session_state.unified_taxonomy
-        wizard_state.needs_refresh = True
-        st.success("✅ Taxonomy changes applied and saved to project.")
-        st.rerun()
+                    file_content = get_cached_file(download_url)
+                    
+                    if file_content:
+                        filename = download_url.split("/")[-2]
+                        st.download_button(
+                            label=f"💾 Click to save '{filename}'",
+                            data=file_content,
+                            file_name=filename,
+                            mime="application/octet-stream",
+                            use_container_width=True,
+                            key=f"save_{job_id}"
+                        )
+                    else:
+                        st.error("Dataset file could not be downloaded from server.")
+        else:
+            st.warning("Could not locate the generated file automatically. Please check the 'Browse & Manage Datasets' tab.")
 

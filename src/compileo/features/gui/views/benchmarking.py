@@ -1,5 +1,6 @@
 """Benchmarking dashboard for the Compileo GUI."""
 
+import logging
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -11,23 +12,63 @@ from io import StringIO
 from typing import Dict, Any, Optional, List
 import uuid
 
-from ..services.api_client import benchmarking_api_client
-from ..services.job_monitoring_service import monitor_job_synchronously
-import sqlite3
-import os
-import threading
+logger = logging.getLogger(__name__)
 
-# Thread-safe database connection (copied from storage module)
-db_lock = threading.Lock()
+from ..services.api_client import benchmarking_api_client
 
 def get_db_connection():
-    """Get database connection with thread safety."""
-    db_path = os.getenv('DATABASE_PATH', 'storage/database.db')
-    with db_lock:
-        conn = sqlite3.connect(db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    """Get the tenant database connection, creating schema if needed."""
+    import os
+    import sqlite3
+    
+    # Get user_id from session state (set by authentication)
+    user_id = None
+    
+    # Try to get user_id from Streamlit session state - check multiple possible sources
+    if hasattr(st, 'session_state'):
+        # Check various possible session state keys
+        for key in ['user_id', 'current_user', 'user', 'user_id', 'owner_id', 'id']:
+            if key in st.session_state:
+                value = st.session_state.get(key)
+                if isinstance(value, str):
+                    user_id = value
+                    break
+                elif isinstance(value, dict):
+                    user_id = value.get('id')
+                    if user_id:
+                        break
+    
+    # Fallback to environment variable or default
+    if not user_id:
+        user_id = os.getenv('DEFAULT_USER_ID', 'default')
+    
+    logger.debug(f"[DEBUG] get_db_connection: user_id={user_id}")
+    
+    # First, ensure the tenant database and schema exist
+    from src.compileo.storage.src.database import get_db_connection as storage_get_db_connection
+    try:
+        with storage_get_db_connection(owner_id=user_id, db_type="tenant") as conn:
+            logger.debug(f"[DEBUG] Tenant schema initialized for user: {user_id}")
+    except Exception as e:
+        logger.error(f"[DEBUG] Error initializing tenant schema: {e}")
+        raise
+    
+    # Now get a regular connection to use - CORRECT PATH: storage/{user_id}/tenant.db
+    db_path = f"storage/{user_id}/tenant.db"
+    logger.debug(f"[DEBUG] Connecting to database: {db_path}")
+    logger.debug(f"[DEBUG] Database exists: {os.path.exists(db_path)}")
+    
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    
+    # DEBUG: List all tables in the database
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = cursor.fetchall()
+    logger.debug(f"[DEBUG] Tables in database: {[t[0] for t in tables]}")
+    
+    return conn
 
 
 def render_benchmarking():
@@ -117,7 +158,7 @@ def render_overview_tab():
             st.subheader("Performance Trends")
             if not df.empty:
                 fig = create_performance_trend_chart(df, selected_metric)
-                st.plotly_chart(fig, width='stretch')
+                st.plotly_chart(fig, use_container_width=True)
 
             # Recent results table
             st.subheader("Recent Benchmark Results")
@@ -305,8 +346,8 @@ def render_run_benchmarks_tab():
                                          ["glue", "superglue", "mmlu", "medical"],
                                          index=0)
             tasks = st.multiselect("Specific Tasks (optional)",
-                                 ["cola", "sst2", "mrpc", "qqp", "mnli", "qnli", "rte", "wnli"],
-                                 help="Leave empty to run all tasks in the suite")
+                                  ["cola", "sst2", "mrpc", "qqp", "mnli", "qnli", "rte", "wnli"],
+                                  help="Leave empty to run all tasks in the suite")
 
         # Advanced options (only for Gemini and Grok)
         custom_config = ""
@@ -341,6 +382,7 @@ def render_run_benchmarks_tab():
 
         try:
             # Import job queue modules with fallback
+            import os  # Import os for environment variables
             try:
                 from src.compileo.features.jobhandle.enhanced_job_queue import enhanced_job_queue_manager
                 from src.compileo.features.jobhandle.models import JobType
@@ -348,7 +390,6 @@ def render_run_benchmarks_tab():
             except ImportError:
                 # Fallback for when running from different directory
                 import sys
-                import os
                 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
                 from src.compileo.features.jobhandle.enhanced_job_queue import enhanced_job_queue_manager
                 from src.compileo.features.jobhandle.models import JobType
@@ -374,10 +415,30 @@ def render_run_benchmarks_tab():
             job_id = str(uuid.uuid4())
             
             try:
-                db_conn = get_db_connection()
-                job_repo = BenchmarkJobRepository(db_conn)
-                job_repo.create_job({
+                # Get user_id for tenant database - use same logic as get_db_connection
+                user_id = None
+                if hasattr(st, 'session_state'):
+                    # Check various possible session state keys (same as get_db_connection)
+                    for key in ['user_id', 'current_user', 'user', 'owner_id', 'id']:
+                        if key in st.session_state:
+                            value = st.session_state.get(key)
+                            if isinstance(value, str):
+                                user_id = value
+                                break
+                            elif isinstance(value, dict):
+                                user_id = value.get('id')
+                                if user_id:
+                                    break
+                if not user_id:
+                    user_id = os.getenv('DEFAULT_USER_ID', 'default')
+                
+                logger.debug(f"[DEBUG] Creating BenchmarkJobRepository with user_id: {user_id}")
+                job_repo = BenchmarkJobRepository(user_id)
+                logger.debug(f"[DEBUG] Repository owner_id: {job_repo.owner_id}")
+                
+                job_data = {
                     'id': job_id,
+                    'owner_id': user_id,
                     'model_name': selected_model,  # Use selected model as model_name
                     'status': 'pending',
                     'parameters': {
@@ -387,23 +448,24 @@ def render_run_benchmarks_tab():
                     },
                     'created_at': datetime.utcnow(),
                     'updated_at': datetime.utcnow()
-                })
+                }
+                logger.debug(f"[DEBUG] Creating job with data: {job_data}")
                 
-                # Submit job to queue with pre-generated ID
+                job_repo.create_job(job_data)
+                logger.debug(f"[DEBUG] Job created successfully")
+                
+                # Submit job to queue with pre-generated ID - use actual user_id for multi-tenant isolation
                 submitted_id = enhanced_job_queue_manager.submit_job(
                     job_type=JobType.BENCHMARKING,
                     parameters=job_params,
-                    user_id="gui_user",
+                    user_id=user_id,  # Use the actual user_id, not "gui_user"
                     job_id=job_id
                 )
 
                 if submitted_id:
                     st.success(f"✅ Benchmarking started! Job ID: {submitted_id}")
                     # Show progress tracking
-                    # Monitor job synchronously in-view (Wizard-style)
-                    success = monitor_job_synchronously(submitted_id, success_text="Benchmarking completed!")
-                    if success:
-                        st.rerun()
+                    show_benchmark_progress(submitted_id)
                 else:
                     st.error("Failed to submit benchmarking job to queue.")
             except Exception as e:
@@ -499,15 +561,46 @@ def render_model_comparison_tab():
                     for model in selected_models:
                         model_data = df[df['model_name'] == model]
                         if not model_data.empty:
-                            comparison_data[model] = {
-                                'accuracy': model_data['accuracy'].mean(),
-                                'f1': model_data['f1'].mean(),
-                                'precision': model_data['precision'].mean(),
-                                'recall': model_data['recall'].mean()
-                            }
-
+                                comparison_data[model] = {
+                                    'accuracy': model_data['accuracy'].mean(),
+                                    'f1': model_data['f1'].mean(),
+                                    'precision': model_data['precision'].mean(),
+                                    'recall': model_data['recall'].mean()
+                                }
+    
+                        # Calculate best performing model and performance gap
+                        # Only do this after processing ALL models (not inside the loop)
+                    
+                    # After processing all selected models, calculate summary metrics
                     if comparison_data:
-                        display_model_comparison(comparison_data, metrics_to_compare)
+                        # Filter out any non-dict entries (like summary keys that might have been added)
+                        valid_model_data = {k: v for k, v in comparison_data.items() if isinstance(v, dict)}
+                        
+                        if valid_model_data:
+                            # Find best model based on accuracy (or first metric)
+                            metric_key = metrics_to_compare[0] if metrics_to_compare else 'accuracy'
+                            best_model = None
+                            best_score = -1
+                            second_best_score = -1
+                            
+                            for model, scores in valid_model_data.items():
+                                if isinstance(scores, dict):
+                                    score = scores.get(metric_key, 0)
+                                    if score is not None and not pd.isna(score):
+                                        if score > best_score:
+                                            second_best_score = best_score
+                                            best_score = score
+                                            best_model = model
+                                        elif score > second_best_score:
+                                            second_best_score = score
+                            
+                            # Add summary metrics to comparison_data
+                            comparison_data['best_performing'] = best_model if best_model else 'N/A'
+                            comparison_data['performance_gap'] = best_score - second_best_score if second_best_score >= 0 else 0
+                            comparison_data['statistical_significance'] = 'N/A'  # Would need proper statistical test
+                            comparison_data['recommendations'] = []
+                            
+                            display_model_comparison(comparison_data, metrics_to_compare)
                     else:
                         st.error("No comparison data available.")
                 else:
@@ -774,17 +867,40 @@ def display_model_comparison(comparison_data: Dict[str, Any], metrics: List[str]
 
     # Create comparison visualizations
     if metrics:
-        # Radar chart for multi-metric comparison
-        st.subheader("Multi-Metric Comparison")
-        fig = create_radar_comparison_chart(comparison_data, metrics)
-        if fig:
-            st.plotly_chart(fig, width='stretch')
+        try:
+            # Radar chart for multi-metric comparison
+            st.subheader("Multi-Metric Comparison")
+            fig = create_radar_comparison_chart(comparison_data, metrics)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Radar chart not available - comparison_data structure needs update")
 
-        # Bar chart for individual metrics
-        st.subheader("Individual Metric Comparison")
-        fig2 = create_bar_comparison_chart(comparison_data, metrics)
-        if fig2:
-            st.plotly_chart(fig2, width='stretch')
+            # Bar chart for individual metrics
+            st.subheader("Individual Metric Comparison")
+            fig2 = create_bar_comparison_chart(comparison_data, metrics)
+            if fig2:
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                # Show a simple table instead
+                st.info("Showing comparison table instead of chart")
+                # Create simple comparison table
+                # Skip summary keys (best_performing, performance_gap, etc.)
+                summary_keys = {"best_performing", "performance_gap", "statistical_significance", "recommendations"}
+                if comparison_data:
+                    table_data = []
+                    for model, scores in comparison_data.items():
+                        # Skip summary keys
+                        if model in summary_keys:
+                            continue
+                        if isinstance(scores, dict):
+                            row = {"Model": model}
+                            row.update({k: f"{v:.3f}" if isinstance(v, (int, float)) else v for k, v in scores.items()})
+                            table_data.append(row)
+                    if table_data:
+                        st.table(table_data)
+        except Exception as e:
+            st.error(f"Error creating comparison charts: {str(e)}")
 
 
 def create_radar_comparison_chart(comparison_data: Dict[str, Any], metrics: List[str]) -> Optional[go.Figure]:
@@ -802,44 +918,97 @@ def create_bar_comparison_chart(comparison_data: Dict[str, Any], metrics: List[s
 
 
 def show_benchmark_progress(job_id: str):
-    """
-    Show benchmark progress.
-    Legacy non-synchronous display used as fallback or summary.
-    """
-    st.subheader("🔄 Benchmark Status")
+    """Show real-time benchmark progress using the wizard pattern."""
+    # Check if we have stored results from a previous run
+    if f'benchmark_results_{job_id}' in st.session_state:
+        results = st.session_state[f'benchmark_results_{job_id}']
+        del st.session_state[f'benchmark_results_{job_id}']
+        display_benchmark_results(results)
+        st.success("✅ Benchmarking completed!")
+        return
+    
+    # Check if there was an error
+    if f'benchmark_error_{job_id}' in st.session_state:
+        error_msg = st.session_state[f'benchmark_error_{job_id}']
+        del st.session_state[f'benchmark_error_{job_id}']
+        st.error(f"❌ Benchmarking failed: {error_msg}")
+        return
 
-    try:
-        db_conn = get_db_connection()
-        cursor = db_conn.cursor()
+    st.subheader("🔄 Benchmark Progress")
 
-        # Get job status
-        cursor.execute("SELECT status, error_message FROM benchmark_jobs WHERE id = ?", (job_id,))
-        row = cursor.fetchone()
+    # Use the wizard pattern: st.empty() placeholders for dynamic updates
+    progress_placeholder = st.empty()
+    status_placeholder = st.empty()
 
-        if row:
-            status_value = row[0]
-            error_msg = row[1]
+    # Set default refresh interval
+    refresh_interval = 5
 
-            if status_value == "completed":
-                st.success("✅ Benchmarking completed!")
-                # Show results summary if available
-                cursor.execute("SELECT metrics FROM benchmark_results WHERE job_id = ?", (job_id,))
-                result_row = cursor.fetchone()
-                if result_row:
-                    results = {"status": "completed", "results": json.loads(result_row[0])}
-                    display_benchmark_results(results)
-            elif status_value == "failed":
-                st.error(f"❌ Benchmarking failed: {error_msg}")
-            elif status_value == "cancelled":
-                st.warning("⚠️ Benchmarking cancelled.")
+    # Always use auto-refresh (wizard pattern)
+    while True:
+        try:
+            # Get job status from database
+            db_conn = get_db_connection()
+            cursor = db_conn.cursor()
+
+            # Get job status
+            cursor.execute("""
+                SELECT status, error_message
+                FROM benchmark_jobs
+                WHERE id = ?
+            """, (job_id,))
+            row = cursor.fetchone()
+
+            if row:
+                status_value = row[0]
+                error_msg = row[1]
+                
+                logger.debug(f"[DEBUG_PROGRESS] Job {job_id} status from DB: '{status_value}', error: {error_msg}")
+
+                if status_value == "completed":
+                    # Clear status placeholder and hide stop button
+                    status_placeholder.empty()
+                    # Get results for display
+                    cursor.execute("""
+                        SELECT metrics FROM benchmark_results
+                        WHERE job_id = ?
+                    """, (job_id,))
+                    result_row = cursor.fetchone()
+                    if result_row:
+                        import json
+                        results = {"status": "completed", "results": json.loads(result_row[0])}
+                        # Store results in session state so they're preserved after potential rerun
+                        st.session_state[f'benchmark_results_{job_id}'] = results
+                        # Display results immediately (wizard pattern - no rerun needed)
+                        display_benchmark_results(results)
+                        progress_placeholder.success("✅ Benchmarking completed!")
+                    else:
+                        progress_placeholder.warning("Job completed but no results were generated. This usually indicates an issue with the benchmark execution (e.g., dataset loading failure).")
+                    break
+                elif status_value == "failed":
+                    status_placeholder.empty()
+                    progress_placeholder.error("❌ Benchmarking failed!")
+                    if error_msg:
+                        st.error(f"Error: {error_msg}")
+                    # Store error in session state
+                    st.session_state[f'benchmark_error_{job_id}'] = error_msg
+                    break
+                elif status_value == "cancelled":
+                    status_placeholder.empty()
+                    progress_placeholder.warning("⚠️ Benchmarking cancelled.")
+                    break
+                else:
+                    # Show progress - for now, just show status (wizard pattern)
+                    progress_placeholder.progress(0.5)  # Placeholder progress
+                    status_placeholder.info(f"Status: {status_value.title()}")
             else:
-                st.info(f"🔄 **Status: {status_value.title()}**")
-                st.caption("Job is being processed in the background.")
-        else:
-            st.error("Job not found")
+                progress_placeholder.error("Job not found")
+                break
 
-    except Exception as e:
-        st.error(f"Error displaying benchmark progress: {str(e)}")
+        except Exception as e:
+            progress_placeholder.error(f"Failed to get progress: {str(e)}")
+            break
+
+        time.sleep(refresh_interval)
 
 
 def display_benchmark_results(results: Dict[str, Any]):
@@ -880,10 +1049,6 @@ def display_benchmark_results(results: Dict[str, Any]):
         for i, (metric_name, value) in enumerate(metrics_data.items()):
             with metric_cols[i]:
                 st.metric(metric_name, f"{value:.3f}")
-
-        # Detailed results
-        st.subheader("Detailed Results")
-        st.json(results_data)
     else:
         st.info("No detailed results available.")
 

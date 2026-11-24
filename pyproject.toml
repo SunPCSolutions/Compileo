@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "Cython>=3.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -228,6 +228,21 @@ compileo = "compileo.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["compileo*", "src.compileo*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+# Cython build configuration
+[tool.cython]
+# Compiler directives for Cython
+language_level = "3"
+annotation_typing = false
+always_allow_keywords = true
+
+# Build options for different environments
+[tool.cython.build]
+# Development: Keep Python source
+preserve_source = true
+# Production: Remove Python source after compilation
+# Set via environment variable: COMPILEO_BUILD_MODE=production

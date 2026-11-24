@@ -1,12 +1,13 @@
 # API Authentication Guide
 
-Compileo implements mandatory API key authentication for all protected endpoints to ensure secure access to document processing and dataset engineering features.
+Compileo implements a complete multi-user authentication system using JWT (JSON Web Tokens) for secure access to all protected endpoints. Each user has strict data isolation, ensuring they can only access their own projects, documents, and data.
 
 ## Authentication Mechanism
 
-Compileo uses a custom header-based authentication mechanism. All requests to protected endpoints must include a valid API key in the request headers.
+Compileo uses JWT-based authentication with Bearer token authorization. All requests to protected endpoints must include a valid JWT token in the Authorization header.
 
-**Header Name:** `X-API-Key`
+**Header Name:** `Authorization`
+**Header Value:** `Bearer <jwt_token>`
 
 ### Public Endpoints (No Auth Required)
 The following endpoints are accessible without authentication:
@@ -15,56 +16,84 @@ The following endpoints are accessible without authentication:
 *   `/docs` (Swagger UI documentation)
 *   `/redoc` (ReDoc documentation)
 *   `/openapi.json` (OpenAPI specification)
+*   `/auth/register` (User registration)
+*   `/auth/login` (User login)
 
 ---
 
-## Setting Up API Keys
+## User Registration
 
-API keys can be defined via the GUI, CLI arguments, or environment variables.
+Before accessing protected endpoints, you must create a user account.
 
-### 🔐 Auto-Lock Model
-Compileo uses an "Auto-Lock" security model for maximum user-friendliness:
-*   **Unsecured Mode**: If no API keys are defined anywhere, the API allows all requests. This is ideal for initial setup.
-*   **Secured Mode**: As soon as at least one API key is defined (via GUI, CLI, or Env), the API "locks" and requires a valid key for all protected endpoints.
-
-### 1. Via GUI (Recommended)
-1.  Open the Compileo Web GUI.
-2.  Go to **Settings** > **🔗 API Configuration**.
-3.  Enter your desired key in the **API Key** field and save.
-4.  The API will immediately lock down using this key.
-
-### 2. Via CLI
-You can pass a static API key when starting the backend server:
+### Via API
 ```bash
-uvicorn src.compileo.api.main:app --host 0.0.0.0 --port 8000
+curl -X POST "http://localhost:8000/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "username": "myusername",
+    "password": "secure_password_123"
+  }'
 ```
-*Note: Set API keys via GUI Settings after startup.*
 
-### 3. Via Environment Variables
-Set these in your shell, `.env` file, or Docker configuration:
-*   `COMPILEO_API_KEYS`: A comma-separated list of authorized keys.
-
-**Example (.env):**
-```env
-COMPILEO_API_KEYS=key1,key2,key3
+**Response:**
+```json
+{
+  "id": "user_123",
+  "email": "user@example.com",
+  "username": "myusername",
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z"
+}
 ```
+
+### Via GUI
+1. Open the Compileo Web GUI at `http://localhost:8501`
+2. Click "Register" and fill in your details
+3. Your account will be created automatically
 
 ---
 
-## Configuration Priorities
+## User Login
 
-The API consolidates keys from all sources. If multiple sources define keys, they are all added to the list of authorized keys.
+After registration, authenticate to receive a JWT token.
 
-If **no API keys** are defined anywhere, the API operates in **Unsecured Mode**.
+### Via API
+```bash
+curl -X POST "http://localhost:8000/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=secure_password_123"
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "user": {
+    "id": "user_123",
+    "email": "user@example.com",
+    "username": "myusername"
+  }
+}
+```
+
+### Via GUI
+1. Open the Compileo Web GUI at `http://localhost:8501`
+2. Enter your email/username and password
+3. You'll be automatically logged in and redirected to the main interface
 
 ---
 
-## Usage Examples
+## Using JWT Tokens
+
+All protected API requests must include the JWT token in the Authorization header.
 
 ### Using `curl`
 ```bash
 curl -X GET "http://localhost:8000/api/v1/projects" \
-  -H "X-API-Key: your_secret_key"
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
 ### Using Python `requests`
@@ -72,10 +101,10 @@ curl -X GET "http://localhost:8000/api/v1/projects" \
 import requests
 
 API_URL = "http://localhost:8000/api/v1"
-API_KEY = "your_secret_key"
+JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 headers = {
-    "X-API-Key": API_KEY
+    "Authorization": f"Bearer {JWT_TOKEN}"
 }
 
 response = requests.get(f"{API_URL}/projects", headers=headers)
@@ -84,14 +113,107 @@ if response.status_code == 200:
     print("Successfully authenticated!")
     print(response.json())
 elif response.status_code == 401:
-    print("Authentication failed: Invalid or missing API key")
+    print("Authentication failed: Invalid or expired token")
 ```
+
+### Token Expiration
+- JWT tokens expire after 24 hours
+- When a token expires, you'll receive a 401 Unauthorized response
+- Simply login again to get a fresh token
+
+---
+
+## Data Isolation
+
+Compileo's multi-user architecture ensures complete data isolation:
+
+*   **User-Scoped Data**: Each user can only access projects, documents, and data they own
+*   **File Isolation**: User files are stored in separate directories (`storage/{user_id}/...`)
+*   **Database Isolation**: All database queries include `owner_id` filtering
+*   **Job Isolation**: Background jobs run with the submitting user's context
 
 ---
 
 ## Security Best Practices
 
-1.  **Use Strong Keys**: Generate random, high-entropy strings for your API keys.
-2.  **Environment Isolation**: Use different keys for development, staging, and production environments.
-3.  **Secure Storage**: Never commit your `.env` file containing real API keys to version control. Add `.env` to your `.gitignore`.
-4.  **HTTPS**: In production environments, always serve the API over HTTPS to protect the API key in transit.
+1.  **Strong Passwords**: Use complex passwords with mixed characters, numbers, and symbols
+2.  **Token Security**: Never expose JWT tokens in logs, URLs, or client-side code
+3.  **HTTPS**: Always use HTTPS in production to protect tokens in transit
+4.  **Token Rotation**: Implement automatic token refresh for long-running applications
+5.  **Secure Storage**: Store tokens securely (environment variables, secure key stores)
+6.  **Session Management**: Implement proper logout to invalidate tokens server-side
+
+---
+
+## Error Responses
+
+### Authentication Errors
+```json
+{
+  "detail": "Not authenticated",
+  "status_code": 401
+}
+```
+
+### Expired Token
+```json
+{
+  "detail": "Token has expired",
+  "status_code": 401
+}
+```
+
+### Invalid Token
+```json
+{
+  "detail": "Invalid authentication credentials",
+  "status_code": 401
+}
+```
+
+---
+
+## Complete Authentication Flow Example
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000"
+
+# 1. Register a new user
+register_data = {
+    "email": "user@example.com",
+    "username": "myusername",
+    "password": "secure_password_123"
+}
+
+register_response = requests.post(f"{BASE_URL}/auth/register", json=register_data)
+print("Registration:", register_response.json())
+
+# 2. Login to get JWT token
+login_data = {
+    "username": "user@example.com",
+    "password": "secure_password_123"
+}
+
+login_response = requests.post(f"{BASE_URL}/auth/login", data=login_data)
+token_data = login_response.json()
+jwt_token = token_data["access_token"]
+print("Login successful, got JWT token")
+
+# 3. Use token for authenticated requests
+headers = {"Authorization": f"Bearer {jwt_token}"}
+
+# Create a project
+project_data = {
+    "name": "My Research Project",
+    "description": "Document analysis project"
+}
+
+project_response = requests.post(f"{BASE_URL}/api/v1/projects",
+                               json=project_data, headers=headers)
+print("Created project:", project_response.json())
+
+# List user's projects
+projects_response = requests.get(f"{BASE_URL}/api/v1/projects", headers=headers)
+print("User projects:", projects_response.json())

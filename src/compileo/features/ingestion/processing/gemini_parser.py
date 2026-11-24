@@ -4,11 +4,12 @@ Real implementation with Google Gemini API calls using google.genai package.
 """
 
 import os
-import logging
 import json
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+from ....core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Import google.genai for new API
 try:
@@ -17,7 +18,24 @@ except ImportError:
     genai = None
     logger.warning("google.genai package not available, falling back to REST API")
 
-def analyze_document_structure(file_path: str, api_key: Optional[str] = None, model: Optional[str] = None) -> str:
+def _get_parsing_model(owner_id: Optional[str] = None) -> str:
+    """
+    Get the Gemini model for parsing from database settings.
+    Falls back to 'gemini-flash-latest' if settings cannot be reached.
+    """
+    try:
+        from ...core.settings import BackendSettings
+        settings = BackendSettings(owner_id=owner_id)
+        model = settings.get_parsing_gemini_model()
+        if model:
+            return model
+    except Exception as e:
+        logger.warning(f"Could not get parsing model from settings: {e}")
+    
+    # Fallback to gemini-flash-latest if settings unavailable
+    return "gemini-flash-latest"
+
+def analyze_document_structure(file_path: str, api_key: Optional[str] = None, model: Optional[str] = None, owner_id: Optional[str] = None) -> str:
     """
     Analyzes the document structure to create a visual style guide for heading levels.
     """
@@ -36,10 +54,9 @@ def analyze_document_structure(file_path: str, api_key: Optional[str] = None, mo
         if file_path.lower().endswith('.pdf'):
             from .image_utils import convert_pdf_to_optimized_images
             import io
-            from google.genai import types
 
             # Convert all pages with higher DPI for structure analysis
-            images = convert_pdf_to_optimized_images(file_path, dpi=300, max_dimension=1024)
+            images = convert_pdf_to_optimized_images(file_path, dpi=200, max_dimension=1024)
 
             if not images:
                 return ""
@@ -64,9 +81,12 @@ Do not extract content."""
                 contents.append(img)
             contents.append(prompt)
 
+            # Get model from settings (always, not just when model is None)
+            actual_model = _get_parsing_model(owner_id)
+            
             # Call Gemini using google.genai
             response = client.models.generate_content(
-                model=model or "gemini-1.5-flash",
+                model=actual_model,
                 contents=contents,
                 config={"temperature": 0.1}
             )
@@ -83,12 +103,14 @@ def parse_document_with_gemini(
     api_key: Optional[str] = None,
     model: Optional[str] = None,
     overlap_text: Optional[str] = None,
-    style_guide: Optional[str] = None
+    style_guide: Optional[str] = None,
+    owner_id: Optional[str] = None
 ) -> str:
     """
     Parse document using Google Gemini AI using google.genai package.
 
     Uses google.genai client for consistent API access across the application.
+    Model is always obtained from database GUI settings.
     """
     try:
         logger.info(f"Parsing document with Gemini: {file_path}")
@@ -105,8 +127,11 @@ def parse_document_with_gemini(
         if genai is None:
             raise ValueError("google.genai package not available. Cannot use Gemini for parsing.")
 
+        # Get model from settings (always, not just when model is None)
+        actual_model = _get_parsing_model(owner_id)
+        logger.info(f"Using parsing model from settings: {actual_model}")
+
         # Initialize Gemini client
-        from google.genai import types
         client = genai.Client(api_key=api_key)
 
         # Inject style guide if available
@@ -152,38 +177,29 @@ Output ONLY the converted markdown - nothing else, no additions, no modification
 
         # Handle file input (PDF vs Text) and create contents list
         if file_path.lower().endswith('.pdf'):
-            file_size = os.path.getsize(file_path)
-
-            # Check for large file size (>40MB) to fallback to images
-            if file_size > 40 * 1024 * 1024:
-                logger.warning(f"PDF file {os.path.basename(file_path)} is large ({file_size/1024/1024:.2f}MB). Converting to images for inline processing.")
-
-                from .image_utils import convert_pdf_to_optimized_images
-                import io
-
-                # Convert to optimized images (balanced quality/size)
-                images = convert_pdf_to_optimized_images(file_path, dpi=200, max_dimension=1536)
-
-                # Create contents with images and prompt
-                contents = []
-                for img in images:
-                    contents.append(img)
-                contents.append(prompt)  # Add prompt at the end
-
-                logger.info(f"Sending request to Gemini API for file: {os.path.basename(file_path)} (Mode: Images)")
-
-            else:
-                # Small enough PDF - send directly as bytes
-                with open(file_path, 'rb') as f:
-                    file_content = f.read()
-
-                # Create contents with PDF bytes and prompt
-                contents = [
-                    types.Part.from_bytes(data=file_content, mime_type='application/pdf'),
-                    prompt
-                ]
-
-                logger.info(f"Sending request to Gemini API for file: {os.path.basename(file_path)} (Mode: PDF)")
+            # Convert ALL PDFs to images regardless of size.
+            # This aligns with the grok_parser pipeline and bypasses
+            # the native PDF truncation limits in the Gemini API.
+            logger.debug(f"DEBUG_GEMINI: Converting PDF to images for {os.path.basename(file_path)}")
+            logger.info(f"Converting PDF {os.path.basename(file_path)} to images for processing.")
+            
+            from .image_utils import convert_pdf_to_optimized_images
+            
+            # Convert using 200 DPI to save tokens while keeping quality
+            try:
+                images = convert_pdf_to_optimized_images(file_path, dpi=200, max_dimension=1024)
+                logger.debug(f"DEBUG_GEMINI: Converted {len(images) if images else 0} pages to images")
+            except Exception as e:
+                logger.debug(f"DEBUG_GEMINI: ERROR converting PDF to images: {e}")
+                raise ValueError(f"Failed to process PDF file to images: {e}")
+            
+            # Gemini can handle >50 images in a single request, so we pass them all at once.
+            contents = []
+            for img in images:
+                contents.append(img)
+            contents.append(prompt)
+            
+            logger.info(f"Sending request to Gemini API for file: {os.path.basename(file_path)} (Mode: Images - {len(images)} pages)")
 
         else:
             # Text file
@@ -195,9 +211,11 @@ Output ONLY the converted markdown - nothing else, no additions, no modification
 
             logger.info(f"Sending request to Gemini API for file: {os.path.basename(file_path)} (Mode: Text)")
 
+        logger.info(f"Using Gemini model: {actual_model}")
+
         # Call Gemini using google.genai
         response = client.models.generate_content(
-            model=model or "gemini-1.5-flash",
+            model=actual_model,
             contents=contents,
             config={"temperature": 0.1}
         )
@@ -205,8 +223,11 @@ Output ONLY the converted markdown - nothing else, no additions, no modification
         # Check for finish reasons
         if response.candidates and response.candidates[0].finish_reason:
             finish_reason = response.candidates[0].finish_reason
+            logger.debug(f"DEBUG_GEMINI: Finish reason = {finish_reason}")
             if finish_reason == "RECITATION":
-                return f"Error: Gemini refused to process this document due to Copyright/Recitation check ({finish_reason})."
+                error_msg = f"Error: Gemini refused to process this document due to Copyright/Recitation check ({finish_reason})."
+                logger.debug(f"DEBUG_GEMINI: RECITATION ERROR - {error_msg}")
+                return error_msg
 
         # Extract text safely
         if response.candidates and response.candidates[0].content.parts:

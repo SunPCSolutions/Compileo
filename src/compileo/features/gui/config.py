@@ -11,7 +11,6 @@ class GUIConfig:
     def __init__(self):
         # API Configuration
         self.api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
-        self.api_key = os.getenv("API_KEY", "")
 
         # GUI Configuration
         self.app_title = "Compileo Dataset Creator"

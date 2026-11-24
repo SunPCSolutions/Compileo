@@ -231,23 +231,71 @@ class GLUEBenchmark(BaseBenchmark):
 
     def _get_single_prediction(self, llm: 'LLMInteraction', text_input: str, task_name: str, ai_config: Dict[str, Any]) -> Any:
         """Get prediction for a single input."""
-        # Create task-specific prompt
+        # Create task-specific prompt - use plain text format (no JSON needed)
         prompt = self._create_task_prompt(text_input, task_name)
 
         # Log input prompt (truncated)
         logger.info(f"[{task_name}] Input: {text_input[:50]}... | Prompt: {prompt[:100]}...")
 
-        # Get response from LLM
-        response = llm.generate(
-            prompt=prompt,
-            options={
-                'temperature': 0.1,  # Low temperature for consistent evaluation
-                'num_predict': 10  # Short responses for classification
-            }
-        )
-
-        # Parse response based on task - extract answer from LLM response dict
-        answer_text = response.get('answer', str(response))
+        # Get response from LLM - use direct call to bypass JSON parsing issues
+        try:
+            # Call the LLM directly without the generate() wrapper that forces JSON
+            provider = self._get_provider_from_config(ai_config)
+            
+            if provider == 'ollama':
+                import ollama
+                model = ai_config.get('model_name', 'mistral:latest')
+                
+                # Get Ollama parameters from ai_config (set from benchmark form)
+                ollama_params = ai_config.get('ollama_params', {})
+                
+                # Build options from parameters (with defaults for benchmark)
+                ollama_options = {
+                    'temperature': ollama_params.get('temperature', 0.1),
+                    'repeat_penalty': ollama_params.get('repeat_penalty', 1.2),
+                    'top_p': ollama_params.get('top_p', 0.9),
+                    'top_k': ollama_params.get('top_k', 20),
+                    'num_predict': ollama_params.get('num_predict', 50),
+                    'num_ctx': ollama_params.get('num_ctx', 32768)
+                }
+                # Add seed if set
+                if ollama_params.get('seed'):
+                    ollama_options['seed'] = ollama_params['seed']
+                
+                response = ollama.chat(
+                    model=model,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    options=ollama_options
+                )
+                answer_text = response.get('message', {}).get('content', '')
+            elif provider == 'gemini':
+                # Use Gemini directly
+                api_key = self._get_api_key_from_config(ai_config, provider)
+                import google.genai as genai
+                genai_client = genai.Client(api_key=api_key)
+                response = genai_client.models.generate_content(
+                    model=ai_config.get('model_name', 'gemini-2.0-flash'),
+                    contents=[prompt]
+                )
+                answer_text = response.text if hasattr(response, 'text') else str(response)
+            elif provider == 'grok':
+                api_key = self._get_api_key_from_config(ai_config, provider)
+                import requests
+                response = requests.post(
+                    "https://api.x.ai/v1/chat/completions",
+                    json={"model": ai_config.get('model_name', 'grok-4'), "messages": [{"role": "user", "content": prompt}]},
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=30
+                )
+                answer_text = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+            else:
+                # Fallback to generate() for other providers
+                response = llm.generate(prompt=prompt, options={'temperature': 0.1, 'num_predict': 50})
+                answer_text = response.get('answer', str(response)) if isinstance(response, dict) else str(response)
+        except Exception as e:
+            logger.error(f"Direct LLM call failed: {e}, falling back to generate()")
+            response = llm.generate(prompt=prompt, options={'temperature': 0.1, 'num_predict': 50})
+            answer_text = response.get('answer', str(response)) if isinstance(response, dict) else str(response)
 
         # Log model response (truncated)
         logger.info(f"[{task_name}] Response: {answer_text[:100]}...")

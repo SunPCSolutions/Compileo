@@ -27,12 +27,33 @@ Initiates asynchronous document parsing with automatic PDF splitting support.
 }
 ```
 
+**Request Body with Page Selection:**
+```json
+{
+  "project_id": 1,
+  "document_ids": [1],
+  "parser": "gemini",
+  "pages_per_split": 50,
+  "overlap_pages": 0,
+  "page_selection": "1-30, 251-300"
+}
+```
+
+Page selection supports the following formats:
+- **Single page**: `"1"`
+- **Page range**: `"1-20"`
+- **Batch of ranges**: `"1, 1-20, 30-120"`
+- **Mixed**: `"1, 5-10, 15"`
+
+Out-of-bounds page numbers are automatically clamped to the document's maximum page count.
+
 **Parameters:**
 - `project_id` (integer, required): Target project ID
 - `document_ids` (array, required): List of document IDs to parse
 - `parser` (string, optional): AI parser (`gemini`, `grok`, `ollama`, `pypdf`, `unstructured`, `huggingface`, `novlm`)
 - `pages_per_split` (integer, optional): Pages per PDF chunk (default: 5)
 - `overlap_pages` (integer, optional): Overlap pages between chunks (default: 0)
+- `page_selection` (string, optional): Page selection expression for PDF documents. Supports single pages (`1`), ranges (`1-20`), and batches (`1, 1-20, 30-120`). Leave empty or null to process all pages.
 
 **Response:**
 ```json
@@ -233,7 +254,6 @@ storage/parsed/{project_id}/
 - API key validation before job submission
 - File format verification
 - Storage space monitoring
-- **HuggingFace Network Timeouts**: The `huggingface` parser downloads a large (~6GB) model. In Docker, this can hang due to network/SSL issues. Pre-populating the `compileo_hf_models` volume with model weights is recommended if parsing jobs remain stuck in the "running" state without progress.
 
 **Retry Logic:**
 - Failed jobs can be restarted
@@ -269,6 +289,30 @@ while True:
     if status.json()["status"] == "completed":
         break
     time.sleep(5)
+```
+
+### Python Client with Page Selection
+
+```python
+import requests
+
+# Parse only selected pages from a 300-page PDF
+response = requests.post(
+    "http://localhost:8000/api/v1/documents/parse",
+    json={
+        "project_id": 1,
+        "document_ids": [1],
+        "parser": "gemini",
+        "pages_per_split": 50,
+        "overlap_pages": 0,
+        "page_selection": "1-30, 251-300"
+    }
+)
+
+# This extracts pages 1-30 and 251-300 into an intermediate 80-page PDF
+# in the uploads directory, then splits it into 2 chunks (50 + 30 pages)
+# for parsing. The intermediate PDF is removed after parsing; chunk files
+# and manifest remain.
 ```
 
 ### cURL Example

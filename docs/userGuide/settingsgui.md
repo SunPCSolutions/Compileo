@@ -2,26 +2,32 @@
 
 ## Overview
 
-The Settings page provides comprehensive configuration options for Compileo's AI models, system security, and processing parameters. This includes API key management for the Compileo system itself, as well as multiple AI providers (Ollama, Gemini, Grok, OpenAI). This guide covers security configuration and Ollama parameter fine-tuning.
+The Settings page provides comprehensive configuration options for Compileo's AI models and processing parameters. This includes **encrypted API key management** for multiple AI providers (Ollama, Gemini, Grok, OpenAI) and model selection for various processing tasks. This guide covers the Ollama parameter configuration feature, which allows fine-tuning of AI model behavior across different processing roles.
 
-## 🔒 API Authentication & Security
+## Security Features
 
-Compileo implements an **"Auto-Lock"** security model. This allows for a simplified setup while ensuring production-grade security once configured.
+### Encrypted API Key Storage
 
-### Configuring System API Keys
+All API keys entered in the Settings page are **automatically encrypted at rest** using Fernet symmetric encryption:
 
-To secure your Compileo instance:
-1.  Navigate to the **Settings** page in the Compileo GUI.
-2.  Locate the **🔗 API Configuration** section.
-3.  Enter one or more strong, secret values in the **API Keys** field (supports comma-separated lists).
-4.  Click **Save Settings**.
+- **Encrypted Keys**: OpenAI, Gemini, Grok, and HuggingFace API keys
+- **Encryption Method**: Fernet symmetric encryption with key derived from `LICENSE_ENCRYPTION_KEY`
+- **Storage**: Encrypted values stored in your isolated tenant database (`storage/{user_id}/tenant.db`)
+- **Transparency**: Encryption/decryption happens automatically - you use API keys normally
 
-**Security Behavior:**
-*   **Unsecured Mode**: If the API Keys field is empty (and no environment variables like `COMPILEO_API_KEYS` are set), Compileo allows all requests.
-*   **Secured Mode**: Once a key is saved, the API immediately "locks" and requires an `X-API-Key` header for all further access from both the GUI and external tools.
+**Security Benefits:**
+- API keys are never stored in plain text
+- Even if the database file is accessed, API keys remain encrypted
+- Each user's data is isolated in separate database files
 
-### Provider API Keys
-The settings page also allows you to manage keys for external LLM providers (Gemini, Grok, OpenAI). These are stored in the database and used by Compileo's backend to perform AI tasks.
+### Data Isolation
+
+Your settings are stored in your personal tenant database:
+```
+storage/{your_user_id}/tenant.db
+```
+
+This ensures complete data isolation between users.
 
 ## Ollama Parameter Configuration
 
@@ -141,22 +147,6 @@ The interface includes built-in validation:
 - Reduce temperature for more consistent outputs
 - Monitor Ollama resource usage
 
-## Global Settings
-
-### Log Level Configuration
-Compileo provides a project-wide logging system that can be controlled through the GUI, API, or CLI. This allows you to adjust the verbosity of logs based on your needs.
-
-#### Available Log Levels
-- **none**: Disables all logging output. Useful for production environments where minimal noise is desired.
-- **error**: Only logs critical errors and exceptions. Recommended for standard usage.
-- **debug**: Enables extensive log reporting, including internal process details and JSON-structured debug information. Intended for developers and troubleshooting.
-
-#### Configuring Log Level in GUI
-1. Navigate to the **General** tab in the Settings page.
-2. Locate the **Log Level** dropdown.
-3. Select your desired level (**none**, **error**, or **debug**).
-4. Click **Save Settings**. The new log level is applied immediately to all system components, including background workers.
-
 ## Advanced Configuration
 
 ### Custom Model Selection
@@ -196,6 +186,16 @@ For issues with parameter configuration:
 - Check Ollama server logs for API errors
 - Verify parameter ranges are valid
 - Ensure settings are properly saved
+
+## Default Prompts Configuration
+
+The Settings page includes a **Default Prompts** tab for managing dataset generation templates.
+
+### Features
+- **View Defaults**: See the system default prompts for all generation modes (`qa_pairs`, `summarization`, etc.).
+- **Create Overrides**: Edit any prompt template to create a project-specific override.
+- **Reset**: Revert any override back to the system default.
+- **Project Selection**: Choose which project context to apply overrides to if none is selected.
 
 ## Plugin Management
 

@@ -183,18 +183,17 @@ def render_manual_taxonomy_builder():
     with col2:
         generator_type = st.selectbox(
             "AI Generator",
-            options=["grok", "gemini", "ollama", "openai"],
+            options=["gemini", "grok", "ollama", "openai"],
             index=0,
             key="extend_generator",
             help="AI model to use for taxonomy extension"
         )
     with col3:
-        domain = st.selectbox(
+        domain = st.text_input(
             "Domain",
-            options=["general", "medical", "legal", "technical", "business", "scientific"],
-            index=0,
+            value="general",
             key="extend_domain",
-            help="Content domain for better categorization"
+            help="Content domain for better categorization (e.g., 'medical', 'legal', 'preventive nutrition')"
         )
 
     # Document selection for AI extension
@@ -267,7 +266,7 @@ def render_unified_taxonomy_builder():
             "categories": [],  # List of top-level categories
             "loaded_taxonomy_id": None,  # Track which taxonomy is currently loaded
             "ai_config": {
-                "generator": "grok",
+                "generator": "gemini",
                 "domain": "general",
                 "batch_size": 10,
                 "specificity_level": 1,
@@ -300,23 +299,30 @@ def render_unified_taxonomy_builder():
         if taxonomy.get("project_id"):
             try:
                 docs_response = api_client.get(f"/api/v1/documents?project_id={taxonomy['project_id']}")
-                documents = docs_response.get('documents', [])
-
-                if documents:
-                    doc_options = {f"{d['file_name']}": d for d in documents}
-                    # Filter out any selected documents that are no longer in the project
-                    valid_selected = [doc for doc in ai_config["selected_documents"] if doc in doc_options]
-
-                    ai_config["selected_documents"] = st.multiselect(
-                        "Select Documents",
-                        options=list(doc_options.keys()),
-                        default=valid_selected,
-                        key="unified_taxonomy_docs",
-                        help="Choose documents to analyze for taxonomy generation"
-                    )
-                else:
-                    st.warning("No documents found in selected project.")
+                
+                # Handle case where API returns None or error
+                if docs_response is None:
+                    st.warning("Could not load documents. The project may not exist or you may not have access.")
+                    documents = []
                     ai_config["selected_documents"] = []
+                else:
+                    documents = docs_response.get('documents', [])
+
+                    if documents:
+                        doc_options = {f"{d['file_name']}": d for d in documents}
+                        # Filter out any selected documents that are no longer in the project
+                        valid_selected = [doc for doc in ai_config["selected_documents"] if doc in doc_options]
+
+                        ai_config["selected_documents"] = st.multiselect(
+                            "Select Documents",
+                            options=list(doc_options.keys()),
+                            default=valid_selected,
+                            key="unified_taxonomy_docs",
+                            help="Choose documents to analyze for taxonomy generation"
+                        )
+                    else:
+                        st.warning("No documents found in selected project.")
+                        ai_config["selected_documents"] = []
             except APIError as e:
                 st.error(f"Failed to load project documents: {e}")
                 ai_config["selected_documents"] = []
@@ -430,18 +436,17 @@ def render_unified_taxonomy_builder():
         with col1:
             ai_config["generator"] = st.selectbox(
                 "AI Generator",
-                options=["grok", "gemini", "ollama", "openai"],
-                index=["grok", "gemini", "ollama", "openai"].index(ai_config["generator"]) if ai_config["generator"] in ["grok", "gemini", "ollama", "openai"] else 0,
+                options=["gemini", "grok", "ollama", "openai"],
+                index=["gemini", "grok", "ollama", "openai"].index(ai_config["generator"]) if ai_config["generator"] in ["gemini", "grok", "ollama", "openai"] else 0,
                 key="ai_generator_select",
                 help="AI model to use for generation"
             )
         with col2:
-            ai_config["domain"] = st.selectbox(
+            ai_config["domain"] = st.text_input(
                 "Domain",
-                options=["general", "medical", "legal", "technical", "business", "scientific"],
-                index=["general", "medical", "legal", "technical", "business", "scientific"].index(ai_config["domain"]),
+                value=ai_config.get("domain", "general"),
                 key="ai_domain_select",
-                help="Content domain for better categorization"
+                help="Content domain for better categorization (e.g., 'medical', 'legal', 'preventive cardiology')"
             )
         with col3:
             processing_mode_options = {
@@ -544,18 +549,17 @@ def render_unified_taxonomy_builder():
         with col2:
             extend_generator = st.selectbox(
                 "Extension Generator",
-                options=["grok", "gemini", "ollama"],
+                options=["gemini", "grok", "ollama"],
                 index=0,
                 key="extend_generator_select",
                 help="AI model to use for taxonomy extension"
             )
         with col3:
-            extend_domain = st.selectbox(
+            extend_domain = st.text_input(
                 "Extension Domain",
-                options=["general", "medical", "legal", "technical", "business", "scientific"],
-                index=0,
+                value="general",
                 key="extend_domain_select",
-                help="Content domain for extension"
+                help="Content domain for extension (e.g., 'medical', 'legal', 'sports nutrition')"
             )
         
         # Add processing mode for hybrid extension too
@@ -653,7 +657,7 @@ def render_ai_taxonomy_generator():
                 documents = docs_response.get('documents', [])
                 if documents:
                     taxonomy_name = st.text_input("Taxonomy Name", key="ai_taxonomy_name")
-                    generator_type = st.selectbox("AI Generator", options=["grok", "gemini", "ollama", "openai"], key="ai_taxonomy_generator")
+                    generator_type = st.selectbox("AI Generator", options=["gemini", "ollama", "grok", "openai"], key="ai_taxonomy_generator")
 
                     # Add new parameter controls
                     col1, col2 = st.columns(2)
@@ -661,8 +665,12 @@ def render_ai_taxonomy_generator():
                         depth = st.slider("Depth", min_value=1, max_value=5, value=3, help="Taxonomy hierarchy depth (1-5 levels)", key="ai_taxonomy_depth")
                         sample_size = st.slider("Sample Size", min_value=10, max_value=500, value=100, step=10, help="Number of chunks to sample for analysis", key="ai_taxonomy_sample_size")
                     with col2:
-                        domain_options = ["general", "medical", "technical", "scientific", "business", "legal", "educational", "research"]
-                        domain = st.selectbox("Domain", options=domain_options, index=0, help="Content domain for taxonomy generation", key="ai_taxonomy_domain")
+                        domain = st.text_input(
+                            "Domain",
+                            value="general",
+                            help="Content domain for taxonomy generation (e.g., 'medical', 'technical', 'pediatric care')",
+                            key="ai_taxonomy_domain"
+                        )
 
                     # Specificity level slider
                     st.markdown("**Specificity Level:** Controls how specific each taxonomy level becomes")
@@ -690,24 +698,9 @@ def render_ai_taxonomy_generator():
                         if not taxonomy_name.strip() or not selected_docs:
                             st.error("Taxonomy name and at least one document are required.")
                         else:
-                            # Use the API-based generation which supports job monitoring
-                            from src.compileo.features.gui.utils.taxonomy_utils import generate_unified_ai_taxonomy
-                            
-                            # Prepare a temporary taxonomy object for the utility function
-                            temp_taxonomy = {
-                                "name": taxonomy_name.strip(),
-                                "project_id": selected_project['id'],
-                                "depth": depth,
-                                "ai_config": {
-                                    "generator": generator_type,
-                                    "domain": domain,
-                                    "specificity_level": specificity_level,
-                                    "category_limits": category_limits,
-                                    "selected_documents": selected_docs,
-                                    "sample_size": sample_size
-                                }
-                            }
-                            generate_unified_ai_taxonomy(temp_taxonomy)
+                            from src.compileo.features.taxonomy.generator import TaxonomyGenerator
+                            taxonomy_generator = TaxonomyGenerator(api_key=None)  # Will use default API key
+                            taxonomy_generator.generate_taxonomy_sync(taxonomy_name.strip(), selected_project['id'], [doc_options[doc]['id'] for doc in selected_docs], depth, generator_type, domain, sample_size, category_limits, specificity_level)
                 else:
                     st.warning("No documents found in selected project.")
             except APIError as e:

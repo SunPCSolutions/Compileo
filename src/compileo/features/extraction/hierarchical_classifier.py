@@ -3,14 +3,12 @@ This module provides functions to classify and validate a text chunk based on a 
 using Large Language Models.
 """
 
+import logging
 import json
 from google import genai
 from typing import Dict, List, Any, Optional
 from .ollama_classifier import classify_chunk as classify_with_ollama
 from ...core.settings import backend_settings
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 def validate_classification(chunk_text: str, classification: Dict[str, Any], high_level_categories: List[str], api_key: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -74,10 +72,10 @@ def validate_classification(chunk_text: str, classification: Dict[str, Any], hig
         return {}
 
     except (json.JSONDecodeError, ValueError) as e:
-        logger.error(f"Error parsing Gemini response: {e}")
+        logging.getLogger(__name__).error(f"Error parsing Gemini response: {e}")
         return {}
     except Exception as e:
-        logger.error(f"An unexpected error occurred with Gemini: {e}")
+        logging.getLogger(__name__).error(f"An unexpected error occurred with Gemini: {e}")
         return {}
 
 def classify_and_validate(chunk_text: str, high_level_categories: List[str], api_key: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
@@ -94,6 +92,7 @@ def classify_and_validate(chunk_text: str, high_level_categories: List[str], api
         Dict[str, Any]: A dictionary representing the validated hierarchical classification.
     """
     # Step 1: Generate initial classification with Ollama
+    logger = logging.getLogger(__name__)
     logger.debug("--- Generating initial classification with Ollama ---")
     initial_classification = classify_with_ollama(chunk_text, model, high_level_categories)
     logger.debug("--- Ollama classification ---")
@@ -103,7 +102,7 @@ def classify_and_validate(chunk_text: str, high_level_categories: List[str], api
         return {}
 
     # Step 2: Validate and refine with Gemini
-    logger.debug("--- Validating and refining classification with Gemini ---")
+    logger.debug("\n--- Validating and refining classification with Gemini ---")
     validated_classification = validate_classification(chunk_text, initial_classification, high_level_categories, api_key, model)
     logger.debug("--- Gemini classification ---")
     logger.debug(json.dumps(validated_classification, indent=2))

@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import statistics
+import logging
 
 from .ollama_classifier import classify_chunk as ollama_classify
 from .gemini_classifier import classify_chunk as gemini_classify
@@ -15,9 +16,6 @@ from .grok_classifier import classify_chunk as grok_classify
 from .openai_classifier import classify_chunk as openai_classify
 from .pipeline_config import PipelineConfig
 from ...core.settings import backend_settings
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 @dataclass
@@ -78,6 +76,7 @@ class MultiStageClassifier:
             'grok': grok_classify,
             'openai': openai_classify
         }
+        self.logger = logging.getLogger(__name__)
 
     def _compute_confidence_score(self, classification: Dict[str, Any]) -> float:
         """
@@ -201,7 +200,7 @@ class MultiStageClassifier:
                 )
 
             except Exception as e:
-                logger.error(f"Error with {classifier_name} classifier: {e}")
+                self.logger.error(f"Error with {classifier_name} classifier: {e}")
                 return ClassificationResult(
                     categories={},
                     confidence=0.0,
@@ -329,7 +328,7 @@ class MultiStageClassifier:
             ))
 
         except Exception as e:
-            logger.error(f"Error in classification validation with {primary_classifier}: {e}")
+            self.logger.error(f"Error in classification validation with {primary_classifier}: {e}")
             # Return original results with error note
             for result in coarse_results:
                 validation_results.append(ClassificationResult(
@@ -498,7 +497,7 @@ class MultiStageClassifier:
 
         # Stage 1: Coarse classification
         if self.config.enable_coarse_stage:
-            logger.debug("--- Stage 1: Coarse Classification ---")
+            self.logger.debug("--- Stage 1: Coarse Classification ---")
             coarse_results = self._coarse_classification(chunk_text, high_level_categories)
             all_results.extend(coarse_results)
             stage_results.append({
@@ -515,7 +514,7 @@ class MultiStageClassifier:
 
         # Stage 2: Classification validation
         if self.config.enable_validation_stage:
-            logger.debug("--- Stage 2: Classification Validation ---")
+            self.logger.debug("--- Stage 2: Classification Validation ---")
             # Use coarse results if available, otherwise do validation directly
             base_results = all_results if all_results else []
             validation_results = self._validate_classification(chunk_text, base_results)

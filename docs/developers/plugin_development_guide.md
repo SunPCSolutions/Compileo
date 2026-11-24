@@ -69,8 +69,6 @@ To extend Compileo, you need to implement the interface defined by a specific Ex
 *   **ID**: `compileo.datasetgen.formatter`
 *   **Purpose**: Define custom output formats for generated datasets.
 *   **Interface**: `format(self, dataset_content: Union[str, List[Dict]]) -> str`
-*   **Generation Mode Awareness**: Formatters should check the `generation_mode` field in dataset items to adapt output format accordingly (e.g., instruction-response pairs vs Q&A vs summarization).
-*   **Data Structure**: Dataset items include fields like `instruction`, `input`, `output`, `question`, `answer`, `summary`, `key_points`, and `generation_mode`.
 
 #### 2. Ingestion Handler
 *   **ID**: `compileo.ingestion.handler`
@@ -89,6 +87,24 @@ To extend Compileo, you need to implement the interface defined by a specific Ex
 *   **Purpose**: Add new commands to the Compileo CLI.
 *   **Interface**: The registered object should be a `click.Command` or `click.Group`.
 
+#### 5. Background Job Executor
+*   **ID**: `compileo.job.executor`
+*   **Purpose**: Run long-running plugin tasks through Compileo's worker/job queue.
+*   **Interface**:
+    *   callable function, or
+    *   class/object implementing `execute(...)` or `run(...)`
+*   **Execution Context**:
+    *   owner-scoped extension lookup is applied
+    *   plugin receives job parameters and progress callback
+
+#### 6. GUI Page Extension
+*   **ID**: `compileo.gui.page`
+*   **Purpose**: Add plugin-defined Streamlit pages to the GUI.
+*   **Interface**:
+    *   callable renderer, or
+    *   class with `renderer()` and optional metadata (`key`, `label`, `section`, `order`), or
+    *   dict containing `renderer` plus optional metadata fields.
+
 ### Example: Dataset Formatter Extension
 
 ```python
@@ -98,53 +114,34 @@ import json
 class MyCustomFormatter:
     """
     Example implementation for the dataset formatter extension point.
-    Supports generation mode awareness for proper field mapping.
     """
 
     def format(self, dataset_content: Union[str, List[Dict[str, Any]]]) -> str:
-        # Handle JSON string input (standard Compileo output)
+        # Implementation logic to convert data to string
         if isinstance(dataset_content, str):
-            dataset_content = json.loads(dataset_content)
-
-        # Ensure we have a list of dictionaries
-        if not isinstance(dataset_content, list):
-            raise ValueError("Formatter requires a list of items")
-
-        lines = []
-
-        for item in dataset_content:
-            if isinstance(item, dict):
-                # Determine generation mode and extract appropriate fields
-                generation_mode = item.get("generation_mode", "question_answer")
-
-                if generation_mode == "instruction_following" or item.get("instruction"):
-                    # Instruction following mode
-                    instruction = item.get("instruction", "")
-                    input_text = item.get("input", "")
-                    output_text = item.get("output", "")
-
-                    # Format for your specific output requirements
-                    front = instruction
-                    if input_text:
-                        front = f"{instruction}\n\nInput: {input_text}"
-                    back = output_text
-
-                elif generation_mode == "summarization" or item.get("summary"):
-                    # Summarization mode
-                    front = "Summary:"
-                    back = item.get("summary", "")
-
-                else:
-                    # Default Q&A mode
-                    front = item.get("question", "")
-                    back = item.get("answer", "")
-
-                # Format fields for your output format
-                # ... processing logic ...
-                lines.append(f"{front}|{back}")
-
-        return "\n".join(lines)
+             dataset_content = json.loads(dataset_content)
+        
+        # ... processing logic ...
+        return "Formatted Result"
 ```
+
+### Example: Multi-Extension Plugin (Embeddings)
+
+A plugin can register API, CLI, GUI page, and background executor together:
+
+```yaml
+extensions:
+  compileo.api.router:
+    embeddings: "plugin_router"
+  compileo.cli.command:
+    embeddings: "embeddings_cli"
+  compileo.gui.page:
+    embeddings: "EmbeddingPageExtension"
+  compileo.job.executor:
+    qdrant_embed_index: "QdrantEmbeddingJobExecutor"
+```
+
+This pattern is useful for end-to-end features like RAG embedding workflows where settings, payload preview, and long-running indexing jobs must all coexist.
 
 ## 4. Packaging Your Plugin
 

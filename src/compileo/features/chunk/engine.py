@@ -1,13 +1,13 @@
 import os
 import re
 import json
+import logging
+from collections.abc import Iterable
+from dataclasses import dataclass
 import ollama
 from google import genai
 from .schema import ChunkingStrategy, LLMPromptStrategy, DelimiterStrategy, CharacterStrategy, TokenStrategy, SchemaStrategy, ManifestData
 from typing import List, Optional, Dict, Any
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 # Import Grok API client for chunking
 try:
@@ -17,6 +17,23 @@ except ImportError:
 
 # Maximum content size to prevent memory issues (10MB)
 MAX_CONTENT_SIZE = 10 * 1024 * 1024
+
+logger = logging.getLogger(__name__)
+
+
+def _strip_leading_comment_preamble(content: str) -> str:
+    """Strip parser-generated leading comment blocks before chunk evaluation."""
+    if not content:
+        return content
+
+    cleaned = content.lstrip("\ufeff")
+    while True:
+        updated = re.sub(r"^\s*<!--[\s\S]*?-->\s*", "", cleaned, count=1)
+        if updated == cleaned:
+            break
+        cleaned = updated
+    return cleaned.lstrip()
+
 
 def _call_ai_model(prompt: str, strategy: LLMPromptStrategy) -> str:
     """Helper function to call AI models"""
@@ -116,7 +133,6 @@ def _chunk_with_llm(content: str, strategy: LLMPromptStrategy, manifest_data: Op
             else:
                 # No overlap_content - extract main_content and process as regular text
                 main_content = parsed_content.get('main_content', '')
-                logger.debug(f"DEBUG_PARSED_FILE: Processing parsed file without overlap_content, using main_content (length: {len(main_content)})")
                 content = main_content  # Replace content with main_content for normal processing
     except json.JSONDecodeError:
         pass  # Not JSON, process as regular text
@@ -147,9 +163,6 @@ def _chunk_with_llm(content: str, strategy: LLMPromptStrategy, manifest_data: Op
             # No placeholders, use template as-is + content
             prompt = prompt_template + f"\n\n{content}"
 
-        logger.debug(f"DEBUG_LOGICAL_CHUNKING: Using logical chunking with strategy prompt_template")
-        logger.debug(f"DEBUG_LOGICAL_CHUNKING: User instruction: {user_instruction[:100]}...")
-        logger.debug(f"DEBUG_LOGICAL_CHUNKING: Content length: {len(content)}")
     else:
         # Use original prompt template with manifest context
         manifest_context = ""
@@ -182,13 +195,6 @@ This is part of a {total_pages}-page document split into {num_splits} files ({pa
         else:
             prompt = prompt_template.format(user_instruction=strategy.user_instruction) + manifest_context + f"\n\nHere is the markdown text:\n{content}"
 
-    # DEBUG LOGGING: Capture the full prompt being sent to LLM
-    logger.debug(f"DEBUG_CHUNKING_PROMPT: Model={strategy.model}")
-    logger.debug(f"DEBUG_CHUNKING_PROMPT: Manifest present={manifest_data is not None}")
-    logger.debug(f"DEBUG_CHUNKING_PROMPT: Content length={len(content)}")
-    logger.debug(f"DEBUG_CHUNKING_PROMPT: Full prompt=\n{prompt}")
-    logger.debug(f"DEBUG_CHUNKING_PROMPT: {'='*50}")
-
     # Call AI model
     headings_str = _call_ai_model(prompt, strategy)
 
@@ -211,7 +217,6 @@ def _chunk_structured_content(content_dict: Dict[str, Any], strategy: LLMPromptS
 
     # If no overlap_content, just process main_content as regular text (not as structured content)
     if not overlap_content:
-        logger.debug(f"DEBUG_STRUCTURED: No overlap_content, processing main_content as regular text (length: {len(main_content)})")
         # Return main_content as a single item list to be processed by normal semantic chunking logic
         # This will cause the _chunk_with_llm function to process main_content as regular text
         return [main_content]
@@ -240,8 +245,6 @@ CHUNKING RULES:
 PROCESSING: Find complete chunks starting from the overlap boundary, ensuring each chunk has both a clear beginning and end.
 """
 
-    logger.debug(f"DEBUG_STRUCTURED: Processing with overlap_content (length: {len(overlap_content)}) and main_content (length: {len(main_content)})")
-
     # Use AI to process structured content
     response = _call_ai_model(structured_prompt, strategy)
     chunks = _parse_chunk_response(response)
@@ -254,6 +257,8 @@ def _chunk_with_delimiter(content: str, strategy: DelimiterStrategy) -> List[str
     """
     if not content or not content.strip():
         return []
+
+    content = _strip_leading_comment_preamble(content)
 
     return [chunk.strip() for chunk in content.split(strategy.delimiter) if chunk.strip()]
 
@@ -281,7 +286,7 @@ def _chunk_with_characters(content: str, strategy: CharacterStrategy) -> List[st
     chunks = []
     start = 0
     content_length = len(content)
-
+    
     while start < content_length:
         end = min(start + strategy.chunk_size, content_length)
         chunk = content[start:end]
@@ -346,194 +351,56 @@ def _chunk_with_tokens(content: str, strategy: TokenStrategy) -> List[str]:
 
     return chunks
 
-def _chunk_with_schema(content: str, strategy: SchemaStrategy) -> List[str]:
-    """
-    Splits the text using a JSON schema that defines flexible splitting rules.
+def join_schema_parts(parts: Iterable[str]) -> str:
+    """Build a logical document without introducing regex EOFs at file seams."""
+    fragments = []
+    size = 0
+    for part in parts:
+        if not part:
+            continue
+        if fragments and not fragments[-1].endswith("\n") and not part.startswith("\n"):
+            fragments.append("\n")
+            size += 1
+        size += len(part.encode("utf-8"))
+        if size > MAX_CONTENT_SIZE:
+            raise ValueError(f"Combined schema input exceeds maximum limit of {MAX_CONTENT_SIZE} bytes")
+        fragments.append(part)
+    return "".join(fragments)
 
-    The schema supports multiple criteria: patterns (regex), delimiters, and structural elements.
-    Rules can be combined with 'any' (split if any rule matches) or 'all' (split if all rules match).
 
-    For cross-file chunking, this function ensures that only complete sections are chunked.
-    Incomplete sections (starting with a header but not ending with one) are left as single chunks
-    to be handled by the cross-file logic.
+@dataclass(frozen=True)
+class SchemaChunkSpan:
+    start: int
+    end: int
+    matched_rule: bool
 
-    Args:
-        content: The text content to be chunked.
-        strategy: The SchemaStrategy containing the JSON schema.
 
-    Returns:
-        A list of text chunks.
-
-    Raises:
-        ValueError: If the JSON schema is invalid.
-    """
-    if not content or not content.strip():
-        return []
-
-    logger.debug(f"DEBUG_SCHEMA: Starting schema chunking with json_schema: {strategy.json_schema[:100]}...")
-
-    try:
-        schema = json.loads(strategy.json_schema)
-        logger.debug(f"DEBUG_SCHEMA: Parsed schema: {schema}")
-    except json.JSONDecodeError as e:
-        logger.error(f"DEBUG_SCHEMA: JSON decode error: {e}")
-        raise ValueError(f"Invalid JSON schema: {e}")
-
-    rules = schema.get("rules", [])
-    combine = schema.get("combine", "any")
-    include_pattern = schema.get("include_pattern", False)  # Default to False for backward compatibility
-
-    logger.debug(f"DEBUG_SCHEMA: Processing {len(rules)} rules with combine='{combine}'")
-
-    # Collect split positions from all rules
-    all_positions = []
-
-    for rule in rules:
-        rule_type = rule.get("type")
-        value = rule.get("value")
-        positions = set()
-
-        logger.debug(f"DEBUG_SCHEMA: Processing rule type='{rule_type}', value='{value}'")
-        logger.debug(f"DEBUG_SCHEMA: Content length: {len(content)}")
-        logger.debug(f"DEBUG_SCHEMA: Content preview: {repr(content[:200])}")
-
-        if rule_type == "pattern":
-            # Find split positions based on include_pattern setting
-            try:
-                # Use MULTILINE flag to allow ^ and $ to match start/end of lines
-                matches = list(re.finditer(value, content, flags=re.MULTILINE))
-                logger.debug(f"DEBUG_SCHEMA: Regex '{value}' found {len(matches)} matches, include_pattern={include_pattern}")
-                for match in matches:
-                    if include_pattern:
-                        positions.add(match.start())  # Split BEFORE the pattern (include pattern in chunk)
-                    else:
-                        positions.add(match.end())    # Split AFTER the pattern (exclude pattern from chunk)
-            except re.error as e:
-                logger.error(f"DEBUG_SCHEMA: Regex error: {e}")
-                raise ValueError(f"Invalid regex pattern in schema rule: {e}")
-        elif rule_type == "delimiter":
-            # Find positions AFTER delimiter occurrences
-            pos = 0
-            while True:
-                idx = content.find(value, pos)
-                if idx == -1:
-                    break
-                positions.add(idx + len(value))  # Split AFTER the delimiter
-                pos = idx + len(value)
-        elif rule_type == "structure":
-            if value == "heading":
-                # Detect markdown headings (lines starting with #) and split after the heading line
-                for match in re.finditer(r'^#+\s.*$', content, re.MULTILINE):
-                    # Find the end of this line (including newline)
-                    line_end = content.find('\n', match.end())
-                    if line_end == -1:
-                        # Last line, split at end of content
-                        positions.add(len(content))
-                    else:
-                        # Split after this line
-                        positions.add(line_end + 1)
-            # Add more structure types as needed
-
-        all_positions.append(positions)
-
-    # Combine positions based on the combine strategy
-    if combine == "any":
-        # Union of all positions
-        split_positions = set()
-        for pos_set in all_positions:
-            split_positions.update(pos_set)
-    elif combine == "all":
-        # Intersection of all positions (positions that appear in all rule sets)
-        if all_positions:
-            split_positions = all_positions[0]
-            for pos_set in all_positions[1:]:
-                split_positions = split_positions.intersection(pos_set)
-        else:
-            split_positions = set()
-    else:
-        raise ValueError(f"Invalid combine value: {combine}. Must be 'any' or 'all'.")
-
-    # Sort positions and split content
-    positions = sorted(split_positions)
-    logger.debug(f"DEBUG_SCHEMA: Found {len(positions)} split positions: {positions}")
-
-    # CROSS-FILE AWARE CHUNKING LOGIC
-    # For schema chunking to work properly across files, we need to ensure that:
-    # 1. Only complete sections (with both start and end boundaries) are split
-    # 2. Incomplete sections are left as single chunks for cross-file handling
-
-    # Check if this content represents an incomplete section (starts with schema pattern but no ending boundary)
-    is_incomplete_section = False
-
-    # Check if content starts with any of the schema patterns
-    content_starts_with_pattern = False
-    for rule in rules:
-        rule_type = rule.get("type")
-        value = rule.get("value")
-
-        if rule_type == "pattern":
-            # Check if content starts with this pattern
-            try:
-                # Use MULTILINE flag to allow ^ match start of string or line
-                if re.match(value, content.strip(), flags=re.MULTILINE):
-                    content_starts_with_pattern = True
-                    logger.debug(f"DEBUG_SCHEMA: Content starts with pattern '{value}'")
-                    break
-            except re.error:
-                continue  # Skip invalid regex patterns
-
-    # If content starts with a pattern, check if it has a complete ending (another pattern match)
-    if content_starts_with_pattern:
-        # Look for additional pattern matches in the content (beyond the first one)
-        has_additional_patterns = False
-        for rule in rules:
-            rule_type = rule.get("type")
-            value = rule.get("value")
-
-            if rule_type == "pattern":
-                try:
-                    # Use MULTILINE flag to match internal boundaries
-                    matches = list(re.finditer(value, content, flags=re.MULTILINE))
-                    if len(matches) > 1:  # More than one match means there's an ending boundary
-                        has_additional_patterns = True
-                        logger.debug(f"DEBUG_SCHEMA: Found {len(matches)} matches for pattern '{value}', has ending boundary")
-                        break
-                except re.error:
-                    continue
-
-        # If no additional patterns found, this is an incomplete section
-        if not has_additional_patterns:
-            is_incomplete_section = True
-            logger.debug(f"DEBUG_SCHEMA: Content is incomplete section (starts with pattern but no ending boundary)")
-
-    # If this is an incomplete section, return it as a single chunk for cross-file handling
-    if is_incomplete_section:
-        logger.debug(f"DEBUG_SCHEMA: Returning incomplete section as single chunk for cross-file handling")
-        return [content.strip()]
-
-    # Normal chunking logic for complete content
-    chunks = []
-    start = 0
-
-    # Sort positions (these are now the split points - where we cut the content)
-    for split_pos in sorted(positions):
-        if split_pos > start:
-            chunk = content[start:split_pos].strip()
-            if chunk:
-                chunks.append(chunk)
-        start = split_pos
-
-    # Add the remaining content as the last chunk
-    last_chunk = content[start:].strip()
-    if last_chunk:
-        chunks.append(last_chunk)
-
-    # If no splits were made, return the whole content as one chunk
-    if not chunks:
-        return [content.strip()]
-
-    logger.debug(f"DEBUG_SCHEMA: Created {len(chunks)} chunks")
-    return chunks
+def schema_chunk_spans(content: str, strategy: SchemaStrategy) -> List[SchemaChunkSpan]:
+    """Return trimmed chunk spans in source coordinates, marking rule-backed starts."""
+    cleaned = _strip_leading_comment_preamble(content)
+    offset = len(content) - len(cleaned)
+    schema = json.loads(strategy.json_schema)
+    cut_before = schema.get("include_pattern", False)
+    cut_sets = []
+    for rule in schema["rules"]:
+        delimiter = rule["type"] == "delimiter"
+        pattern = re.escape(rule["value"]) if delimiter else rule["value"]
+        cut_sets.append({
+            match.start() if cut_before and not delimiter else match.end()
+            for match in re.finditer(pattern, cleaned, re.MULTILINE)
+        })
+    cuts = set.union(*cut_sets) if schema["combine"] == "any" else set.intersection(*cut_sets)
+    edges = sorted(cuts | {0, len(cleaned)})
+    spans = []
+    for start, end in zip(edges, edges[1:]):
+        raw = cleaned[start:end]
+        if raw.strip():
+            spans.append(SchemaChunkSpan(
+                offset + end - len(raw.lstrip()),
+                offset + start + len(raw.rstrip()),
+                start in cuts,
+            ))
+    return spans
 
 def chunk_document(content: str, strategy: ChunkingStrategy, manifest: Optional[Dict[str, Any]] = None) -> List[str]:
     """
@@ -570,7 +437,6 @@ def chunk_document(content: str, strategy: ChunkingStrategy, manifest: Optional[
     elif isinstance(strategy, TokenStrategy):
         return _chunk_with_tokens(content, strategy)
     elif isinstance(strategy, SchemaStrategy):
-        logger.debug("DEBUG_SCHEMA: Calling _chunk_with_schema")
-        return _chunk_with_schema(content, strategy)
+        return [content[span.start:span.end] for span in schema_chunk_spans(content, strategy)]
     else:
         raise ValueError(f"Unknown chunking strategy: {strategy.strategy}")

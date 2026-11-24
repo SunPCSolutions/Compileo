@@ -27,6 +27,9 @@ Organize your projects, manage versions, and interact with the dataset API.
 ### 🔌 Extensions
 Extend Compileo with plugins or develop your own modules.
 
+### 🧠 Embeddings for RAG
+Use the Qdrant Embedding Plugin to prepare chunk embeddings, attach compact taxonomy metadata, and optimize retrieval quality for textbook-style corpora.
+
 ---
 
 For a high-level overview of the project, please return to the [Introduction](../index.md).

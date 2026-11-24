@@ -5,7 +5,6 @@ A Streamlit-based web interface for the Compileo dataset creation and curation p
 ## Features
 
 - **Dataset Creation Wizard**: Step-by-step guided workflow for creating datasets
-- **Interactive Refinement**: Review, edit, and regenerate dataset entries
 - **Taxonomy Browser**: Explore and manage hierarchical taxonomies
 - **Quality Metrics Dashboard**: Visualize dataset quality metrics
 - **Benchmarking Visualization**: Performance comparison across models
@@ -93,7 +92,6 @@ Edit `config.py` to customize:
 4. **Taxonomy Selection**: Choose or create taxonomy for categorization
 5. **Generation Parameters**: Configure dataset purpose and quality settings
 6. **Review & Generate**: Confirm settings and start generation
-7. **Interactive Refinement**: Review and improve generated dataset
 
 ### API Integration
 

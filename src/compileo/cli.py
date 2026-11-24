@@ -1,6 +1,12 @@
 """Command-line interface for Compileo."""
 
-from .cli_commands import cli
+# cython: annotation_typing=False
+
+# Import with fallback for compiled/development compatibility
+try:
+    from compileo.cli_commands import cli
+except ImportError:
+    from src.compileo.cli_commands import cli
 
 if __name__ == "__main__":
     cli()

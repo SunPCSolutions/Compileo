@@ -12,6 +12,7 @@ if project_root not in sys.path:
 
 import streamlit as st
 import requests
+import extra_streamlit_components as stx
 
 from src.compileo.features.gui.config import config
 from src.compileo.features.gui.state.session_state import session_state
@@ -29,6 +30,9 @@ from src.compileo.features.gui.views.extraction_unified import render_extraction
 from src.compileo.features.gui.views.quality import render_quality
 from src.compileo.features.gui.views.benchmarking import render_benchmarking
 from src.compileo.features.gui.views.settings import render_settings
+from src.compileo.features.gui.views.auth import render_auth_page
+from src.compileo.features.gui.views.licensing import render_licensing_page
+from src.compileo.features.gui.views.plugin_page_host import get_plugin_pages_for_user, render_plugin_page
 from src.compileo.features.jobhandle.job_management import render_job_management
 from src.compileo.features.gui.components.job_queue_sidebar import render_job_queue_sidebar
 
@@ -362,19 +366,18 @@ def render_header():
     </div>
     """, unsafe_allow_html=True)
 
-def render_sidebar():
+def render_sidebar(cookie_manager=None):
     """Render the sidebar with grouped navigation sections."""
-    with st.sidebar:
-        # Compileo title above Wizard section
-        st.markdown('<div style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--primary-color); margin-bottom: 1rem;">Compileo</div>', unsafe_allow_html=True)
+    owner_id = session_state.user_id
+    plugin_pages = get_plugin_pages_for_user(owner_id=owner_id)
 
+    with st.sidebar:
         # Wizard section (moved to top)
         st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.markdown('<div class="sidebar-section-header">🧙 Wizard</div>', unsafe_allow_html=True)
         if st.button("Dataset Generation Wizard", key="nav_wizard",
                      type="secondary" if session_state.current_page != "wizard" else "primary"):
             session_state.current_page = "wizard"
-            st.query_params["page"] = "wizard"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -389,7 +392,6 @@ def render_sidebar():
         if st.button("🏠 Home", key="nav_home",
                      type="secondary" if session_state.current_page != "home" else "primary"):
             session_state.current_page = "home"
-            st.query_params["page"] = "home"
             st.rerun()
 
         workflow_pages = [
@@ -404,7 +406,6 @@ def render_sidebar():
             if st.button(display_name, key=f"nav_{page_key}",
                          type="secondary" if session_state.current_page != page_key else "primary"):
                 session_state.current_page = page_key
-                st.query_params["page"] = page_key
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -424,9 +425,24 @@ def render_sidebar():
             if st.button(display_name, key=f"nav_{page_key}",
                            type="secondary" if session_state.current_page != page_key else "primary"):
                 session_state.current_page = page_key
-                st.query_params["page"] = page_key
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+        # Divider
+        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+
+        # Plugin Pages section (only shown when plugin pages are available)
+        if plugin_pages:
+            st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+            st.markdown('<div class="sidebar-section-header">🧩 Plugin Pages</div>', unsafe_allow_html=True)
+
+            for page in plugin_pages:
+                if st.button(page.label, key=f"nav_plugin_{page.key}",
+                             type="secondary" if session_state.current_page != page.key else "primary"):
+                    session_state.current_page = page.key
+                    st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # Divider
         st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
@@ -437,7 +453,6 @@ def render_sidebar():
         if st.button("📋 Job Management", key="nav_job_management",
                        type="secondary" if session_state.current_page != "job_management" else "primary"):
             session_state.current_page = "job_management"
-            st.query_params["page"] = "job_management"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -446,10 +461,19 @@ def render_sidebar():
 
         # Settings and System Control (combined section for tighter spacing)
         st.markdown('<div class="sidebar-section settings-section">', unsafe_allow_html=True)
+        
+        # User Info & Logout
+        if session_state.user:
+            st.markdown(f"👤 **{session_state.user.get('username')}**")
+            if st.button("🚪 Logout", key="logout_button", type="secondary"):
+                # Use query params to trigger a clean logout in main()
+                st.query_params["action"] = "logout"
+                st.rerun()
+            st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+
         if st.button("⚙️ Settings", key="nav_settings",
                        type="secondary" if session_state.current_page != "settings" else "primary"):
             session_state.current_page = "settings"
-            st.query_params["page"] = "settings"
             st.rerun()
 
         # Shutdown button with consistent spacing
@@ -495,37 +519,135 @@ def main():
     """Main application entry point."""
     setup_page()
 
-    # Initialize job queue manager for GUI using safe utilities
+    # Initialize job queue manager early to avoid lazy-init warnings
     from src.compileo.features.gui.utils.job_queue_utils import initialize_job_queue_manager_safe
+    initialize_job_queue_manager_safe()
 
-    if not initialize_job_queue_manager_safe(
-        global_max_jobs=10,
-        auto_start_worker=False  # Don't auto-start worker - let dedicated process handle this
-    ):
-        st.error("Failed to initialize job queue manager. Some features may be unavailable.")
+    # Initialize Cookie Manager for persistent sessions
+    cookie_manager = stx.CookieManager()
+    
+    # Handle Logout Action via Query Parameters
+    if st.query_params.get("action") == "logout":
+        # Clear session state completely
+        if session_state.authenticated:
+            for key in list(st.session_state.keys()):
+                if key not in ['cookie_check_attempted']: 
+                    del st.session_state[key]
+            
+            session_state.authenticated = False
+            session_state.jwt_token = None
+            session_state.user = None
+            api_client.jwt_token = None
+            
+            # Force clear cookies using JavaScript as a fallback/reinforcement
+            # This handles cases where CookieManager is slow or fails
+            import streamlit.components.v1 as components
+            js_code = """
+            <script>
+                function deleteAllCookies() {
+                    var cookies = document.cookie.split(";");
+                    for (var i = 0; i < cookies.length; i++) {
+                        var cookie = cookies[i];
+                        var eqPos = cookie.indexOf("=");
+                        var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                    }
+                }
+                deleteAllCookies();
+            </script>
+            """
+            components.html(js_code, height=0)
+            
+            # Clear cookie - set to sentinel value
+            if cookie_manager:
+                import datetime
+                expires = datetime.datetime.now() + datetime.timedelta(days=1)
+                # Use unique keys to avoid StreamlitDuplicateElementKey error
+                cookie_manager.set("compileo_jwt_token", "logged_out", expires_at=expires, key="logout_token_set")
+                cookie_manager.set("compileo_session_active", "false", expires_at=expires, key="logout_active_set")
+            
+            # Use a small delay to ensure cookie operation is processed
+            import time
+            time.sleep(1.0)
+            
+            # Rerun to apply state changes
+            st.rerun()
+            
+        else:
+            # Session is already cleared
+            if st.query_params:
+                st.query_params.clear()
+            # If we are here, we are logged out.
+            pass
 
     # Initialize session state
-    # Load saved API key into session state if not already set
-    if not session_state.api_key:
-        saved_settings = settings_storage.load_settings()
-        saved_api_key = saved_settings.get("api_key")
-        if saved_api_key:
-            session_state.api_key = saved_api_key
-            # Also update the API client with the loaded key
-            api_client.set_api_key(saved_api_key)
+    # Load saved JWT token from cookies if available
+    # Skip if logout was just performed or in progress
+    if not session_state.jwt_token and not st.session_state.get('logging_out') and st.query_params.get("action") != "logout":
+        # Get token from cookie
+        token = cookie_manager.get("compileo_jwt_token")
+        
+        # Streamlit components like CookieManager need a moment to initialize.
+        if 'cookie_check_attempted' not in st.session_state:
+            st.session_state.cookie_check_attempted = True
+            st.rerun()
+
+        # If we found a token in cookies, try to authenticate
+        # Ensure it's not an empty string or 'logged_out'
+        if token and token.strip() != "" and token != "None" and token != "logged_out":
+            # Set up API client with the token from cookie
+            # Load saved API base URL from settings
+            saved_settings = settings_storage.load_settings()
+            api_url = saved_settings.get("api_base_url", config.api_base_url).rstrip('/')
+            api_client.update_settings(base_url=api_url, jwt_token=token)
+            
+            # Use a small protected endpoint to check token validity
+            try:
+                user_info = api_client.get("/auth/me")
+                if user_info:
+                    session_state.jwt_token = token
+                    session_state.user = user_info
+                    session_state.authenticated = True
+                else:
+                    cookie_manager.delete("compileo_jwt_token")
+            except:
+                # API error or network issue
+                pass
+    
+    if session_state.jwt_token:
+        # Sync API client with token
+        api_client.set_jwt_token(session_state.jwt_token)
+
+    # Authentication Gate
+    if not session_state.authenticated:
+        render_auth_page(cookie_manager=cookie_manager)
+        return
+
+    # License Gate (Soft Check)
+    if 'license_valid' not in st.session_state:
+        try:
+            # Check status from API
+            status = api_client.get("/api/v1/licensing/status")
+            st.session_state.license_valid = status and status.get('status') == 'active'
+        except:
+            st.session_state.license_valid = False
+
+    if not st.session_state.license_valid:
+        render_licensing_page()
+        return
 
     # Apply API base URL: prefer environment variable over saved settings
     import os
     env_api_url = os.getenv("API_BASE_URL")
     if env_api_url:
         # Environment variable takes precedence
-        api_client.update_settings(base_url=env_api_url, api_key=api_client.api_key or "")
+        api_client.update_settings(base_url=env_api_url, jwt_token=api_client.jwt_token)
     else:
         # Fall back to saved settings
         saved_settings = settings_storage.load_settings()
         saved_api_url = saved_settings.get("api_base_url")
         if saved_api_url:
-            api_client.update_settings(base_url=saved_api_url, api_key=api_client.api_key or "")
+            api_client.update_settings(base_url=saved_api_url, jwt_token=api_client.jwt_token)
 
     wizard_state.initialize()  # Ensure wizard state is initialized
 
@@ -536,33 +658,20 @@ def main():
         "job_management", "settings"
     }
 
-    # Get current page from query parameters - this takes precedence on page load
-    query_params = st.query_params
+    # Dynamically include plugin pages for current user if available
+    plugin_pages = get_plugin_pages_for_user(owner_id=session_state.user_id)
+    if plugin_pages:
+        valid_pages.update({page.key for page in plugin_pages})
 
-    # Get page parameter - handle different possible return types from st.query_params
-    if "page" in query_params:
-        page_param = query_params["page"]
-        if isinstance(page_param, list) and page_param:
-            url_page = page_param[0]
-        elif isinstance(page_param, str):
-            url_page = page_param
-        else:
-            url_page = str(page_param) if page_param else None
-    else:
-        url_page = None
-
-    # Determine the current page: URL param takes precedence, then session state, then default
-    if url_page and url_page in valid_pages:
-        current_page = url_page
-        session_state.current_page = current_page  # Sync session state
-    elif 'current_page' in st.session_state and st.session_state['current_page'] in valid_pages:
+    # Determine the current page from session state
+    if 'current_page' in st.session_state and st.session_state['current_page'] in valid_pages:
         current_page = st.session_state['current_page']
     else:
         current_page = "home"
         session_state.current_page = current_page
 
     # Render sidebar (buttons handle URL updates directly)
-    selected_page = render_sidebar()
+    selected_page = render_sidebar(cookie_manager=cookie_manager)
 
     # Render main content based on current page
     try:
@@ -590,6 +699,9 @@ def main():
             render_job_management()
         elif current_page == "settings":
             render_settings()
+        elif render_plugin_page(current_page, owner_id=session_state.user_id):
+            # Plugin page rendered successfully.
+            pass
         else:
             st.error(f"Unknown page: {current_page}")
             # Reset to home if unknown

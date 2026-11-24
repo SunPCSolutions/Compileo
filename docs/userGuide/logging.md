@@ -25,34 +25,61 @@ The easiest way to change the log level is through the Compileo GUI:
 
 ### 2. REST API
 
-You can programmatically manage global settings, including the log level, via the settings API endpoint:
+You can programmatically manage the log level via the dedicated API endpoint:
 
-*   **GET `/api/v1/settings/`**: Retrieves the current global settings, including the current log level.
-*   **POST `/api/v1/settings/`**: Updates global settings.
-    *   **Payload Example**:
+*   **GET `/api/v1/settings/log-level`**: Retrieves the current log level.
+    *   **Response Example**:
         ```json
         {
           "log_level": "debug"
         }
         ```
+*   **POST `/api/v1/settings/log-level`**: Updates the log level.
+    *   **Payload Example**:
+        ```json
+        {
+          "level": "debug"
+        }
+        ```
+    *   **Response Example**:
+        ```json
+        {
+          "message": "Log level updated to debug"
+        }
+        ```
 
-### 3. CLI Parameters
+### 3. CLI Commands
 
-The Compileo CLI supports a global `--log-level` option that allows you to override or set the persistent log level for the duration of the command:
+The Compileo CLI provides a dedicated `config` command group for managing settings:
 
 ```bash
-# Set log level to debug for a specific command
-compileo --log-level debug projects list
+# Show current log level
+compileo config log-level --show
 
-# The CLI also updates the persistent database setting when this flag is used
+# Set log level to debug
+compileo config log-level --level debug
+
+# Set log level to error
+compileo config log-level --level error
+
+# Set log level to none (minimal logging)
+compileo config log-level --level none
 ```
+
+**Note:** Changes made via the CLI are persisted to the database and will affect all running components (API server and workers).
 
 ## Internal Implementation
 
-The logging system is built on top of the standard Python `logging` module but is centralized through a unified utility in `src/compileo/core/logging.py`. 
+The logging system is built on top of the standard Python `logging` module but is centralized through a unified utility in `src/compileo/core/logging.py`.
 
 ### Synchronization
 Because Compileo uses multiple processes (API server, RQ workers, CLI), the log level is stored in a shared SQLite database (`gui_settings` table). All components call `setup_logging()` during their initialization lifecycle to ensure they inherit the current global setting.
+
+### Docker Support
+In Docker deployments, the centralized logging system ensures that all containers (API and workers) respect the same log level setting. When you change the log level via the GUI, API, or CLI, it is persisted to the database and affects:
+- The API server container
+- All RQ worker containers
+- Future CLI commands
 
 ### Structured Logging
 For developers using the `debug` level, many internal components emit structured JSON debug messages. These are captured as `DEBUG` level log entries and contain valuable context such as timestamps, component names, and raw AI model inputs/outputs.

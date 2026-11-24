@@ -1,12 +1,11 @@
 import re
 import json
-
+import logging
 from typing import Optional, List, Dict, Any
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 from .schema import ChunkingStrategy
 from .engine import chunk_document
+
+logger = logging.getLogger(__name__)
 
 def chunk_file_with_strategy(file_path: str, strategy: ChunkingStrategy, manifest: Optional[Dict[str, Any]] = None) -> List[str]:
     """

@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from collections import Counter
 
 from src.compileo.features.extraction.context_models import HierarchicalCategory
+from .prompt_builder import TaxonomyPromptBuilder
 
 
 class OpenAITaxonomyGenerator:
@@ -294,23 +295,8 @@ Return a valid JSON object with this exact structure:
     def _get_domain_context(self, domain: str) -> str:
         """
         Get domain-specific context for taxonomy generation.
-
-        Args:
-            domain: Knowledge domain
-
-        Returns:
-            Domain-specific guidance text
         """
-        contexts = {
-            "medical": "Focus on clinical conditions, symptoms, treatments, diagnostics, anatomy, and medical specialties. Consider diseases, medications, procedures, and patient care aspects.",
-            "legal": "Focus on legal domains, case types, jurisdictions, legal procedures, contracts, regulations, and legal concepts. Consider civil law, criminal law, corporate law, etc.",
-            "technical": "Focus on technical domains, software development, hardware, processes, methodologies, and technical concepts. Consider programming, systems, infrastructure, etc.",
-            "business": "Focus on business domains, industries, departments, processes, strategies, and business concepts. Consider finance, marketing, operations, management, etc.",
-            "scientific": "Focus on scientific domains, research areas, methodologies, theories, and scientific concepts. Consider physics, chemistry, biology, mathematics, etc.",
-            "general": "Create a general-purpose taxonomy suitable for most content types. Focus on universal categories like people, places, events, concepts, etc."
-        }
-
-        return contexts.get(domain.lower(), contexts["general"])
+        return TaxonomyPromptBuilder._get_domain_context(domain)
 
     def _get_specificity_instruction(self, specificity_level: int) -> str:
         """

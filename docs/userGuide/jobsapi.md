@@ -158,6 +158,185 @@ curl -X POST "http://localhost:8000/api/v1/jobs/restart/123e4567-e89b-12d3-a456-
 
 ---
 
+## Job History
+
+### GET `/history`
+
+Retrieve job history for the current user. Completed and failed jobs are automatically archived to the history table with full metadata.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history?limit=50&project_id=proj-123"
+```
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of entries (default: 50, max: 100)
+- `project_id` (optional): Filter by project ID
+- `job_type` (optional): Filter by job type (extraction, dataset_generation, etc.)
+
+**Response:**
+```json
+{
+  "history": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "job_type": "extraction",
+      "status": "completed",
+      "project_id": "proj-123",
+      "document_id": "doc-456",
+      "progress": 100.0,
+      "started_at": "2026-02-16T15:30:00Z",
+      "completed_at": "2026-02-16T15:35:30Z",
+      "duration_seconds": 330,
+      "parameters": {"taxonomy_id": "tax-789"},
+      "result_summary": {"entries_count": 150, "dataset_id": "ds-001"}
+    },
+    {
+      "id": "660f9511-f30c-52e5-b827-557766551111",
+      "job_type": "dataset_generation",
+      "status": "failed",
+      "project_id": "proj-123",
+      "progress": 45.0,
+      "started_at": "2026-02-16T14:00:00Z",
+      "completed_at": "2026-02-16T14:10:15Z",
+      "duration_seconds": 615,
+      "error_summary": "API rate limit exceeded"
+    }
+  ]
+}
+```
+
+**Note:** Job history entries are retained according to the user's retention settings (default: 90 days).
+
+---
+
+### GET `/history/{history_id}`
+
+Get a specific job history entry by its ID.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/550e8400-e29b-41d4-a716-446655440000"
+```
+
+**Response:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_type": "extraction",
+  "status": "completed",
+  "project_id": "proj-123",
+  "document_id": "doc-456",
+  "progress": 100.0,
+  "started_at": "2026-02-16T15:30:00Z",
+  "completed_at": "2026-02-16T15:35:30Z",
+  "duration_seconds": 330,
+  "parameters": {"taxonomy_id": "tax-789", "confidence_threshold": 0.7},
+  "result_summary": {"entries_count": 150, "dataset_id": "ds-001", "total_batches": 10},
+  "error_summary": null
+}
+```
+
+---
+
+### GET `/history/statistics`
+
+Get job history statistics for analytics.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/statistics?project_id=proj-123"
+```
+
+**Query Parameters:**
+- `project_id` (optional): Filter statistics by project
+
+**Response:**
+```json
+{
+  "total_jobs": 150,
+  "completed_count": 142,
+  "failed_count": 8,
+  "avg_duration_seconds": 245.5
+}
+```
+
+---
+
+### GET `/history/settings/retention`
+
+Get the current job history retention settings.
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/jobs/history/settings/retention"
+```
+
+**Response:**
+```json
+{
+  "retention_days": 90,
+  "default_days": 90,
+  "min_days": 1,
+  "max_days": 365
+}
+```
+
+---
+
+### PUT `/history/settings/retention`
+
+Update the job history retention settings. Requires admin or appropriate permissions.
+
+**Request:**
+```bash
+curl -X PUT "http://localhost:8000/api/v1/jobs/history/settings/retention" \
+  -H "Content-Type: application/json" \
+  -d '{"days": 60}'
+```
+
+**Request Body:**
+```json
+{
+  "days": 60
+}
+```
+
+**Parameters:**
+- `days`: Number of days to retain job history (1-365)
+
+**Response:**
+```json
+{
+  "message": "Retention settings updated successfully",
+  "retention_days": 60
+}
+```
+
+---
+
+### POST `/history/cleanup`
+
+Manually trigger cleanup of old job history entries.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/jobs/history/cleanup?days=30"
+```
+
+**Query Parameters:**
+- `days` (optional): Override retention period for this cleanup (uses settings if not provided)
+
+**Response:**
+```json
+{
+  "message": "Cleaned up 25 old job history entries",
+  "deleted_count": 25
+}
+```
+
+---
+
 ## Best Practices
 
 ### 1. Job Status Monitoring

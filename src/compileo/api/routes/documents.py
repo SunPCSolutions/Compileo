@@ -11,18 +11,19 @@ from datetime import datetime
 
 from ...storage.src.database import get_db_connection
 from ...storage.src.project.database_repositories import ProjectRepository, DocumentRepository, DatasetJobRepository
-from ...storage.src.project.file_manager import FileManager
+from ..core.database import get_db
+from ..core.dependencies import get_current_active_user
+from ..models.user import User as UserSchema
 from ...features.extraction.error_logging import api_logger
 from ...features.chunk.engine import chunk_document
 from ...features.chunk.schema import CharacterStrategy, LLMPromptStrategy, SchemaStrategy, DelimiterStrategy, TokenStrategy
 from ...features.ingestion.processing.pdf_splitter import pre_split_pdf
-from ...core.logging import get_logger
 
 # Create router
 router = APIRouter()
-logger = get_logger(__name__)
 
-logger.debug("Documents router module loaded")
+import logging
+logger = logging.getLogger(__name__)
 
 # Pydantic models
 class DocumentResponse(BaseModel):
@@ -32,6 +33,7 @@ class DocumentResponse(BaseModel):
     source_file_path: Optional[str] = None
     created_at: datetime
     status: str = "uploaded"
+    page_selection: Optional[str] = None
     # Parsing information from related tables
     parsed_documents: List[dict] = []
     parsed_files: List[dict] = []
@@ -55,6 +57,7 @@ class ProcessDocumentsRequest(BaseModel):
     document_ids: List[str]
     parser: str = Field(default="grok", description="Parser to use for document processing (grok, gemini)")
     chunker: str = Field(default="grok", description="Legacy chunker field for backward compatibility")
+    model: Optional[str] = Field(default=None, description="Specific model name to use (overrides settings)")
     chunk_size: int = Field(default=512, description="Default chunk size for token-based chunking")
     overlap: int = Field(default=50, description="Overlap between chunks for token-based chunking")
     chunk_strategy: Optional[Literal["token", "character", "semantic", "delimiter", "schema"]] = Field(
@@ -89,6 +92,10 @@ class ProcessDocumentsRequest(BaseModel):
     sliding_window: bool = Field(default=True, description="Enable sliding window chunking for parsed documents (default: True)")
     pages_per_split: int = Field(default=50, description="Number of pages per split for PDF documents")
     overlap_pages: int = Field(default=0, description="Number of overlapping pages between splits")
+    page_selection: Optional[str] = Field(
+        default=None,
+        description="Page selection expression for PDF documents (e.g., '1', '1-20', '1, 1-20, 30-120'). Null means all pages."
+    )
 
 class DocumentListResponse(BaseModel):
     documents: List[DocumentResponse]
@@ -105,32 +112,29 @@ class SplitPDFResponse(BaseModel):
     total_splits: int
     manifest_path: Optional[str] = None
 
-# Dependency to get database connection
-def get_db():
-    return get_db_connection()
-
 @router.post("/upload", response_model=UploadResponse)
 async def upload_documents(
     files: List[UploadFile] = File(...),
     project_id: str = Form(...),
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Upload multiple documents to a project."""
+    """Upload multiple documents to a project for current user."""
     try:
-        project_repo = ProjectRepository(db)
-        document_repo = DocumentRepository(db)
+        project_repo = ProjectRepository(current_user.id)
+        document_repo = DocumentRepository(current_user.id)
 
-        # Validate project exists
+        # Validate project exists and belongs to user
         cursor = db.cursor()
-        cursor.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
+        cursor.execute("SELECT name FROM projects WHERE id = ? AND owner_id = ?", (project_id, current_user.id))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
         job_id = str(uuid.uuid4())
         uploaded_files = []
 
-        # Create uploads directory if it doesn't exist
-        upload_dir = f"storage/uploads/{project_id}"
+        # Create user-scoped uploads directory
+        upload_dir = f"storage/{current_user.id}/uploads/{project_id}"
         os.makedirs(upload_dir, exist_ok=True)
 
         for file in files:
@@ -189,27 +193,28 @@ async def upload_documents(
 @router.post("/process")
 async def process_documents(
     request: ProcessDocumentsRequest,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
     """Process uploaded documents by submitting jobs to the RQ worker."""
-    logger.debug(f"process_documents route called with request: {request}")
-    logger.debug(f"project_id={request.project_id}, document_ids={request.document_ids}, parser={request.parser}, chunker={request.chunker}")
+    logger.debug(f"SERVER DEBUG: process_documents route called with request: {request}")
+    logger.debug(f"SERVER DEBUG: project_id={request.project_id}, document_ids={request.document_ids}, parser={request.parser}, chunker={request.chunker}")
     try:
-        project_repo = ProjectRepository(db)
-        document_repo = DocumentRepository(db)
+        project_repo = ProjectRepository(current_user.id)
+        document_repo = DocumentRepository(current_user.id)
 
-        # Validate project exists
+        # Validate project exists and belongs to user
         cursor = db.cursor()
-        cursor.execute("SELECT name FROM projects WHERE id = ?", (request.project_id,))
+        cursor.execute("SELECT name FROM projects WHERE id = ? AND owner_id = ?", (request.project_id, current_user.id))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail=f"Project with ID {request.project_id} not found")
 
-        # Validate documents exist and belong to project
-        logger.debug(f"Validating {len(request.document_ids)} documents for project {request.project_id}")
+        # Validate documents exist and belong to project and user
+        logger.debug(f"SERVER DEBUG: Validating {len(request.document_ids)} documents for project {request.project_id}")
         for doc_id in request.document_ids:
-            cursor.execute("SELECT id FROM documents WHERE id = ? AND project_id = ?", (doc_id, request.project_id))
+            cursor.execute("SELECT id FROM documents WHERE id = ? AND project_id = ? AND owner_id = ?", (doc_id, request.project_id, current_user.id))
             doc_exists = cursor.fetchone()
-            logger.debug(f"Document {doc_id} in project {request.project_id}: {'FOUND' if doc_exists else 'NOT FOUND'}")
+            logger.debug(f"SERVER DEBUG: Document {doc_id} in project {request.project_id}: {'FOUND' if doc_exists else 'NOT FOUND'}")
             if not doc_exists:
                 raise HTTPException(
                     status_code=404,
@@ -225,13 +230,26 @@ async def process_documents(
         if request.skip_parsing:
             # Skip parsing, go straight to chunking
             operation = "chunk_documents"
-            effective_chunk_strategy = request.chunk_strategy or "character"
-            logger.debug(f"effective_chunk_strategy = {repr(effective_chunk_strategy)}")
+            # Auto-detect schema strategy if schema_definition is provided
+            if request.schema_definition:
+                effective_chunk_strategy = "schema"
+                logger.debug(f"DEBUG_API: Auto-detected schema strategy from schema_definition")
+            else:
+                effective_chunk_strategy = request.chunk_strategy or "character"
+            if effective_chunk_strategy.strip().lower() == "schema":
+                from ...features.chunk.schema import parse_chunking_schema
+
+                try:
+                    parse_chunking_schema(request.schema_definition or "")
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+            logger.debug(f"DEBUG_API: effective_chunk_strategy = {repr(effective_chunk_strategy)}")
 
             # Retrieve parsed files data for multi-file documents from new schema
             manifest_data = None
             if request.document_ids:
-                logger.debug(f"Querying parsed files for document {request.document_ids[0]}")
+                import sys
+                logger.debug(f"DEBUG_API: Querying parsed files for document {request.document_ids[0]}")
                 cursor.execute("""
                     SELECT pf.file_path
                     FROM parsed_documents pd
@@ -240,31 +258,39 @@ async def process_documents(
                     ORDER BY pf.page_number
                 """, (request.document_ids[0],))
                 parsed_files_rows = cursor.fetchall()
-                logger.debug(f"Query returned {len(parsed_files_rows)} rows: {parsed_files_rows}")
+                logger.debug(f"DEBUG_API: Query returned {len(parsed_files_rows)} rows: {parsed_files_rows}")
                 if parsed_files_rows:
                     manifest_data = {
                         "parsed_files": [row[0] for row in parsed_files_rows],
                         "document_id": request.document_ids[0]
                     }
-                    logger.debug(f"Set manifest_data with {len(parsed_files_rows)} files: {manifest_data}")
+                    logger.debug(f"DEBUG_API: Set manifest_data with {len(parsed_files_rows)} files: {manifest_data}")
                 else:
-                    logger.debug(f"No parsed files found for document {request.document_ids[0]}")
+                    logger.debug(f"DEBUG_API: No parsed files found for document {request.document_ids[0]}")
 
-            # Get the actual model name from settings based on chunker (provider)
+            # Get the actual model name - prefer request model over settings
             chunking_provider = request.chunker or "gemini"
-            if chunking_provider == "ollama":
-                chunking_model_name = BackendSettings.get_chunking_ollama_model()
-            elif chunking_provider == "gemini":
-                chunking_model_name = BackendSettings.get_chunking_gemini_model()
-            elif chunking_provider == "grok":
-                chunking_model_name = BackendSettings.get_chunking_grok_model()
-            elif chunking_provider == "openai":
-                chunking_model_name = BackendSettings.get_chunking_openai_model()
+            # Check if model was explicitly passed in the request
+            request_model = getattr(request, 'model', None)
+            if request_model:
+                chunking_model_name = request_model
             else:
-                chunking_model_name = chunking_provider
+                # Fall back to user settings if no model in request
+                settings = BackendSettings(owner_id=current_user.id)
+                if chunking_provider == "ollama":
+                    chunking_model_name = settings.get_chunking_ollama_model()
+                elif chunking_provider == "gemini":
+                    chunking_model_name = settings.get_chunking_gemini_model()
+                elif chunking_provider == "grok":
+                    chunking_model_name = settings.get_chunking_grok_model()
+                elif chunking_provider == "openai":
+                    chunking_model_name = settings.get_chunking_openai_model()
+                else:
+                    chunking_model_name = chunking_provider
 
             job_parameters = {
                 "operation": operation,
+                "owner_id": current_user.id,
                 "project_id": request.project_id,
                 "document_ids": request.document_ids,
                 "chunker": chunking_provider,
@@ -294,7 +320,7 @@ async def process_documents(
                     "semantic_prompt": request.semantic_prompt,
                     "num_ctx": request.num_ctx
                 })
-                logger.debug(f"Final job parameters model: {repr(job_parameters.get('model'))}")
+                logger.debug(f"DEBUG_API: Final job parameters model: {repr(job_parameters.get('model'))}")
             elif effective_chunk_strategy == "schema":
                 job_parameters.update({
                     "schema_definition": request.schema_definition,
@@ -306,77 +332,102 @@ async def process_documents(
                     "num_ctx": request.num_ctx
                 })
         else:
-            # Parse documents first
+            # Parse documents first - submit each document as its own job
             operation = "parse_documents"
             
-            # Get specific model for parser from settings
-            if request.parser == "gemini":
-                parsing_model_name = BackendSettings.get_parsing_gemini_model()
-            elif request.parser == "grok":
-                parsing_model_name = BackendSettings.get_parsing_grok_model()
-            elif request.parser == "ollama":
-                parsing_model_name = BackendSettings.get_parsing_ollama_model()
-            elif request.parser == "openai":
-                parsing_model_name = BackendSettings.get_parsing_openai_model()
+            # Get specific model for parser - prefer request model over settings
+            request_model = getattr(request, 'model', None)
+            if request_model:
+                parsing_model_name = request_model
             else:
-                parsing_model_name = request.parser
+                # Fall back to user settings if no model in request
+                settings = BackendSettings(owner_id=current_user.id)
+                if request.parser == "gemini":
+                    parsing_model_name = settings.get_parsing_gemini_model()
+                elif request.parser == "grok":
+                    parsing_model_name = settings.get_parsing_grok_model()
+                elif request.parser == "ollama":
+                    parsing_model_name = settings.get_parsing_ollama_model()
+                elif request.parser == "openai":
+                    parsing_model_name = settings.get_parsing_openai_model()
+                else:
+                    parsing_model_name = request.parser
 
-            job_parameters = {
-                "operation": operation,
-                "project_id": request.project_id,
-                "document_ids": request.document_ids,
-                "parser": request.parser,
-                "model": parsing_model_name,
-                "pages_per_split": request.pages_per_split,
-                "overlap_pages": request.overlap_pages
+            # Submit each document as a separate job for parallel processing
+            from ...features.jobhandle.models import JobPriority
+            from ...features.gui.services.async_job_submission_service import submit_document_processing_job
+            
+            job_ids = []
+            for doc_id in request.document_ids:
+                # Save page selection to document record if provided
+                if request.page_selection is not None:
+                    document_repo.update_page_selection(doc_id, request.page_selection)
+
+                job_parameters = {
+                    "operation": operation,
+                    "owner_id": current_user.id,
+                    "project_id": request.project_id,
+                    "document_ids": [doc_id],  # Single document per job
+                    "parser": request.parser,
+                    "model": parsing_model_name,
+                    "pages_per_split": request.pages_per_split,
+                    "overlap_pages": request.overlap_pages,
+                    "page_selection": request.page_selection
+                }
+
+                job_id = submit_document_processing_job(
+                    parameters=job_parameters,
+                    priority=JobPriority.HIGH,
+                    user_id=current_user.id
+                )
+                job_ids.append(job_id)
+                logger.info(f"Submitted parse job {job_id} for document {doc_id}")
+
+            result = {
+                "job_id": job_ids[0] if len(job_ids) == 1 else job_ids,
+                "job_ids": job_ids,
+                "message": f"Submitted {len(job_ids)} document parsing jobs. Track progress with job IDs: {job_ids}",
+                "status": "submitted",
+                "estimated_duration": "Processing in background",
+                "debug_info": {
+                    "total_requested": len(request.document_ids),
+                    "jobs_submitted": len(job_ids),
+                    "project_id": request.project_id,
+                    "parser": request.parser,
+                    "chunk_strategy": request.chunk_strategy,
+                    "chunker": request.chunker
+                }
             }
-
-        logger.debug(f"Submitting job to RQ worker with parameters: {job_parameters}")
-
-        from ...features.jobhandle.models import JobPriority
-
-        job_id = submit_document_processing_job(
-            parameters=job_parameters,
-            priority=JobPriority.HIGH  # High priority for API requests
-        )
-
-        result = {
-            "job_id": job_id,
-            "message": f"Document processing job submitted successfully. Track progress with job ID: {job_id}",
-            "status": "submitted",
-            "estimated_duration": "Processing in background",
-            "debug_info": {
-                "total_requested": len(request.document_ids),
-                "project_id": request.project_id,
-                "parser": request.parser,
-                "chunk_strategy": request.chunk_strategy,
-                "chunker": request.chunker
-            }
-        }
-        logger.debug(f"Job submitted successfully: {result}")
-        return result
+            logger.debug(f"DEBUG: Jobs submitted successfully: {result}")
+            return result
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Exception in process_documents: {e}", exc_info=True)
+        logger.debug(f"DEBUG: Exception in process_documents: {e}")
+        import traceback
+        logger.debug(f"DEBUG: Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to submit document processing job: {str(e)}")
 
 
 @router.delete("/{document_id}")
-async def delete_document(document_id: str, db=Depends(get_db)):
+async def delete_document(
+    document_id: str, 
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
     """Delete a document and all its associated files and chunks."""
     cursor = None
     try:
-        document_repo = DocumentRepository(db)
-        cleanup_repo = DatasetJobRepository(db)
+        document_repo = DocumentRepository(current_user.id)
+        cleanup_repo = DatasetJobRepository(current_user.id)
 
         # Get document info
         cursor = db.cursor()
         cursor.execute("""
             SELECT project_id, file_name, source_file_path FROM documents
-            WHERE id = ?
-        """, (document_id,))
+            WHERE id = ? AND owner_id = ?
+        """, (document_id, current_user.id))
 
         doc_record = cursor.fetchone()
         if not doc_record:
@@ -401,12 +452,14 @@ async def delete_document(document_id: str, db=Depends(get_db)):
         output_rows = parsed_file_rows + chunk_rows
 
         # Perform comprehensive database cleanup for this document
-        # The cleanup_document_data method commits internally
-        cleanup_counts = cleanup_repo.cleanup_document_data(document_id)
-        logger.info(f"Document database cleanup completed: {cleanup_counts}")
+        # Manual cleanup since we removed the method from repo for now
+        cursor.execute("DELETE FROM extraction_results WHERE chunk_id IN (SELECT id FROM chunks WHERE document_id = ?)", (document_id,))
+        cursor.execute("DELETE FROM chunks WHERE document_id = ? AND owner_id = ?", (document_id, current_user.id))
+        cursor.execute("DELETE FROM parsed_files WHERE parsed_document_id IN (SELECT id FROM parsed_documents WHERE document_id = ?)", (document_id,))
+        cursor.execute("DELETE FROM parsed_documents WHERE document_id = ?", (document_id,))
+        db.commit()
 
         # Delete document record from database (do this after cleanup to avoid FK issues)
-        # The delete_document method commits internally
         document_repo.delete_document(document_id)
 
         # Clean up filesystem files (based on project deletion logic but for single document)
@@ -426,19 +479,19 @@ async def delete_document(document_id: str, db=Depends(get_db)):
                 try:
                     # Remove the file
                     os.remove(source_file_path)
-                    logger.info(f"Successfully removed document file: {source_file_path}")
+                    logger.debug(f"Successfully removed document file: {source_file_path}")
                     # Try to remove the parent directory if it's a project-specific directory and empty
                     parent_dir = os.path.dirname(source_file_path)
                     if parent_dir != os.path.join(base_dir, "uploads") and os.path.exists(parent_dir):
                         # Check if directory is empty
                         if not os.listdir(parent_dir):
                             os.rmdir(parent_dir)
-                            logger.info(f"Successfully removed empty directory: {parent_dir}")
+                            logger.debug(f"Successfully removed empty directory: {parent_dir}")
                 except FileNotFoundError:
                     logger.debug(f"Document file already removed: {source_file_path}")
                 except Exception as e:
                     # Log but don't fail the operation
-                    logger.warning(f"Failed to remove document file {source_file_path}: {e}")
+                    logger.warning(f"Warning: Failed to remove document file {source_file_path}: {e}")
 
             # Clean up processed output files (chunks, parsed files, etc.) (database-mediated)
             for output_row in output_rows:
@@ -451,15 +504,15 @@ async def delete_document(document_id: str, db=Depends(get_db)):
                     try:
                         if os.path.isfile(file_path):
                             os.remove(file_path)
-                            logger.info(f"Successfully removed output file: {file_path}")
+                            logger.debug(f"Successfully removed output file: {file_path}")
                         elif os.path.isdir(file_path):
                             shutil.rmtree(file_path)
-                            logger.info(f"Successfully removed output directory: {file_path}")
+                            logger.debug(f"Successfully removed output directory: {file_path}")
                     except FileNotFoundError:
                         logger.debug(f"Output file already removed: {file_path}")
                     except Exception as e:
                         # Log but don't fail the operation
-                        logger.warning(f"Failed to remove output file {file_path}: {e}")
+                        logger.warning(f"Warning: Failed to remove output file {file_path}: {e}")
 
             # Clean up parsed files (from the database query above, output_rows contains all file paths)
             # The parsed files are already included in output_rows from the database query
@@ -486,16 +539,16 @@ async def delete_document(document_id: str, db=Depends(get_db)):
                             if split_file_path and os.path.exists(split_file_path):
                                 try:
                                     os.remove(split_file_path)
-                                    logger.info(f"Successfully removed split PDF file: {split_file_path}")
+                                    logger.debug(f"Successfully removed split PDF file: {split_file_path}")
                                 except Exception as e:
-                                    logger.warning(f"Failed to remove split PDF file {split_file_path}: {e}")
+                                    logger.warning(f"Warning: Failed to remove split PDF file {split_file_path}: {e}")
 
                         # Delete the split manifest file itself
                         os.remove(split_manifest_path)
-                        logger.info(f"Successfully removed split PDF manifest: {split_manifest_path}")
+                        logger.debug(f"Successfully removed split PDF manifest: {split_manifest_path}")
 
                     except Exception as e:
-                        logger.warning(f"Failed to process split PDF manifest {split_manifest_path}: {e}")
+                        logger.warning(f"Warning: Failed to process split PDF manifest {split_manifest_path}: {e}")
 
                 # Also look for any remaining split files that might not be in manifest
                 try:
@@ -504,11 +557,11 @@ async def delete_document(document_id: str, db=Depends(get_db)):
                     for split_file in split_files:
                         try:
                             os.remove(split_file)
-                            logger.info(f"Successfully removed orphaned split PDF file: {split_file}")
+                            logger.debug(f"Successfully removed orphaned split PDF file: {split_file}")
                         except Exception as e:
-                            logger.warning(f"Failed to remove orphaned split PDF file {split_file}: {e}")
+                            logger.warning(f"Warning: Failed to remove orphaned split PDF file {split_file}: {e}")
                 except Exception as e:
-                    logger.warning(f"Failed to cleanup orphaned split PDF files: {e}")
+                    logger.warning(f"Warning: Failed to cleanup orphaned split PDF files: {e}")
 
             # Create a new cursor for post-commit operations
             cleanup_cursor = db.cursor()
@@ -519,81 +572,85 @@ async def delete_document(document_id: str, db=Depends(get_db)):
 
             if remaining_docs == 0:  # No documents left in project, clean up all project directories
                 directories_to_clean = [
-                    f"storage/uploads/{project_id}",
-                    f"storage/parsed/{project_id}",
-                    f"storage/chunks/{project_id}",
-                    f"storage/taxonomy/{project_id}",
-                    f"storage/extract/{project_id}",
-                    f"storage/datasets/{project_id}",
-                    f"storage/dataqual/{project_id}"
+                    f"storage/{current_user.id}/uploads/{project_id}",
+                    f"storage/{current_user.id}/parsed/{project_id}",
+                    f"storage/{current_user.id}/chunks/{project_id}",
+                    f"storage/{current_user.id}/taxonomy/{project_id}",
+                    f"storage/{current_user.id}/extract/{project_id}",
+                    f"storage/{current_user.id}/datasets/{project_id}",
+                    f"storage/{current_user.id}/dataqual/{project_id}"
                 ]
 
                 for dir_path in directories_to_clean:
                     full_dir_path = os.path.join(base_dir, dir_path)
                     try:
                         shutil.rmtree(full_dir_path)
-                        logger.info(f"Successfully removed empty project directory: {full_dir_path}")
+                        logger.debug(f"Successfully removed empty project directory: {full_dir_path}")
                     except FileNotFoundError:
                         pass
                     except Exception as e:
-                        logger.warning(f"Failed to remove project directory {full_dir_path}: {e}")
+                        logger.warning(f"Warning: Failed to remove project directory {full_dir_path}: {e}")
             else:
                 # Clean up only document-specific chunks if they exist
-                doc_chunks_dir = os.path.join(base_dir, f"storage/chunks/{project_id}/{document_id}")
+                doc_chunks_dir = os.path.join(base_dir, f"storage/{current_user.id}/chunks/{project_id}/{document_id}")
                 try:
                     shutil.rmtree(doc_chunks_dir)
-                    logger.info(f"Successfully removed document chunks directory: {doc_chunks_dir}")
+                    logger.debug(f"Successfully removed document chunks directory: {doc_chunks_dir}")
                 except FileNotFoundError:
                     pass
                 except Exception as e:
-                    logger.warning(f"Failed to remove document chunks directory {doc_chunks_dir}: {e}")
+                    logger.warning(f"Warning: Failed to remove document chunks directory {doc_chunks_dir}: {e}")
         except Exception as e:
             # Log filesystem cleanup errors but don't fail the operation
-            logger.warning(f"Filesystem cleanup failed: {e}")
+            logger.warning(f"Warning: Filesystem cleanup failed: {e}")
             import traceback
-            logger.debug(f"Filesystem cleanup traceback: {traceback.format_exc()}")
+            logger.warning(f"Filesystem cleanup traceback: {traceback.format_exc()}")
 
         return {"message": f"Document '{file_name}' and all associated files deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in delete_document: {e}", exc_info=True)
+        import traceback
+        logger.error(f"ERROR: Failed to delete document: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 @router.get("", response_model=DocumentListResponse)
 async def list_documents(
     project_id: Optional[str] = None,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """List documents, optionally filtered by project."""
+    """List documents for current user, optionally filtered by project."""
     try:
         cursor = db.cursor()
 
         if project_id:
-            # Validate project exists
-            cursor.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
+            # Validate project exists and belongs to user
+            cursor.execute("SELECT name FROM projects WHERE id = ? AND owner_id = ?", (project_id, current_user.id))
             if not cursor.fetchone():
                 raise HTTPException(status_code=404, detail=f"Project with ID {project_id} not found")
 
-            # Get documents for specific project
+            # Get documents for specific project and user
             cursor.execute("""
-                SELECT id, project_id, file_name, source_file_path, created_at, status
+                SELECT id, project_id, file_name, source_file_path, created_at, status, page_selection
                 FROM documents
-                WHERE project_id = ?
+                WHERE project_id = ? AND owner_id = ?
                 ORDER BY created_at DESC
-            """, (project_id,))
+            """, (project_id, current_user.id))
         else:
-            # Get all documents
+            # Get all documents for user
             cursor.execute("""
-                SELECT id, project_id, file_name, source_file_path, created_at, status
+                SELECT id, project_id, file_name, source_file_path, created_at, status, page_selection
                 FROM documents
+                WHERE owner_id = ?
                 ORDER BY created_at DESC
-            """)
+            """, (current_user.id,))
 
         documents = []
         for row in cursor.fetchall():
-            doc_id, proj_id, file_name, source_path, created_at, status = row
+            doc_id, proj_id, file_name, source_path, created_at, status, page_selection = row
 
             # Get parsing information for this document
             cursor.execute("""
@@ -642,6 +699,7 @@ async def list_documents(
                 source_file_path=source_path,
                 created_at=datetime.fromisoformat(created_at) if isinstance(created_at, str) else created_at,
                 status=status,
+                page_selection=page_selection,
                 parsed_documents=parsed_documents,
                 parsed_files=parsed_files
             ))
@@ -654,23 +712,27 @@ async def list_documents(
         raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-async def get_document(document_id: str, db=Depends(get_db)):
-    """Get a specific document by ID."""
+async def get_document(
+    document_id: str, 
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    """Get a specific document by ID for current user."""
     try:
         cursor = db.cursor()
 
         # Get document info
         cursor.execute("""
-            SELECT id, project_id, file_name, source_file_path, created_at, status
+            SELECT id, project_id, file_name, source_file_path, created_at, status, page_selection
             FROM documents
-            WHERE id = ?
-        """, (document_id,))
+            WHERE id = ? AND owner_id = ?
+        """, (document_id, current_user.id))
 
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"Document with ID {document_id} not found")
 
-        doc_id, proj_id, file_name, source_path, created_at, status = row
+        doc_id, proj_id, file_name, source_path, created_at, status, page_selection = row
 
         # Get parsing information for this document
         cursor.execute("""
@@ -719,6 +781,7 @@ async def get_document(document_id: str, db=Depends(get_db)):
             source_file_path=source_path,
             created_at=datetime.fromisoformat(created_at) if isinstance(created_at, str) else created_at,
             status=status,
+            page_selection=page_selection,
             parsed_documents=parsed_documents,
             parsed_files=parsed_files
         )
@@ -735,7 +798,7 @@ async def get_upload_status(job_id: str, db=Depends(get_db)):
         # TODO: Implement proper job status tracking
         # For now, return mock status with uploaded files
         # In a real implementation, this would track actual upload jobs
-        document_repo = DocumentRepository(db)
+        document_repo = DocumentRepository(current_user.id)
 
         # Get all documents (since we don't have job tracking yet)
         # This is a temporary solution - proper job tracking should be implemented
@@ -794,17 +857,18 @@ async def get_document_content(
     page: int = 1,
     page_size: int = 10000,
     parsed_file: Optional[str] = None,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Get the parsed content of a document with pagination support."""
+    """Get the parsed content of a document with pagination support for current user."""
     try:
         cursor = db.cursor()
 
         # Get document info
         cursor.execute("""
             SELECT project_id, file_name, source_file_path, status FROM documents
-            WHERE id = ?
-        """, (document_id,))
+            WHERE id = ? AND owner_id = ?
+        """, (document_id, current_user.id))
 
         doc_record = cursor.fetchone()
         if not doc_record:
@@ -817,9 +881,9 @@ async def get_document_content(
             SELECT pf.file_path
             FROM parsed_documents pd
             JOIN parsed_files pf ON pd.id = pf.parsed_document_id
-            WHERE pd.document_id = ?
-            ORDER BY pf.page_number
-        """, (document_id,))
+            WHERE pd.document_id = ? AND pd.owner_id = ?
+            ORDER BY pf.page_number, pf.file_path
+        """, (document_id, current_user.id))
 
         parsed_files_rows = cursor.fetchall()
         parsed_files_list = [row[0] for row in parsed_files_rows]
@@ -828,13 +892,13 @@ async def get_document_content(
             raise HTTPException(status_code=400, detail=f"Document {document_id} is not parsed yet (status: {status})")
 
         # Check if this document has multiple parsed files (from new schema)
-        logger.debug(f"Checking document {document_id} - found {len(parsed_files_list)} parsed files from new schema, parsed_file: {parsed_file}")
-        logger.debug(f"Current working directory: {os.getcwd()}")
+        logger.debug(f"SERVER DEBUG: Checking document {document_id} - found {len(parsed_files_list)} parsed files from new schema, parsed_file: {parsed_file}")
+        logger.debug(f"SERVER DEBUG: Current working directory: {os.getcwd()}")
 
         # If a specific parsed file is requested, return its FULL content (no API pagination)
-        logger.debug(f"parsed_file: {parsed_file}, parsed_files_list length: {len(parsed_files_list)}")
+        logger.debug(f"SERVER DEBUG: parsed_file: {parsed_file}, parsed_files_list length: {len(parsed_files_list)}")
         if parsed_file and parsed_files_list:
-            logger.debug(f"Branch 1 - Requesting full content of parsed file: {parsed_file}")
+            logger.debug(f"SERVER DEBUG: Branch 1 - Requesting full content of parsed file: {parsed_file}")
 
             # Find the requested file in the manifest
             target_file = None
@@ -858,13 +922,13 @@ async def get_document_content(
                     if isinstance(json_data, dict) and 'main_content' in json_data:
                         # Extract main_content from JSON structure
                         full_content = json_data['main_content']
-                        logger.debug(f"Extracted main_content from JSON file {target_file}, length: {len(full_content)}")
+                        logger.debug(f"SERVER DEBUG: Extracted main_content from JSON file {target_file}, length: {len(full_content)}")
                     else:
-                        logger.debug(f"File {target_file} is not JSON-structured, using as plain text")
+                        logger.debug(f"SERVER DEBUG: File {target_file} is not JSON-structured, using as plain text")
                 except json.JSONDecodeError:
-                    logger.debug(f"File {target_file} is not valid JSON, using as plain text")
+                    logger.debug(f"SERVER DEBUG: File {target_file} is not valid JSON, using as plain text")
 
-                logger.debug(f"Read {len(full_content)} chars from {target_file}")
+                logger.debug(f"SERVER DEBUG: Read {len(full_content)} chars from {target_file}")
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Failed to read parsed file {target_file}: {str(e)}")
 
@@ -882,11 +946,11 @@ async def get_document_content(
 
         # If no specific file requested but we have multiple files, return file list
         elif parsed_files_list:
-            logger.debug(f"Returning list of {len(parsed_files_list)} parsed files")
+            logger.debug(f"SERVER DEBUG: Returning list of {len(parsed_files_list)} parsed files")
             return {
                 "document_id": document_id,
                 "file_name": file_name,
-                "parsed_files": [os.path.basename(pf) for pf in parsed_files_list if os.path.exists(pf)],
+                "parsed_files": [os.path.basename(pf) for pf in parsed_files_list],
                 "total_files": len(parsed_files_list),
                 "schema_info": "Using new parsed_documents/parsed_files schema"
             }
@@ -896,7 +960,7 @@ async def get_document_content(
             full_content = ""
             if parsed_files_list and len(parsed_files_list) == 1:
                 single_file_path = parsed_files_list[0]
-                logger.debug(f"Using single parsed file for document {document_id}: {single_file_path}")
+                logger.debug(f"SERVER DEBUG: Using single parsed file for document {document_id}: {single_file_path}")
                 try:
                     with open(single_file_path, 'r', encoding='utf-8') as f:
                         raw_content = f.read()
@@ -908,17 +972,17 @@ async def get_document_content(
                         if isinstance(json_data, dict) and 'main_content' in json_data:
                             # Extract main_content from JSON structure
                             full_content = json_data['main_content']
-                            logger.debug(f"Extracted main_content from JSON file {single_file_path}, length: {len(full_content)}")
+                            logger.debug(f"SERVER DEBUG: Extracted main_content from JSON file {single_file_path}, length: {len(full_content)}")
                         else:
-                            logger.debug(f"File {single_file_path} is not JSON-structured, using as plain text")
+                            logger.debug(f"SERVER DEBUG: File {single_file_path} is not JSON-structured, using as plain text")
                     except json.JSONDecodeError:
-                        logger.debug(f"File {single_file_path} is not valid JSON, using as plain text")
+                        logger.debug(f"SERVER DEBUG: File {single_file_path} is not valid JSON, using as plain text")
 
-                    logger.debug(f"Read {len(full_content)} chars from single file {single_file_path}")
+                    logger.debug(f"SERVER DEBUG: Read {len(full_content)} chars from single file {single_file_path}")
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=f"Failed to read parsed content: {str(e)}")
             else:
-                logger.debug(f"No parsed content found for document {document_id} (found {len(parsed_files_list)} files)")
+                logger.debug(f"SERVER DEBUG: No parsed content found for document {document_id} (found {len(parsed_files_list)} files)")
                 raise HTTPException(status_code=404, detail=f"Parsed content not found for document {document_id}")
 
             # Calculate pagination for single file

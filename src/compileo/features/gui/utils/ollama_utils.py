@@ -2,11 +2,9 @@
 Utilities for AI model API integrations.
 """
 
+import logging
 import requests
 from typing import List, Optional
-from src.compileo.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 def get_ollama_models(base_url: str = "http://localhost:11434") -> List[str]:
@@ -37,7 +35,7 @@ def get_ollama_models(base_url: str = "http://localhost:11434") -> List[str]:
         return sorted(model_names)
 
     except (requests.exceptions.RequestException, ValueError, KeyError) as e:
-        logger.error(f"Error fetching Ollama models: {e}")
+        logging.getLogger(__name__).error(f"Error fetching Ollama models: {e}")
         return []
 
 
@@ -92,7 +90,7 @@ def get_gemini_models(api_key: str) -> List[str]:
         return sorted(model_names) if model_names else ["gemini-2.5-flash"]
 
     except (requests.exceptions.RequestException, ValueError, KeyError) as e:
-        logger.error(f"Error fetching Gemini models: {e}")
+        logging.getLogger(__name__).error(f"Error fetching Gemini models: {e}")
         return ["gemini-2.5-flash"]  # Default fallback
 
 
@@ -122,7 +120,10 @@ def get_openai_models(api_key: str) -> List[str]:
         return sorted(model_names) if model_names else ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
 
     except Exception as e:
-        logger.error(f"Error fetching OpenAI models: {e}")
+        # Don't print the error message if it's a 401 to avoid exposing parts of the key
+        # and to keep logs cleaner if the key is just not set correctly yet.
+        if "401" not in str(e):
+            logging.getLogger(__name__).error(f"Error fetching OpenAI models: {e}")
         return ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]  # Default fallback
 
 
@@ -159,5 +160,5 @@ def get_grok_models(api_key: str) -> List[str]:
         return sorted(model_names) if model_names else ["grok-4-fast-reasoning"]
 
     except (requests.exceptions.RequestException, ValueError, KeyError) as e:
-        logger.error(f"Error fetching Grok models: {e}")
+        logging.getLogger(__name__).error(f"Error fetching Grok models: {e}")
         return ["grok-4-fast-reasoning"]  # Default fallback

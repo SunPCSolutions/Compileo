@@ -6,14 +6,12 @@ It supports configurable templates and can work across any domain where
 entities from different categories have meaningful associations.
 """
 
+import logging
 import json
 import random
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 class QAType(Enum):
@@ -61,6 +59,7 @@ class QADatasetGenerator:
     def __init__(self):
         """Initialize the Q&A dataset generator."""
         self.templates: List[QATemplate] = []
+        self.logger = logging.getLogger(__name__)
         self._load_default_templates()
 
     def _load_default_templates(self):
@@ -146,7 +145,7 @@ class QADatasetGenerator:
                     pairs.append(qa_pair)
             except Exception as e:
                 # Log error but continue with other templates
-                logger.error(f"Error applying template {template.name}: {e}")
+                self.logger.error(f"Error applying template {template.name}: {e}")
                 continue
 
         return pairs
@@ -222,7 +221,7 @@ class QADatasetGenerator:
             )
 
         except (KeyError, ValueError) as e:
-            logger.error(f"Template application error: {e}")
+            self.logger.error(f"Template application error: {e}")
             return None
 
     def _select_representative_entity(self, entities: List[str]) -> str:

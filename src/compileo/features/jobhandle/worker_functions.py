@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 from contextlib import asynccontextmanager
-from ...core.logging import setup_logging, get_logger
 
 from .models import (
     JobStatus, JobPriority, JobType, ResourceType,
@@ -19,16 +18,31 @@ from .models import (
     EnhancedExtractionJob
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def redis_job_wrapper(job_id: str, **kwargs) -> Any:
     """Standalone job wrapper function for RQ that can be pickled."""
     from datetime import datetime
-    # Initialize logging for the worker process
+    from src.compileo.core.logging import setup_logging
+    import importlib
+    
+    # Initialize proper logging for this worker process BEFORE anything else
     setup_logging()
     
-    logger.debug(f"redis_job_wrapper called with job_id={job_id}")
+    logger.debug(f"DEBUG_REDIS_WRAPPER_START_V2: redis_job_wrapper called with job_id={job_id}")
+
+    # Diagnostic: verify mapping between RQ job id and Compileo job id as seen by worker function
+    try:
+        rq_module = importlib.import_module("rq")
+        current_rq_job = rq_module.get_current_job()
+        logger.info(
+            f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - redis_job_wrapper entry: "
+            f"rq_job_id={current_rq_job.id if current_rq_job else 'none'}, "
+            f"compileo_job_id={job_id}"
+        )
+    except Exception as rq_mapping_error:
+        logger.debug(f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - redis_job_wrapper current job inspection failed: {rq_mapping_error}")
     # DEBUG: [DEBUG_20251003_RQ_FLOW] - RQ worker picked up a job.
     debug_context = {
         "timestamp": datetime.now().isoformat(),
@@ -40,9 +54,10 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "kwargs_keys": list(kwargs.keys())
         }
     }
-    logger.debug(json.dumps(debug_context))
+    logger.info(json.dumps(debug_context))
 
-    logger.info(f"redis_job_wrapper started for job_id: {job_id}")
+    logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - redis_job_wrapper started for job_id: {job_id}")
+    logger.debug(f"DEBUG_REDIS_WRAPPER_START: redis_job_wrapper started for job_id: {job_id}")
     
     # Initialize a new EnhancedJobQueueManager for this worker process
     # This ensures the worker has its own context and doesn't rely on a shared global
@@ -52,20 +67,17 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
     # Prefer the global manager if initialized (which has correct limits and settings from worker.py)
     if enhanced_job_queue_manager:
         manager = enhanced_job_queue_manager
-        logger.debug(f"Using existing global EnhancedJobQueueManager for job {job_id}")
+        logger.debug(f"DEBUG_WORKER_INIT: Using existing global EnhancedJobQueueManager for job {job_id}")
     else:
-        # Fallback: Initialize with correct settings if global is missing
-        backend_settings = BackendSettings()
-        global_max_jobs = backend_settings.get_global_max_concurrent_jobs()
-        # TODO: Uncomment when multi-user architecture is implemented
-        # per_user_max_jobs = backend_settings.get_per_user_max_concurrent_jobs()
-        per_user_max_jobs = global_max_jobs  # Single-user mode
+        # Use safe defaults - ResourceManager now handles per-job two-tier limit resolution
+        global_max_jobs = 10
+        per_user_max_jobs = 6
         
         manager = EnhancedJobQueueManager(
             global_max_jobs=global_max_jobs,
             enable_background_monitoring=False  # Disable background threads for per-job instances
         )
-        logger.debug(f"Initialized new EnhancedJobQueueManager (fallback) for job {job_id} with limits: Global={global_max_jobs}, User={per_user_max_jobs}")
+        logger.debug(f"DEBUG_WORKER_INIT: Initialized new EnhancedJobQueueManager (fallback) for job {job_id} with limits: Global={global_max_jobs}, User={per_user_max_jobs}")
 
     # Get the Redis queue from the manager
     queue = manager.queue
@@ -78,7 +90,7 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
         "message": "Fetching job data from Redis",
         "context": {"job_id": job_id}
     }
-    logger.debug(json.dumps(debug_context))
+    logger.info(json.dumps(debug_context))
 
     job_data = queue.redis.get(f"compileo:job:{job_id}")
     if not job_data:
@@ -89,8 +101,8 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "message": "Job data not found in Redis",
             "context": {"job_id": job_id}
         }
-        logger.debug(json.dumps(debug_context))
-        logger.error(f"Job {job_id} data not found in Redis")
+        logger.info(json.dumps(debug_context))
+        logger.error(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job {job_id} data not found in Redis")
         return None
 
     debug_context = {
@@ -100,13 +112,13 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
         "message": "Job data retrieved from Redis",
         "context": {"job_id": job_id, "data_length": len(job_data)}
     }
-    logger.debug(json.dumps(debug_context))
+    logger.info(json.dumps(debug_context))
 
     job = EnhancedExtractionJob.from_dict(json.loads(job_data))
 
-    # Check job parameters after retrieval
-    logger.debug(f"job_id={job_id}, parameters_keys={list(job.parameters.keys()) if job.parameters else 'None'}")
-    logger.debug(f"extraction_mode={job.parameters.get('extraction_mode', 'NOT_FOUND') if job.parameters else 'NO_PARAMS'}")
+    # DEBUG: Check job parameters after retrieval
+    logger.debug(f"DEBUG_JOB_RETRIEVED: job_id={job_id}, parameters_keys={list(job.parameters.keys()) if job.parameters else 'None'}")
+    logger.debug(f"DEBUG_JOB_RETRIEVED: extraction_mode={job.parameters.get('extraction_mode', 'NOT_FOUND') if job.parameters else 'NO_PARAMS'}")
 
     debug_context = {
         "timestamp": datetime.now().isoformat(),
@@ -115,7 +127,7 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
         "message": "Job object created",
         "context": {"job_id": job_id, "job_type": str(job.job_type), "status": str(job.status)}
     }
-    logger.debug(json.dumps(debug_context))
+    logger.info(json.dumps(debug_context))
 
     # Check if job is already in a final state to prevent duplicate execution
     if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
@@ -127,21 +139,28 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "message": "Job already in final state, skipping execution.",
             "context": {"job_id": job_id, "status": str(job.status)}
         }
-        logger.debug(json.dumps(debug_context))
+        logger.info(json.dumps(debug_context))
         return None
 
     # Use Redis atomic operation to acquire processing lock
     processing_lock_key = f"compileo:job:{job_id}:processing"
     worker_lock_value = f"worker_{os.getpid()}_{datetime.utcnow().isoformat()}"
 
-    # Try to acquire processing lock atomically (expires in 5 minutes)
-    lock_acquired = queue.redis.set(processing_lock_key, worker_lock_value, ex=300, nx=True)
+    logger.info(
+        f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - attempting processing lock for compileo_job_id={job_id}, lock_key={processing_lock_key}"
+    )
+
+    # Try to acquire processing lock atomically (expires in 10 minutes, will be renewed)
+    lock_acquired = queue.redis.set(processing_lock_key, worker_lock_value, ex=600, nx=True)
 
     if not lock_acquired:
         # Another worker is already processing this job
         existing_lock = queue.redis.get(processing_lock_key)
         # Decode bytes for JSON serialization
         existing_lock_decoded = existing_lock.decode('utf-8') if isinstance(existing_lock, bytes) else str(existing_lock) if existing_lock else None
+        logger.info(
+            f"DEBUG: [DEBUG_20260412_RQ_MAPPING] - processing lock denied for compileo_job_id={job_id}, existing_lock={existing_lock_decoded}"
+        )
         logger.warning(f"Job {job_id} is already being processed by another worker (lock: {existing_lock_decoded}). Skipping execution.")
         debug_context = {
             "timestamp": datetime.now().isoformat(),
@@ -153,7 +172,7 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
                 "existing_lock": existing_lock_decoded
             }
         }
-        logger.debug(json.dumps(debug_context))
+        logger.info(json.dumps(debug_context))
         return None
 
     # Re-initialize the db_connection for the worker process
@@ -165,19 +184,38 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "message": "Initializing database connection",
             "context": {"job_id": job_id}
         }
-        logger.debug(json.dumps(debug_context))
+        logger.info(json.dumps(debug_context))
 
         from src.compileo.storage.src.database import get_db_connection
         queue.db_connection = get_db_connection()
-        logger.info("Database connection re-initialized in worker.")
+        logger.info("DEBUG: [DEBUG_20251003_RQ_FLOW] - Database connection re-initialized in worker.")
 
-    logger.info(f"Job {job_id} retrieved from storage. Status: {job.status}")
+    logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job {job_id} retrieved from storage. Status: {job.status}")
+
+    # Start a background thread to renew the lock while the job is running
+    stop_renewal = threading.Event()
+    def renew_lock():
+        while not stop_renewal.is_set():
+            try:
+                # Only renew if we still own the lock (compare by PID to avoid race conditions when we update the timestamp)
+                current_lock = queue.redis.get(processing_lock_key)
+                current_lock_str = current_lock.decode('utf-8') if isinstance(current_lock, bytes) else str(current_lock) if current_lock else None
+                if current_lock_str and current_lock_str.startswith(f"worker_{os.getpid()}_"):
+                    new_lock_value = f"worker_{os.getpid()}_{datetime.utcnow().isoformat()}"
+                    queue.redis.set(processing_lock_key, new_lock_value, ex=600)
+            except Exception as e:
+                logger.debug(f"Failed to renew lock for job {job_id}: {e}")
+            # Wait 3 minutes before renewing again
+            stop_renewal.wait(180)
+
+    renewal_thread = threading.Thread(target=renew_lock, daemon=True)
+    renewal_thread.start()
 
     # --- START: Critical Section for Status Update and Resource Allocation ---
     # Job status checks were already performed above, proceed with execution
 
     # Update job status to RUNNING immediately to prevent other workers from starting
-    logger.info(f"Setting job {job_id} status to RUNNING (Pre-Resource Check)")
+    logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Setting job {job_id} status to RUNNING (Pre-Resource Check)")
     job.status = JobStatus.RUNNING
     job.started_at = datetime.utcnow()
     job.worker_id = f"worker_{os.getpid()}"
@@ -188,30 +226,28 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
     # Update job status in database to RUNNING (sets started_at)
     try:
         from src.compileo.storage.src.project.database_repositories import ExtractionJobRepository
-        if queue.db_connection:
-            # Ensure connection is alive
-            try:
-                queue.db_connection.cursor().execute("SELECT 1")
-            except Exception:
-                from src.compileo.storage.src.database import get_db_connection
-                queue.db_connection = get_db_connection()
-                logger.info(f"Reconnected to database for job {job_id} (start)")
-
-            job_repo = ExtractionJobRepository(queue.db_connection)
+        # Get owner_id from job parameters for tenant-specific database access
+        owner_id = job.parameters.get('owner_id') if job.parameters else None
+        if not owner_id and job.user_id:
+            owner_id = job.user_id
+            
+        if owner_id:
+            job_repo = ExtractionJobRepository(owner_id)
             job_repo.update_job_status(job_id, "running")
-            queue.db_connection.commit()
-            logger.info(f"Successfully committed job {job_id} status 'running' to database")
+            logger.info(f"DEBUG: [DEBUG_JOB_STATUS_UPDATE] - Successfully updated job {job_id} status 'running' to database")
+        else:
+            logger.error(f"DEBUG: [DEBUG_JOB_STATUS_UPDATE] - No owner_id available for job {job_id}, cannot update database status")
     except Exception as db_error:
         logger.error(f"Failed to update job {job_id} status to RUNNING in database: {db_error}")
 
     try:
-        logger.info(f"Checking resource limits for job {job_id}")
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Checking resource limits for job {job_id}")
         # Pre-execution limit check to prevent race conditions
-        logger.debug(f"About to call check_resource_limits for job {job_id}")
+        logger.debug(f"DEBUG_RESOURCE_CHECK: About to call check_resource_limits for job {job_id}")
         resource_check_result = queue.resource_manager.check_resource_limits(job.resource_limits, job.user_id)
-        logger.debug(f"check_resource_limits returned {resource_check_result} for job {job_id}")
+        logger.debug(f"DEBUG_RESOURCE_CHECK: check_resource_limits returned {resource_check_result} for job {job_id}")
         if not resource_check_result:
-            logger.warning(f"Pre-execution resource check failed for job {job_id}, resetting to PENDING")
+            logger.warning(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Pre-execution resource check failed for job {job_id}, resetting to PENDING")
             # Reset job status to pending so queue processor can pick it up again
             job.status = JobStatus.PENDING
             job.started_at = None
@@ -224,15 +260,17 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             return None
 
         # Allocate resources
-        logger.debug(f"About to call allocate_resources for job {job_id}")
-        logger.debug(f"queue.resource_manager = {queue.resource_manager}")
+        logger.debug(f"DEBUG_RESOURCE_ALLOCATE: About to call allocate_resources for job {job_id}")
+        logger.debug(f"DEBUG_QUEUE_RESOURCE_MANAGER: queue.resource_manager = {queue.resource_manager}")
         try:
             allocate_result = queue.resource_manager.allocate_resources(job.resource_limits, job.user_id)
-            logger.debug(f"allocate_resources returned {allocate_result}")
+            logger.debug(f"DEBUG_RESOURCE_ALLOCATE: allocate_resources returned {allocate_result}")
         except Exception as e:
-            logger.error(f"allocate_resources failed with exception: {e}", exc_info=True)
+            logger.debug(f"DEBUG_RESOURCE_ALLOCATE: allocate_resources failed with exception: {e}")
+            import traceback
+            logger.debug(f"DEBUG_RESOURCE_ALLOCATE: traceback: {traceback.format_exc()}")
             raise
-        logger.debug(f"allocate_resources returned {allocate_result} for job {job_id}")
+        logger.debug(f"DEBUG_RESOURCE_ALLOCATE: allocate_resources returned {allocate_result} for job {job_id}")
         if not allocate_result:
             logger.warning(f"Resource allocation failed for job {job_id}, resetting to PENDING")
             job.status = JobStatus.PENDING
@@ -251,20 +289,22 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "message": "Starting job execution",
             "context": {"job_id": job_id, "job_type": str(job.job_type)}
         }
-        logger.debug(json.dumps(debug_context))
+        logger.info(json.dumps(debug_context))
 
-        logger.debug(f"About to check if queue has _execute_job method")
-        logger.debug(f"queue type = {type(queue)}")
-        logger.debug(f"queue has _execute_job = {hasattr(queue, '_execute_job')}")
+        logger.debug(f"DEBUG_BEFORE_EXECUTE: About to check if queue has _execute_job method")
+        logger.debug(f"DEBUG_QUEUE_TYPE: queue type = {type(queue)}")
+        logger.debug(f"DEBUG_QUEUE_METHODS: queue has _execute_job = {hasattr(queue, '_execute_job')}")
 
-        logger.info(f"Executing job {job_id}...")
-        logger.debug(f"About to call queue._execute_job for job {job_id}")
-        logger.debug(f"job_type={job.job_type}, parameters_keys={list(job.parameters.keys())}")
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Executing job {job_id}...")
+        logger.debug(f"DEBUG_EXECUTE_START: About to call queue._execute_job for job {job_id}")
+        logger.debug(f"DEBUG_EXECUTE_PARAMS: job_type={job.job_type}, parameters_keys={list(job.parameters.keys())}")
         try:
             result = queue._execute_job(job.job_type, job.parameters, job)
-            logger.debug(f"queue._execute_job returned for job {job_id}")
+            logger.debug(f"DEBUG_EXECUTE_SUCCESS: queue._execute_job returned for job {job_id}")
         except Exception as execute_error:
-            logger.error(f"queue._execute_job failed for job {job_id}: {execute_error}", exc_info=True)
+            logger.debug(f"DEBUG_EXECUTE_ERROR: queue._execute_job failed for job {job_id}: {execute_error}")
+            import traceback
+            logger.debug(f"DEBUG_EXECUTE_TRACEBACK: {traceback.format_exc()}")
             raise
 
         debug_context = {
@@ -274,9 +314,9 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             "message": "Job execution finished",
             "context": {"job_id": job_id, "result_type": str(type(result))}
         }
-        logger.debug(json.dumps(debug_context))
+        logger.info(json.dumps(debug_context))
 
-        logger.info(f"Job {job_id} execution finished.")
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job {job_id} execution finished.")
 
         # Update job status on success in Redis
         job.status = JobStatus.COMPLETED
@@ -284,27 +324,50 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
         job.result = result
         queue.redis.set(f"compileo:job:{job.job_id}", json.dumps(job.to_dict()))
 
-        # Update job status in database with retry and explicit commit
+        # Update job status in database with retry
         try:
-            from ...storage.src.project.database_repositories import ExtractionJobRepository
-            if queue.db_connection:
-                # Ensure connection is alive
-                try:
-                    queue.db_connection.cursor().execute("SELECT 1")
-                except Exception:
-                    from src.compileo.storage.src.database import get_db_connection
-                    queue.db_connection = get_db_connection()
-                    logger.info(f"Reconnected to database for job {job_id}")
-
-                job_repo = ExtractionJobRepository(queue.db_connection)
-                job_repo.update_job_status(job_id, "completed")
-                # Ensure commit happens
-                queue.db_connection.commit()
+            from src.compileo.storage.src.project.database_repositories import DatasetJobRepository, ExtractionJobRepository, JobHistoryRepository
+            # Get owner_id from job parameters for tenant-specific database access
+            owner_id = job.parameters.get('owner_id') if job.parameters else None
+            if not owner_id and job.user_id:
+                owner_id = job.user_id
                 
-                logger.info(f"Successfully committed job {job_id} status 'completed' to database")
+            if owner_id:
+                # Normalize job type
+                job_type_str = job.job_type.value if hasattr(job.job_type, 'value') else str(job.job_type)
+                
+                # Update status in appropriate job table
+                if job_type_str == 'extraction':
+                    job_repo = ExtractionJobRepository(owner_id)
+                else:
+                    job_repo = DatasetJobRepository(owner_id)
+                job_repo.update_job_status(job_id, "completed")
+                
+                # Archive to job_history
+                try:
+                    history_repo = JobHistoryRepository(owner_id)
+                    job_data = {
+                        'id': job_id,
+                        'owner_id': owner_id,
+                        'project_id': job.parameters.get('project_id') if job.parameters else None,
+                        'document_id': job.parameters.get('document_id') if job.parameters else None,
+                        'job_type': job_type_str,
+                        'status': 'completed',
+                        'parameters': job.parameters or {},
+                        'progress': 100.0,
+                        'result': job.result,
+                        'started_at': job.started_at.isoformat() if job.started_at else None,
+                        'completed_at': job.completed_at.isoformat() if job.completed_at else None
+                    }
+                    history_id = history_repo.create_history_entry(job_data)
+                    logger.info(f"DEBUG: [DEBUG_JOB_ARCHIVE] - Archived job {job_id} to history with ID {history_id}")
+                except Exception as archive_error:
+                    logger.warning(f"DEBUG: [DEBUG_JOB_ARCHIVE] - Failed to archive job {job_id} to history: {archive_error}")
+                
+                logger.info(f"DEBUG: [DEBUG_JOB_STATUS_UPDATE] - Successfully updated job {job_id} status 'completed' to database")
                 logger.info(f"Job {job_id} completed successfully - status updated in database and Redis")
             else:
-                logger.error(f"No database connection available for job {job_id}")
+                logger.error(f"DEBUG: [DEBUG_JOB_STATUS_UPDATE] - No owner_id available for job {job_id}, cannot update database status")
         except Exception as db_error:
             logger.error(f"Failed to update job {job_id} status in database: {db_error}", exc_info=True)
             logger.error(f"Job {job_id} completed in Redis but database update failed - GUI may not show completion")
@@ -330,7 +393,7 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             rq_job = Job.fetch(job_id, connection=queue.redis)
             if rq_job:
                 rq_job.delete()
-                logger.debug(f"Deleted RQ job {job_id} after successful completion")
+                logger.debug(f"DEBUG: [DEBUG_20251010_RQ_CLEANUP] - Deleted RQ job {job_id} after successful completion")
         except Exception as cleanup_error:
             logger.warning(f"Failed to cleanup RQ job {job_id}: {cleanup_error}")
 
@@ -369,9 +432,45 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
             job.completed_at = datetime.utcnow()
             job.error = str(e)
             # Save failed job status to Redis
-            logger.debug(f"Saving failed job {job_id} with status {job.status}")
+            logger.debug(f"DEBUG_SAVING_FAILED_JOB: Saving failed job {job_id} with status {job.status}")
             queue.redis.set(f"compileo:job:{job.job_id}", json.dumps(job.to_dict()))
-            logger.debug(f"Saved failed job {job_id}")
+            logger.debug(f"DEBUG_SAVED_FAILED_JOB: Saved failed job {job.job_id}")
+
+            # Archive failed job to database history
+            try:
+                from src.compileo.storage.src.project.database_repositories import DatasetJobRepository, ExtractionJobRepository, JobHistoryRepository
+                owner_id = job.parameters.get('owner_id') if job.parameters else None
+                if not owner_id and job.user_id:
+                    owner_id = job.user_id
+                    
+                if owner_id:
+                    # Update status in appropriate job table
+                    job_type_str = job.job_type.value if hasattr(job.job_type, 'value') else str(job.job_type)
+                    if job_type_str == 'extraction':
+                        job_repo = ExtractionJobRepository(owner_id)
+                    else:
+                        job_repo = DatasetJobRepository(owner_id)
+                    job_repo.update_job_status(job_id, "failed", error_message=str(e)[:500])
+                    
+                    # Archive to job_history
+                    history_repo = JobHistoryRepository(owner_id)
+                    job_data = {
+                        'id': job_id,
+                        'owner_id': owner_id,
+                        'project_id': job.parameters.get('project_id') if job.parameters else None,
+                        'document_id': job.parameters.get('document_id') if job.parameters else None,
+                        'job_type': job_type_str,
+                        'status': 'failed',
+                        'parameters': job.parameters or {},
+                        'progress': job.progress or 0.0,
+                        'error_message': str(e),
+                        'started_at': job.started_at.isoformat() if job.started_at else None,
+                        'completed_at': job.completed_at.isoformat() if job.completed_at else None
+                    }
+                    history_id = history_repo.create_history_entry(job_data)
+                    logger.info(f"DEBUG: [DEBUG_JOB_ARCHIVE] - Archived failed job {job_id} to history with ID {history_id}")
+            except Exception as archive_error:
+                logger.warning(f"DEBUG: [DEBUG_JOB_ARCHIVE] - Failed to archive failed job {job_id} to history: {archive_error}")
 
             # Clean up the RQ job to prevent re-processing of failed jobs
             try:
@@ -379,7 +478,7 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
                 rq_job = Job.fetch(job_id, connection=queue.redis)
                 if rq_job:
                     rq_job.delete()
-                    logger.debug(f"Deleted RQ job {job_id} after failure")
+                    logger.debug(f"DEBUG: [DEBUG_20251010_RQ_CLEANUP] - Deleted RQ job {job_id} after failure")
             except Exception as cleanup_error:
                 logger.warning(f"Failed to cleanup RQ job {job_id} after failure: {cleanup_error}")
 
@@ -390,5 +489,8 @@ def redis_job_wrapper(job_id: str, **kwargs) -> Any:
         raise
 
     finally:
+        # Stop lock renewal
+        stop_renewal.set()
+        
         # Release resources
         queue.resource_manager.release_resources(job.user_id)

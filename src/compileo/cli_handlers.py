@@ -3,18 +3,37 @@ CLI Command Handlers.
 Contains all the implementation logic for CLI commands.
 """
 
+# cython: annotation_typing=False
+
 import click
 import os
 import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
+
+# Import path compatibility - will use compiled path in production, source in development
+IMPORT_PREFIX = "compileo"
+try:
+    import compileo
+except ImportError:
+    IMPORT_PREFIX = "src.compileo"
+
+
+# Helper function for dynamic imports
+def _import_module(module_path):
+    """Import module with fallback for compiled/development compatibility."""
+    try:
+        return __import__(f"compileo.{module_path}", fromlist=[module_path.split('.')[-1]])
+    except ImportError:
+        return __import__(f"src.compileo.{module_path}", fromlist=[module_path.split('.')[-1]])
 
 
 # Document command handlers
 def handle_upload_documents(file_paths, project_id):
     """Handle document upload command."""
     try:
-        from .features.gui.services.api_client import api_client
+        api_client_module = _import_module("features.gui.services.api_client")
+        api_client = api_client_module.api_client
 
         click.echo(f"📤 Uploading {len(file_paths)} documents to project {project_id}...")
 
@@ -1781,9 +1800,7 @@ def handle_install_plugin(plugin_file):
         
         files = {'file': open(plugin_file, 'rb')}
         headers = {}
-        if api_client.api_key:
-            headers["X-API-Key"] = str(api_client.api_key)
-            
+        # Legacy X-API-Key removed. CLI might need JWT update for multi-tenant support.
         response = requests.post(url, files=files, headers=headers)
         
         if response.status_code == 200:
@@ -1819,3 +1836,310 @@ def handle_uninstall_plugin(plugin_id, confirm):
     except Exception as e:
         click.echo(f"❌ Error uninstalling plugin: {e}", err=True)
         raise click.Abort()
+
+
+# Prompts handlers
+def handle_list_prompts(project_id):
+    """Handle prompt listing command."""
+    try:
+        from .features.gui.services.api_client import api_client
+        import json
+
+        response = api_client.get(f"/api/v1/prompts/", params={"project_id": project_id})
+        
+        if not response or not response.get("prompts"):
+            click.echo("No prompts found.")
+            return
+
+        prompts = response["prompts"]
+        
+        # Table format
+        click.echo(f"Prompts for Project {project_id} ({len(prompts)}):")
+        click.echo("-" * 80)
+        click.echo(f"{'Name':<30} {'Content Preview'}")
+        click.echo("-" * 80)
+        
+        for p in prompts:
+            name = p.get('name', 'Unknown')[:29]
+            content = p.get('content', '')[:47] + "..." if len(p.get('content', '')) > 47 else p.get('content', '')
+            click.echo(f"{name:<30} {content}")
+
+    except Exception as e:
+        click.echo(f"❌ Error listing prompts: {e}", err=True)
+        raise click.Abort()
+
+def handle_set_default_prompt(name, content_file, project_id):
+    """Handle setting a default prompt."""
+    try:
+        from .features.gui.services.api_client import api_client
+        
+        with open(content_file, 'r') as f:
+            content = f.read()
+
+        # Check if prompt exists to update, or create new
+        # First try to get existing prompt by name
+        try:
+            existing = api_client.get(f"/api/v1/prompts/by-name/{name}", params={"project_id": project_id})
+            prompt_id = existing.get("id")
+            
+            # Update existing
+            if prompt_id:
+                api_client.put(f"/api/v1/prompts/{prompt_id}", data={"content": content, "name": name})
+                click.echo(f"✅ Updated existing prompt override '{name}'")
+                return
+        except:
+            # Not found, create new
+            pass
+
+        # Create new
+        request_data = {
+            "name": name,
+            "content": content
+        }
+        api_client.post(f"/api/v1/prompts/?project_id={project_id}", data=request_data)
+        click.echo(f"✅ Created new prompt override '{name}'")
+
+    except Exception as e:
+        click.echo(f"❌ Error setting prompt: {e}", err=True)
+        raise click.Abort()
+
+
+# Config handlers
+def handle_log_level_config(level, show):
+    """Handle log level configuration command."""
+    try:
+        from .features.gui.services.api_client import api_client
+
+        if show:
+            # Get current log level
+            response = api_client.get("/api/v1/settings/log-level")
+            if response:
+                current_level = response.get("log_level", "none")
+                click.echo(f"Current log level: {current_level}")
+                click.echo("\nAvailable levels:")
+                click.echo("  none  - Minimal logging (only critical errors)")
+                click.echo("  error - Error messages only")
+                click.echo("  debug - Full debug output")
+            else:
+                click.echo("❌ Failed to get current log level")
+            return
+
+        if level:
+            # Set log level
+            request_data = {"level": level}
+            response = api_client.post("/api/v1/settings/log-level", data=request_data)
+            
+            if response and response.get("message"):
+                click.echo(f"✅ {response['message']}")
+                click.echo("\nNote: The log level change affects the current API process.")
+                click.echo("Workers started after this change will use the new log level.")
+            else:
+                click.echo("❌ Failed to update log level")
+        else:
+            click.echo("Please specify --level or --show")
+            
+    except Exception as e:
+        click.echo(f"❌ Error configuring log level: {e}", err=True)
+        raise click.Abort()
+
+
+def handle_retention_config(days, show, cleanup):
+    """Handle job history retention configuration command."""
+    try:
+        from .features.gui.services.api_client import api_client
+
+        if show:
+            # Get current retention settings
+            response = api_client.get("/api/v1/jobs/history/settings/retention")
+            if response:
+                current_days = response.get("retention_days", 90)
+                default_days = response.get("default_days", 90)
+                min_days = response.get("min_days", 1)
+                max_days = response.get("max_days", 365)
+                
+                click.echo(f"Current job history retention: {current_days} days")
+                click.echo(f"  Default: {default_days} days")
+                click.echo(f"  Range: {min_days}-{max_days} days")
+                click.echo(f"\nNote: Job history older than {current_days} days will be automatically cleaned up.")
+            else:
+                click.echo("❌ Failed to get retention settings")
+            return
+
+        if days:
+            # Set retention days
+            request_data = {"retention_days": days}
+            response = api_client.put("/api/v1/jobs/history/settings/retention", data=request_data)
+            
+            if response and response.get("retention_days") == days:
+                click.echo(f"✅ Job history retention set to {days} days")
+                click.echo(f"\nNote: The new retention period will be applied on the next cleanup.")
+                click.echo(f"      Run 'compileo config retention --cleanup' to apply immediately.")
+            else:
+                click.echo("❌ Failed to update retention settings")
+                raise click.Abort()
+        
+        if cleanup:
+            # Run cleanup with current settings
+            click.echo("🧹 Running job history cleanup...")
+            response = api_client.post("/api/v1/jobs/history/cleanup/apply-settings")
+            
+            if response:
+                deleted = response.get("deleted_count", 0)
+                retention_days = response.get("retention_days", 90)
+                click.echo(f"✅ Cleanup completed")
+                click.echo(f"   Deleted: {deleted} entries older than {retention_days} days")
+            else:
+                click.echo("❌ Failed to run cleanup")
+                raise click.Abort()
+        
+        if not days and not show and not cleanup:
+            click.echo("Please specify --days, --show, or --cleanup")
+            click.echo("\nExamples:")
+            click.echo("  compileo config retention --show")
+            click.echo("  compileo config retention --days 60")
+            click.echo("  compileo config retention --cleanup")
+            
+    except Exception as e:
+        click.echo(f"❌ Error configuring retention: {e}", err=True)
+        raise click.Abort()
+
+
+def handle_list_datasets(project_id, output_format):
+    """Handle dataset listing command."""
+    try:
+        from .features.gui.services.api_client import api_client
+        import json
+
+        response = api_client.get(f"/api/v1/datasets/list/{project_id}")
+        
+        if not response:
+            click.echo(f"No datasets found for project {project_id}.")
+            return
+
+        datasets = response.get("datasets", [])
+        total = response.get("total_count", len(datasets))
+
+        if output_format == "json":
+            click.echo(json.dumps(response, indent=2, default=str))
+        else:
+            if not datasets:
+                click.echo(f"No datasets found for project {project_id}.")
+                return
+                
+            # Table format
+            click.echo(f"Datasets for Project {project_id} (Total: {total}):")
+            click.echo("-" * 100)
+            click.echo(f"{'Filename':<45} {'Format':<10} {'Size':<15} {'Created'}")
+            click.echo("-" * 100)
+            for ds in datasets:
+                name = str(ds.get('name', 'Unknown'))
+                fmt = str(ds.get('format_type', 'unknown'))
+                size = f"{ds.get('size_bytes', 0) / 1024:.1f} KB"
+                created = str(ds.get('created_at', 'Unknown'))[:16]
+                click.echo(f"{name:<45} {fmt:<10} {size:<15} {created}")
+
+    except Exception as e:
+        click.echo(f"❌ Error listing datasets: {e}", err=True)
+        raise click.Abort()
+
+def handle_download_dataset(project_id, filename, output_path):
+    """Handle dataset download command."""
+    try:
+        import os
+        from .features.gui.services.api_client import api_client
+
+        click.echo(f"📥 Downloading dataset '{filename}' from project {project_id}...")
+        
+        # Determine output path
+        out_path = output_path if output_path else filename
+        
+        # Download file
+        endpoint = f"/api/v1/datasets/{project_id}/{filename}/download"
+        file_content = api_client.get_file(endpoint)
+        
+        if file_content:
+            with open(out_path, 'wb') as f:
+                f.write(file_content)
+            click.echo(f"✅ Successfully downloaded to {os.path.abspath(out_path)}")
+        else:
+            click.echo(f"❌ Failed to download dataset. File may not exist.")
+            raise click.Abort()
+
+    except Exception as e:
+        click.echo(f"❌ Error downloading dataset: {e}", err=True)
+        raise click.Abort()
+
+
+def handle_dataset_details(dataset_id, project_id, output_format):
+    """Handle dataset details command."""
+    try:
+        from .features.gui.services.api_client import api_client
+        import json
+
+        # Build the API request - include project_id in URL if provided
+        endpoint = f"/api/v1/datasets/{dataset_id}/details"
+        if project_id:
+            endpoint += f"?project_id={project_id}"
+        
+        click.echo(f"📋 Getting details for dataset '{dataset_id}'...")
+        
+        response = api_client.get(endpoint)
+        
+        if not response:
+            click.echo(f"❌ Dataset '{dataset_id}' not found.")
+            raise click.Abort()
+
+        if output_format == "json":
+            click.echo(json.dumps(response, indent=2, default=str))
+        else:
+            # Table format
+            click.echo(f"Dataset Details for '{dataset_id}':")
+            click.echo("=" * 60)
+            click.echo(f"Name:         {response.get('name', 'N/A')}")
+            click.echo(f"Format:       {response.get('format_type', 'N/A')}")
+            click.echo(f"File Size:    {response.get('file_size', 0):,} bytes")
+            click.echo(f"Record Count: {response.get('record_count', 0):,}")
+            click.echo(f"Created:      {response.get('created_at', 'N/A')}")
+            
+            # Show sample records if available
+            sample_records = response.get('sample_records', [])
+            if sample_records:
+                click.echo(f"\nSample Records ({len(sample_records)} shown):")
+                click.echo("-" * 60)
+                for i, record in enumerate(sample_records[:3], 1):
+                    click.echo(f"\n--- Record {i} ---")
+                    click.echo(json.dumps(record, indent=2, default=str))
+
+    except Exception as e:
+        click.echo(f"❌ Error getting dataset details: {e}", err=True)
+        raise click.Abort()
+
+
+def handle_delete_dataset(dataset_id, project_id, confirm):
+    """Handle dataset deletion command."""
+    try:
+        from .features.gui.services.api_client import api_client
+
+        if not confirm:
+            if not click.confirm(f"Are you sure you want to delete dataset '{dataset_id}'? This cannot be undone."):
+                return
+
+        # Build the API request - include project_id in URL if provided
+        endpoint = f"/api/v1/datasets/{dataset_id}/delete"
+        if project_id:
+            endpoint += f"?project_id={project_id}"
+        
+        click.echo(f"🗑️ Deleting dataset '{dataset_id}'...")
+        
+        response = api_client.delete(endpoint)
+        
+        if response and "message" in response:
+            click.echo(f"✅ {response['message']}")
+        else:
+            click.echo(f"✅ Dataset '{dataset_id}' deleted successfully")
+
+    except Exception as e:
+        click.echo(f"❌ Error deleting dataset: {e}", err=True)
+        raise click.Abort()
+
+

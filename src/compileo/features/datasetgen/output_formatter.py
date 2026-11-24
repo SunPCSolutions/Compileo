@@ -1,7 +1,7 @@
 import json
 import logging
 from io import BytesIO
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ class OutputFormatter:
     """
 
     def format_dataset(
-        self, dataset_content: Union[List[Dict[str, Any]], Dict[str, Any]], format_type: str
+        self, dataset_content: Union[List[Dict[str, Any]], Dict[str, Any]], format_type: str, owner_id: Optional[str] = None
     ) -> Union[str, bytes, Dict[str, Union[str, bytes]]]:
         """
         Formats the dataset content.
@@ -28,7 +28,7 @@ class OutputFormatter:
         """
         if isinstance(dataset_content, dict):
             # Handle evaluation datasets with multiple splits
-            return self._format_evaluation_datasets(dataset_content, format_type)
+            return self._format_evaluation_datasets(dataset_content, format_type, owner_id)
         else:
             # Handle single dataset (backward compatibility)
             if format_type == "raw_list":
@@ -43,7 +43,7 @@ class OutputFormatter:
                 # Check for plugin extensions - import plugin_manager locally to avoid pickle issues
                 try:
                     from src.compileo.features.plugin.manager import plugin_manager
-                    extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter")
+                    extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter", owner_id=owner_id)
                     if format_type in extensions:
                         try:
                             formatter_class = extensions[format_type]
@@ -103,7 +103,7 @@ class OutputFormatter:
         return buffer.getvalue()
 
     def _format_evaluation_datasets(
-        self, evaluation_datasets: Dict[str, Any], format_type: str
+        self, evaluation_datasets: Dict[str, Any], format_type: str, owner_id: Optional[str] = None
     ) -> Dict[str, Union[str, bytes]]:
         """
         Formats evaluation datasets with multiple splits.
@@ -146,7 +146,7 @@ class OutputFormatter:
                      # Check plugins for evaluation datasets too
                     try:
                         from src.compileo.features.plugin.manager import plugin_manager
-                        extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter")
+                        extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter", owner_id=owner_id)
                         if format_type in extensions:
                              try:
                                 formatter_class = extensions[format_type]
@@ -170,7 +170,7 @@ class OutputFormatter:
                 else:
                     try:
                         from src.compileo.features.plugin.manager import plugin_manager
-                        extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter")
+                        extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter", owner_id=owner_id)
                         if format_type in extensions:
                              try:
                                 formatter_class = extensions[format_type]
@@ -195,7 +195,7 @@ class OutputFormatter:
                     else:
                         try:
                             from src.compileo.features.plugin.manager import plugin_manager
-                            extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter")
+                            extensions = plugin_manager.get_extensions("compileo.datasetgen.formatter", owner_id=owner_id)
                             if format_type in extensions:
                                 try:
                                     formatter_class = extensions[format_type]

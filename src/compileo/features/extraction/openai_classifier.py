@@ -3,13 +3,11 @@ This module provides a function to classify a text chunk based on a hierarchical
 using the OpenAI API (ChatGPT).
 """
 
+import logging
 import json
 from typing import Dict, List, Any, Optional
 from .context_models import DocumentContext, ChunkContext, HierarchicalCategory
 from ...core.settings import backend_settings
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 def _classify_with_categories(
     text: str,
@@ -23,6 +21,7 @@ def _classify_with_categories(
     """
     Classifies text using provided categories via OpenAI API with context awareness.
     """
+    logger = logging.getLogger(__name__)
     try:
         from openai import OpenAI
     except ImportError:
@@ -107,6 +106,7 @@ def generate_categories(
     """
     Generates a list of high-level categories from a text chunk using OpenAI API.
     """
+    logger = logging.getLogger(__name__)
     try:
         from openai import OpenAI
     except ImportError:
@@ -180,6 +180,7 @@ def classify_chunk(
     Returns:
         Dict[str, Any]: A dictionary with 'custom' and 'aigen' classifications.
     """
+    logger = logging.getLogger(__name__)
     if not api_key:
         logger.error("Error: OpenAI API key not provided.")
         return {"custom": {}, "aigen": {}}

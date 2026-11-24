@@ -3,6 +3,7 @@ This module provides a function to classify a text chunk based on a hierarchical
 using the xAI Grok API.
 """
 
+import logging
 import json
 import re
 import requests
@@ -10,10 +11,8 @@ import time
 from typing import Dict, List, Any, Optional
 from .context_models import DocumentContext, ChunkContext, HierarchicalCategory
 from ...core.settings import backend_settings
-from ...core.logging import get_logger
 
-logger = get_logger(__name__)
-
+logger = logging.getLogger(__name__)
 
 def _sanitize_json(text: str) -> str:
     """
@@ -212,6 +211,7 @@ def _classify_with_categories(
     """
     Classifies text using provided categories via Grok API with context awareness.
     """
+    logger = logging.getLogger(__name__)
     api_url = "https://api.x.ai/v1/chat/completions"
 
     # Build context information

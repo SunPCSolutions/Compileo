@@ -19,6 +19,7 @@ class ResultSearchEngine:
     def full_text_search(
         self,
         query: str,
+        owner_id: str,
         categories: Optional[List[str]] = None,
         min_confidence: Optional[float] = None,
         date_from: Optional[datetime] = None,
@@ -27,25 +28,13 @@ class ResultSearchEngine:
         offset: int = 0
     ) -> Tuple[List[ExtractionResult], int]:
         """
-        Perform full-text search across extraction results.
-
-        Args:
-            query: Search query string
-            categories: Filter by categories
-            min_confidence: Minimum confidence threshold
-            date_from: Start date filter
-            date_to: End date filter
-            limit: Maximum results to return
-            offset: Pagination offset
-
-        Returns:
-            Tuple of (results, total_count)
+        Perform full-text search across extraction results for current user.
         """
         cursor = self.db_connection.cursor()
 
         # Build the WHERE clause
-        where_conditions = []
-        params = []
+        where_conditions = ["owner_id = ?"]
+        params = [owner_id]
 
         # Full-text search on extracted_data (JSON)
         if query:
@@ -89,9 +78,8 @@ class ResultSearchEngine:
             FROM extraction_results
             WHERE {where_clause}
             ORDER BY confidence DESC, created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT {int(limit)} OFFSET {int(offset)}
         """
-        params.extend([limit, offset])
         cursor.execute(select_query, params)
         rows = cursor.fetchall()
 
@@ -114,23 +102,18 @@ class ResultSearchEngine:
     def search_by_categories(
         self,
         categories: List[str],
+        owner_id: str,
         match_all: bool = False,
         limit: int = 50,
         offset: int = 0
     ) -> Tuple[List[ExtractionResult], int]:
         """
-        Search results by categories.
-
-        Args:
-            categories: List of categories to search for
-            match_all: If True, result must have all categories; if False, any category
-            limit: Maximum results to return
-            offset: Pagination offset
-
-        Returns:
-            Tuple of (results, total_count)
+        Search results by categories for current user.
         """
         cursor = self.db_connection.cursor()
+
+        where_conditions = ["owner_id = ?"]
+        params = [owner_id]
 
         if match_all:
             # Result must contain all specified categories
@@ -160,9 +143,8 @@ class ResultSearchEngine:
             FROM extraction_results
             WHERE {where_clause}
             ORDER BY confidence DESC, created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT {int(limit)} OFFSET {int(offset)}
         """
-        params.extend([limit, offset])
         cursor.execute(select_query, params)
         rows = cursor.fetchall()
 
@@ -184,15 +166,16 @@ class ResultSearchEngine:
     def search_by_chunk(
         self,
         chunk_id: str,
+        owner_id: str,
         min_confidence: Optional[float] = None,
         limit: int = 50,
         offset: int = 0
     ) -> Tuple[List[ExtractionResult], int]:
-        """Search results within a specific chunk."""
+        """Search results within a specific chunk for current user."""
         cursor = self.db_connection.cursor()
 
-        where_conditions = ["chunk_id = ?"]
-        params = [chunk_id]
+        where_conditions = ["chunk_id = ?", "owner_id = ?"]
+        params = [chunk_id, owner_id]
 
         if min_confidence is not None:
             where_conditions.append("confidence >= ?")
@@ -211,9 +194,8 @@ class ResultSearchEngine:
             FROM extraction_results
             WHERE {where_clause}
             ORDER BY confidence DESC, created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT {int(limit)} OFFSET {int(offset)}
         """
-        params.extend([limit, offset])
         cursor.execute(select_query, params)
         rows = cursor.fetchall()
 
@@ -232,8 +214,8 @@ class ResultSearchEngine:
 
         return results, total_count
 
-    def get_category_stats(self, project_id: Optional[int] = None) -> Dict[str, Any]:
-        """Get statistics about categories in extraction results."""
+    def get_category_stats(self, owner_id: str, project_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get statistics about categories in extraction results for current user."""
         cursor = self.db_connection.cursor()
 
         query = """
@@ -242,11 +224,12 @@ class ResultSearchEngine:
                 COUNT(*) as count,
                 AVG(confidence) as avg_confidence
             FROM extraction_results er
+            WHERE owner_id = ?
         """
 
-        params = []
+        params = [owner_id]
         if project_id:
-            query += " JOIN extraction_jobs ej ON er.job_id = ej.id WHERE ej.project_id = ?"
+            query += " AND project_id = ?"
             params.append(project_id)
 
         query += " GROUP BY category ORDER BY count DESC"
@@ -273,8 +256,8 @@ class ResultSearchEngine:
 
         return stats
 
-    def get_chunk_stats(self, project_id: Optional[int] = None) -> Dict[str, Any]:
-        """Get statistics about chunks."""
+    def get_chunk_stats(self, owner_id: str, project_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get statistics about chunks for current user."""
         cursor = self.db_connection.cursor()
 
         query = """
@@ -285,11 +268,12 @@ class ResultSearchEngine:
                 MIN(created_at) as oldest_result,
                 MAX(created_at) as newest_result
             FROM extraction_results er
+            WHERE owner_id = ?
         """
 
-        params = []
+        params = [owner_id]
         if project_id:
-            query += " JOIN extraction_jobs ej ON er.job_id = ej.id WHERE ej.project_id = ?"
+            query += " AND project_id = ?"
             params.append(project_id)
 
         query += " GROUP BY chunk_id ORDER BY oldest_result DESC"

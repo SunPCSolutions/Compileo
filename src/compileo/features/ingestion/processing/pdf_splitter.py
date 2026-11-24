@@ -7,9 +7,85 @@ import os
 import sys
 import json
 import logging
+import tempfile
 from typing import List, Dict, Any, Optional
 
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None  # type: ignore
+
 logger = logging.getLogger(__name__)
+
+
+def extract_pages_to_pdf(
+    source_path: str,
+    page_numbers: List[int],
+    output_path: Optional[str] = None
+) -> str:
+    """
+    Extract specified pages from a PDF and save them as a new consolidated PDF.
+
+    Args:
+        source_path: Path to the source PDF file.
+        page_numbers: List of 1-based page numbers to extract. Must be sorted
+            and deduplicated before calling this function.
+        output_path: Path for the output PDF. If None, a temporary file is created.
+
+    Returns:
+        Path to the output PDF file.
+
+    Raises:
+        FileNotFoundError: If the source file does not exist.
+        ValueError: If page_numbers is empty or contains invalid page numbers.
+    """
+    if not os.path.exists(source_path):
+        raise FileNotFoundError(f"Source PDF not found: {source_path}")
+
+    if not page_numbers:
+        raise ValueError("page_numbers cannot be empty for extraction.")
+
+    if fitz is None:
+        raise ImportError(
+            "PyMuPDF (fitz) is required for page extraction. "
+            "Install it via: pip install PyMuPDF"
+        )
+
+    if output_path is None:
+        base_name = os.path.splitext(os.path.basename(source_path))[0]
+        output_path = os.path.join(
+            tempfile.gettempdir(),
+            f"{base_name}_selected_pages.pdf"
+        )
+
+    src = fitz.open(source_path)
+    total_pages = src.page_count
+
+    # Validate page numbers
+    invalid_pages = [p for p in page_numbers if p < 1 or p > total_pages]
+    if invalid_pages:
+        src.close()
+        raise ValueError(
+            f"Invalid page numbers {invalid_pages} for document with "
+            f"{total_pages} pages."
+        )
+
+    dst = fitz.open()
+
+    try:
+        for page_num in page_numbers:
+            # PyMuPDF uses 0-based indexing
+            dst.insert_pdf(src, from_page=page_num - 1, to_page=page_num - 1)
+
+        dst.save(output_path)
+        logger.info(
+            f"Extracted {len(page_numbers)} pages from {source_path} "
+            f"to {output_path}"
+        )
+        return output_path
+    finally:
+        dst.close()
+        src.close()
 
 def pre_split_pdf(
     file_path: str,

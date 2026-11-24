@@ -12,6 +12,7 @@ from google import genai
 from google.genai import types
 
 from src.compileo.features.extraction.context_models import HierarchicalCategory
+from .prompt_builder import TaxonomyPromptBuilder
 
 
 class GeminiTaxonomyGenerator:
@@ -35,7 +36,7 @@ class GeminiTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1,
@@ -83,7 +84,7 @@ class GeminiTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
@@ -133,7 +134,7 @@ class GeminiTaxonomyGenerator:
             "analytics": analytics
         }
 
-    def _call_gemini_for_taxonomy(self, chunks: List[str], domain: str, depth: Optional[int], category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
+    def _call_gemini_for_taxonomy(self, chunks: List[str], domain: str, depth: int, category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
         """
         Call Gemini API to generate taxonomy from chunks.
 
@@ -203,7 +204,7 @@ class GeminiTaxonomyGenerator:
 
         return "\n\n---\n\n".join(sample_parts)
 
-    def _create_taxonomy_prompt(self, content: str, domain: str, depth: Optional[int], category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
+    def _create_taxonomy_prompt(self, content: str, domain: str, depth: int, category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
         """
         Create a domain-specific prompt for taxonomy generation.
 
@@ -283,23 +284,8 @@ Return a valid JSON object with this exact structure:
     def _get_domain_context(self, domain: str) -> str:
         """
         Get domain-specific context for taxonomy generation.
-
-        Args:
-            domain: Knowledge domain
-
-        Returns:
-            Domain-specific guidance text
         """
-        contexts = {
-            "medical": "Focus on clinical conditions, symptoms, treatments, diagnostics, anatomy, and medical specialties. Consider diseases, medications, procedures, and patient care aspects.",
-            "legal": "Focus on legal domains, case types, jurisdictions, legal procedures, contracts, regulations, and legal concepts. Consider civil law, criminal law, corporate law, etc.",
-            "technical": "Focus on technical domains, software development, hardware, processes, methodologies, and technical concepts. Consider programming, systems, infrastructure, etc.",
-            "business": "Focus on business domains, industries, departments, processes, strategies, and business concepts. Consider finance, marketing, operations, management, etc.",
-            "scientific": "Focus on scientific domains, research areas, methodologies, theories, and scientific concepts. Consider physics, chemistry, biology, mathematics, etc.",
-            "general": "Create a general-purpose taxonomy suitable for most content types. Focus on universal categories like people, places, events, concepts, etc."
-        }
-
-        return contexts.get(domain.lower(), contexts["general"])
+        return TaxonomyPromptBuilder._get_domain_context(domain)
 
     def _get_specificity_instruction(self, specificity_level: int) -> str:
         """
@@ -353,7 +339,7 @@ Return a valid JSON object with this exact structure:
 
             raise Exception(f"Failed to parse taxonomy response: {e}")
 
-    def _validate_taxonomy_structure(self, taxonomy: Dict[str, Any], max_depth: Optional[int] = 5) -> None:
+    def _validate_taxonomy_structure(self, taxonomy: Dict[str, Any], max_depth: int = 5) -> None:
         """
         Validate the structure of generated taxonomy.
 
@@ -377,7 +363,7 @@ Return a valid JSON object with this exact structure:
 
         # Validate depth
         def check_depth(node: Dict[str, Any], current_depth: int = 0):
-            if max_depth and current_depth > max_depth:
+            if current_depth > max_depth:
                 raise ValueError(f"Taxonomy exceeds maximum depth of {max_depth}")
             for child in node.get("children", []):
                 check_depth(child, current_depth + 1)
@@ -509,7 +495,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         chunks: List[str],
-        additional_depth: Optional[int] = 2,
+        additional_depth: int = 2,
         domain: str = "general",
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
@@ -578,7 +564,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         chunks: List[str],
-        additional_depth: Optional[int],
+        additional_depth: int,
         domain: str,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
@@ -633,7 +619,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         content: str,
-        additional_depth: Optional[int],
+        additional_depth: int,
         domain: str,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1

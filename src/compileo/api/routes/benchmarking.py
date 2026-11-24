@@ -8,6 +8,9 @@ from datetime import datetime
 
 from ...storage.src.database import get_db_connection
 from ...features.jobhandle.enhanced_job_queue import enhanced_job_queue_manager, JobType, JobPriority
+from ..core.database import get_db
+from ..core.dependencies import get_current_active_user
+from ..models.user import User as UserSchema
 
 # Create router
 router = APIRouter()
@@ -35,20 +38,18 @@ class BenchmarkComparisonRequest(BaseModel):
 # In-memory storage for benchmark jobs (replace with proper storage in production)
 benchmark_jobs = {}
 
-# Dependency to get database connection
-def get_db():
-    return get_db_connection()
-
 @router.post("/run")
 async def run_benchmarks(
     request: BenchmarkRunRequest,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    current_user: UserSchema = Depends(get_current_active_user)
 ):
-    """Run AI model benchmarks."""
+    """Run AI model benchmarks for current user."""
     try:
         # Prepare job parameters
         job_params = {
             "job_id": str(uuid.uuid4()),  # Will be overridden by job queue
+            "owner_id": current_user.id,
             "project_id": request.model_info.get("project_id", 1),  # Default project
             "benchmark_suite": request.suite,
             "ai_config": request.config or {},
@@ -60,7 +61,7 @@ async def run_benchmarks(
             job_type=JobType.BENCHMARKING,  # Assuming this exists or add it
             parameters=job_params,
             priority=JobPriority.NORMAL,
-            user_id=request.model_info.get("user_id")
+            user_id=current_user.id
         )
 
         return {
@@ -73,14 +74,21 @@ async def run_benchmarks(
         raise HTTPException(status_code=500, detail=f"Failed to start benchmarking: {str(e)}")
 
 @router.get("/results/{job_id}", response_model=BenchmarkResult)
-async def get_benchmark_results(job_id: str):
-    """Get benchmarking results."""
+async def get_benchmark_results(
+    job_id: str,
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    """Get benchmarking results for current user."""
     # Try to get from database first via repository pattern
     # For now, we'll use the mock/in-memory fallback if not implemented fully
     if job_id not in benchmark_jobs:
         # Check if it exists in the job queue manager
         job = enhanced_job_queue_manager.get_job(job_id)
         if job:
+            # Verify ownership
+            if job.user_id != current_user.id:
+                 raise HTTPException(status_code=403, detail="Access denied")
+                 
             # Construct a result object from the job status
             return BenchmarkResult(
                 job_id=job.job_id,
@@ -95,9 +103,16 @@ async def get_benchmark_results(job_id: str):
     return benchmark_jobs[job_id]
 
 @router.post("/cancel/{job_id}")
-async def cancel_benchmark_job(job_id: str):
-    """Cancel a running benchmark job."""
+async def cancel_benchmark_job(
+    job_id: str,
+    current_user: UserSchema = Depends(get_current_active_user)
+):
+    """Cancel a running benchmark job for current user."""
     try:
+        job = enhanced_job_queue_manager.get_job(job_id)
+        if job and job.user_id != current_user.id:
+             raise HTTPException(status_code=403, detail="Access denied")
+
         success = enhanced_job_queue_manager.cancel_job(job_id)
         if success:
             return {"message": f"Job {job_id} cancelled successfully"}

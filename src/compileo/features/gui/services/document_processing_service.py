@@ -3,6 +3,7 @@ Document processing service module for Compileo GUI.
 Handles document parsing and chunking workflows.
 """
 
+import logging
 from typing import List, Dict, Any, Optional
 import streamlit as st
 import os
@@ -10,17 +11,33 @@ import json
 from datetime import datetime
 
 from ..services.api_client import api_client
-from ..services.async_job_submission_service import async_job_service
-from ..services.job_monitoring_service import wait_for_upload_completion, wait_for_upload_completion_with_paths, monitor_job_synchronously
+from ..services.unified_job_service import unified_job_service, JobResult
 from ..state.session_state import session_state
 from ...jobhandle.models import JobType, JobPriority
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
-def parse_selected_documents(project_id: int, uploaded_files: List, parser: str, selected_document_ids: Optional[List[int]] = None, pages_per_split: int = 5):
-    """Parse selected documents to markdown without chunking using async job submission."""
+logger = logging.getLogger(__name__)
+
+def _get_user_id() -> Optional[str]:
+    """Get the current user ID from session state."""
+    try:
+        return session_state.user_id
+    except:
+        return None
+
+
+def parse_selected_documents(
+    project_id: int,
+    uploaded_files: List,
+    parser: str,
+    selected_document_ids: Optional[List[int]] = None,
+    pages_per_split: int = 5,
+    page_selection: Optional[str] = None
+):
+    """Parse selected documents to markdown without chunking using async job submission.
+
+    Each document is submitted as a separate job for parallel processing.
+    """
     from datetime import datetime
     try:
         # DEBUG: [DEBUG_20251003_PDF_PARSE] - Starting document parsing process
@@ -77,7 +94,7 @@ def parse_selected_documents(project_id: int, uploaded_files: List, parser: str,
                     logger.debug(json.dumps(debug_context))
                 else:
                     # DEBUG: [DEBUG_20251003_PDF_PARSE] - File upload failed
-                    logger.error(f"File upload failed for project_id: {project_id}")
+                    logger.error(f'{{"timestamp": "{datetime.now().isoformat()}", "level": "ERROR", "component": "document_processing_service", "message": "File upload failed", "context": {{"project_id": {project_id}}}}}')
                     st.error("❌ Failed to upload files")
                     return
 
@@ -99,7 +116,7 @@ def parse_selected_documents(project_id: int, uploaded_files: List, parser: str,
 
         if not document_ids_to_parse:
             # DEBUG: [DEBUG_20251003_PDF_PARSE] - No documents to parse
-            logger.warning(f"No documents to parse for project_id: {project_id}")
+            logger.warning(f'{{"timestamp": "{datetime.now().isoformat()}", "level": "WARNING", "component": "document_processing_service", "message": "No documents to parse", "context": {{"project_id": {project_id}}}}}')
             st.error("No documents to parse")
             return
 
@@ -117,76 +134,84 @@ def parse_selected_documents(project_id: int, uploaded_files: List, parser: str,
         }
         logger.debug(json.dumps(debug_context))
 
-        # Submit async parsing job
-        st.info(f"🚀 Submitting parsing job for {len(document_ids_to_parse)} documents with {parser}...")
+        # Submit each document as a separate job for parallel processing
+        st.info(f"🚀 Submitting {len(document_ids_to_parse)} parsing jobs with {parser}...")
+
+        user_id = _get_user_id()
+        if not user_id:
+            st.error("❌ You must be logged in to parse documents.")
+            return
 
         # Use provided pagination settings
         overlap_pages = 0  # Always 0 with dynamic overlap generation
 
-        job_parameters = {
-            "operation": "parse_documents",
-            "project_id": project_id,
-            "document_ids": document_ids_to_parse,
-            "parser": parser,
-            "pages_per_split": pages_per_split,
-            "overlap_pages": overlap_pages
-        }
-
-        # DEBUG: [DEBUG_20251003_PDF_PARSE] - Submitting job to async service
-        debug_context = {
-            "timestamp": datetime.now().isoformat(),
-            "level": "INFO",
-            "component": "document_processing_service",
-            "message": "Submitting job to async service",
-            "context": {
+        # Submit individual jobs - one per document
+        job_ids = []
+        for doc_id in document_ids_to_parse:
+            job_parameters = {
+                "operation": "parse_documents",
                 "project_id": project_id,
-                "job_parameters_keys": list(job_parameters.keys())
+                "document_ids": [doc_id],  # Single document per job
+                "parser": parser,
+                "pages_per_split": pages_per_split,
+                "overlap_pages": overlap_pages,
+                "page_selection": page_selection
             }
-        }
-        logger.debug(json.dumps(debug_context))
 
-        job_id = async_job_service.submit_job(
-            job_type=JobType.DOCUMENT_PROCESSING,
-            parameters=job_parameters,
-            priority=JobPriority.NORMAL
-        )
-
-        # Store job ID in session state for monitoring
-        session_state.processing_job_id = job_id
-
-        # DEBUG: [DEBUG_20251003_PDF_PARSE] - Job submitted successfully
-        debug_context = {
-            "timestamp": datetime.now().isoformat(),
-            "level": "INFO",
-            "component": "document_processing_service",
-            "message": "Job submitted successfully",
-            "context": {
-                "project_id": project_id,
-                "job_id": job_id,
-                "document_count": len(document_ids_to_parse)
-            }
-        }
-        logger.debug(json.dumps(debug_context))
-
-        st.success(f"✅ Parsing job submitted successfully! Job ID: {job_id}")
-        
-        # Monitor job synchronously in-view (Wizard-style)
-        success = monitor_job_synchronously(job_id, success_text="Document parsing completed!")
-        
-        if success:
-            # Set flag for auto-refresh
-            session_state.job_just_completed = True
+            # Submit job
+            job_id = unified_job_service._submit_job(
+                job_type=JobType.DOCUMENT_PROCESSING,
+                parameters=job_parameters,
+                priority=JobPriority.NORMAL,
+                user_id=user_id,
+                start_time=datetime.now()
+            )
             
-            # Reset file uploader component by incrementing key
-            if 'processing_upload_key' in st.session_state:
-                st.session_state.processing_upload_key += 1
-                
-            st.rerun()  # Refresh to show updated document status
+            if job_id:
+                job_ids.append(job_id)
+                logger.info(f"Submitted parse job {job_id} for document {doc_id}")
+            else:
+                st.error(f"❌ Failed to submit job for document {doc_id}")
+
+        if not job_ids:
+            st.error("❌ Failed to submit any parsing jobs")
+            return
+
+        # Monitor all jobs
+        st.info(f"📋 Submitted {len(job_ids)} parsing jobs. Monitoring progress...")
+        
+        all_success = True
+        failed_jobs = []
+        
+        for job_id in job_ids:
+            result = unified_job_service._monitor_job(
+                job_id=job_id,
+                start_time=datetime.now(),
+                status_text=st.empty(),
+                job_id_text=st.empty(),
+                timeout=1800,  # 30 minutes per job
+                poll_interval=3
+            )
+            
+            if not result.success:
+                all_success = False
+                failed_jobs.append({"job_id": job_id, "error": result.error_message})
+        
+        if all_success:
+            st.success(f"✅ Successfully parsed all {len(document_ids_to_parse)} document(s)!")
+            # Refresh to show updated document list
+            st.rerun()
+        else:
+            error_details = "\n".join([f"Job {j['job_id']}: {j['error']}" for j in failed_jobs])
+            st.error(f"❌ {len(failed_jobs)}/{len(job_ids)} parsing jobs failed:\n{error_details}")
 
     except Exception as e:
         # DEBUG: [DEBUG_20251003_PDF_PARSE] - Exception during parsing
-        logger.error(f"Exception during parsing job submission for project_id {project_id}: {e}", exc_info=True)
+        logger.error(f'{{"timestamp": "{datetime.now().isoformat()}", "level": "ERROR", "component": "document_processing_service", "message": "Exception during parsing job submission", "context": {{"project_id": {project_id}, "error": "{str(e)}"}}}}')
         st.error(f"Error during document parsing job submission: {e}")
+        logger.debug(f"GUI DEBUG: Exception during parsing job submission: {e}")
+        import traceback
+        logger.debug(f"GUI DEBUG: Traceback: {traceback.format_exc()}")
 
 
 def chunk_parsed_documents(project_id: int, parsed_docs: List[dict], chunker: str, chunk_strategy: str,
@@ -232,6 +257,11 @@ def chunk_parsed_documents(project_id: int, parsed_docs: List[dict], chunker: st
             document_ids = [doc["id"] for doc in parsed_docs]
             st.info(f"🚀 Submitting chunking job for {len(document_ids)} documents...")
 
+        user_id = _get_user_id()
+        if not user_id:
+            st.error("❌ You must be logged in to chunk documents.")
+            return
+
         job_parameters = {
             "operation": "chunk_documents",
             "project_id": project_id,
@@ -250,24 +280,26 @@ def chunk_parsed_documents(project_id: int, parsed_docs: List[dict], chunker: st
             "sliding_window": sliding_window
         }
 
-        job_id = async_job_service.submit_job(
+        # Use unified job service for submission and monitoring
+        result = unified_job_service.submit_and_monitor(
             job_type=JobType.DOCUMENT_PROCESSING,
             parameters=job_parameters,
-            priority=JobPriority.NORMAL
+            priority=JobPriority.NORMAL,
+            user_id=user_id,
+            title=f"Chunking {len(document_ids)} Document(s)",
+            timeout=3600,  # 60 minutes
+            poll_interval=3
         )
 
-        st.success(f"✅ Chunking job submitted successfully! Job ID: {job_id}")
-        
-        # Monitor job synchronously in-view (Wizard-style)
-        success = monitor_job_synchronously(job_id, success_text="Document chunking completed!")
-        
-        if success:
-            # Set flag for auto-refresh
-            session_state.job_just_completed = True
-            st.rerun()  # Refresh to show updated document status
+        if result.success:
+            st.success(f"✅ Successfully chunked {len(document_ids)} document(s)!")
+            # Refresh to show updated chunks
+            st.rerun()
+        else:
+            st.error(f"❌ Chunking failed: {result.error_message}")
 
     except Exception as e:
-        st.error(f"Error during document chunking job submission: {e}")
+        st.error(f"Error during document chunking: {e}")
 
 
 # REMOVED: Legacy process_documents function

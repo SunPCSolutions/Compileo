@@ -1,14 +1,13 @@
 import json
+import logging
 from typing import List, Dict, Any, Tuple
 from .engine import chunk_document
 from .schema import ChunkingStrategy
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 class SlidingWindowChunker:
     """Processes parsed document chunks with semantic overlap context"""
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         pass  # No parameters needed for current semantic chunking architecture
 
     def chunk_large_document(self, markdown_files: List[str], strategy: ChunkingStrategy) -> List[str]:
@@ -35,7 +34,7 @@ class SlidingWindowChunker:
                     chunk_data = json.load(f)
                     chunks.append(chunk_data)
             except Exception as e:
-                logger.warning(f"Failed to load JSON chunk file {file_path}: {e}")
+                self.logger.warning(f"WARNING: Failed to load JSON chunk file {file_path}: {e}")
                 continue
         return chunks
 

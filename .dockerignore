@@ -48,9 +48,6 @@ storage/
 *.sqlite
 *.sqlite3
 
-# HuggingFace model cache
-src/compileo/features/ingestion/hf_models/
-
 # Logs
 *.log
 logs/

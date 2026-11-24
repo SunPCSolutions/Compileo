@@ -12,7 +12,6 @@ from typing import Dict, Any, List, Optional
 import time
 import json
 
-from src.compileo.features.gui.services.job_monitoring_service import monitor_job_synchronously
 from .enhanced_job_queue import perform_health_check, cleanup_old_jobs
 from .models import JobStatus, JobPriority, JobType
 
@@ -29,9 +28,13 @@ class JobManagementView:
         st.title("🔄 Job Queue Management")
         st.markdown("Monitor, manage, and analyze background extraction jobs")
 
-        # Manual refresh button
-        if st.button("🔄 Refresh Dashboard", type="secondary", width='stretch'):
-            st.rerun()
+        # Auto-refresh toggle at the top level (outside tabs)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            auto_refresh = st.checkbox("Auto-refresh every 5 seconds", value=True)
+        with col2:
+            if st.button("🔄 Refresh Now"):
+                st.rerun()
 
         # Create tabs for different management sections
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -53,6 +56,11 @@ class JobManagementView:
 
         with tab5:
             self.render_analytics_tab()
+
+        # Auto-refresh logic at the page level (after all tabs are rendered)
+        if auto_refresh:
+            time.sleep(self.refresh_interval)
+            st.rerun()
 
     def render_overview_tab(self):
         """Render the overview dashboard."""
@@ -340,14 +348,25 @@ class JobManagementView:
         """Render job history and completed jobs."""
         st.header("Job History")
 
+        # Get current user from session state
+        try:
+            from ..gui.state.session_state import session_state
+            owner_id = session_state.user_id
+        except:
+            owner_id = None
+        
+        if not owner_id:
+            st.error("Unable to retrieve job history - user not authenticated")
+            return
+
         # Filters
         col1, col2, col3 = st.columns(3)
 
         with col1:
             status_filter = st.multiselect(
                 "Status",
-                [e.value for e in JobStatus],
-                default=[JobStatus.COMPLETED.value, JobStatus.FAILED.value]
+                ["completed", "failed"],
+                default=["completed", "failed"]
             )
 
         with col2:
@@ -356,16 +375,52 @@ class JobManagementView:
         with col3:
             days_back = st.selectbox("Time Range", [1, 7, 30, 90], index=1)
 
-        # Get historical jobs (this would need to be implemented)
-        # For now, show placeholder
-        st.info("Job history feature requires database integration for completed jobs")
-
-        # Sample data for demonstration removed as per investigation
-        sample_history = []
-
-        if sample_history:
-            df = pd.DataFrame(sample_history)
-            st.dataframe(df, width='stretch')
+        # Fetch job history from database using the service
+        try:
+            from ..gui.services.job_history_service import get_job_history_service
+            history_service = get_job_history_service(owner_id)
+            
+            # Get formatted job history
+            formatted_jobs = history_service.get_formatted_jobs(limit=100)
+            
+            if not formatted_jobs:
+                st.info("No job history found. Complete or fail some jobs to see them here.")
+                return
+            
+            # Filter by status if specified
+            if status_filter:
+                formatted_jobs = [job for job in formatted_jobs 
+                                  if job.get('status_raw') in status_filter]
+            
+            # Filter by job type if specified
+            if type_filter != "all":
+                formatted_jobs = [job for job in formatted_jobs 
+                                  if job.get('job_type_raw') == type_filter]
+            
+            # Format data for display
+            history_data = []
+            for job in formatted_jobs:
+                history_data.append({
+                    'Job ID': job['id'][:8] + "..." if len(job['id']) > 8 else job['id'],
+                    'Type': job.get('job_type', 'unknown'),
+                    'Status': job.get('status', 'unknown'),
+                    'Started': job['started_at'][:19] if job.get('started_at') else "N/A",
+                    'Completed': job['completed_at'][:19] if job.get('completed_at') else "N/A",
+                    'Duration': job.get('duration_display', 'N/A'),
+                    'Progress': f"{job.get('progress', 0):.0f}%"
+                })
+            
+            if history_data:
+                df = pd.DataFrame(history_data)
+                st.dataframe(df, width='stretch', use_container_width=True)
+                st.caption(f"Showing {len(history_data)} job history entries")
+            else:
+                st.info("No job history entries match the current filters.")
+                
+        except Exception as e:
+            st.error(f"Error loading job history: {e}")
+            import logging
+            logging.getLogger(__name__).error(f"Error in render_job_history_tab: {e}", exc_info=True)
 
     def render_management_tab(self):
         """Render job management controls."""
@@ -455,9 +510,6 @@ class JobManagementView:
                         st.error("Failed to submit job - job queue manager not available.")
 
                     st.success(f"Job submitted successfully: {job_id}")
-                    
-                    # Monitor the submitted job synchronously
-                    monitor_job_synchronously(job_id)
 
                 except json.JSONDecodeError:
                     st.error("Invalid JSON in parameters")
@@ -508,7 +560,7 @@ class JobManagementView:
             names=job_types,
             title="Jobs by Type"
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         # Success rates
         st.subheader("Success Rates by Job Type")
@@ -526,7 +578,7 @@ class JobManagementView:
             color='Success Rate (%)',
             color_continuous_scale='RdYlGn'
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         # Performance metrics
         st.subheader("Average Job Duration")
@@ -544,7 +596,7 @@ class JobManagementView:
             color='Duration (seconds)',
             color_continuous_scale='Blues'
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         # System performance over time (placeholder)
         st.subheader("System Performance Trends")
@@ -569,7 +621,7 @@ class JobManagementView:
             y=['CPU Usage (%)', 'Memory Usage (MB)', 'Active Jobs'],
             title="System Performance Over Time"
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         # Export options
         st.subheader("Export Analytics")

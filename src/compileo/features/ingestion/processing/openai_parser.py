@@ -20,17 +20,16 @@ def analyze_document_structure(file_path: str, api_key: Optional[str] = None, mo
         from .image_utils import convert_pdf_to_optimized_images
         import io
         
-        # Get API key (logic copied from parse function)
+        # Get API key
         if api_key is None:
-            from ....core.settings import backend_settings
-            api_key = backend_settings.get_openai_api_key() or os.environ.get("OPENAI_API_KEY")
-            if not api_key: return ""
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                return ""
 
         client = OpenAI(api_key=api_key)
         
         if model is None:
-            from ....core.settings import backend_settings
-            model = backend_settings.get_parsing_openai_model() or "gpt-4o"
+            model = "gpt-4o"
 
         if file_path.lower().endswith('.pdf'):
             # Convert ALL pages for analysis
@@ -101,22 +100,15 @@ def parse_document_with_openai(
 
         # Get API key
         if api_key is None:
-            # Fallback to environment variable or settings
-            from ....core.settings import backend_settings
-            api_key = backend_settings.get_openai_api_key()
-            
+            api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
-                api_key = os.environ.get("OPENAI_API_KEY")
-                
-            if not api_key:
-                raise ValueError("OpenAI API key not provided and not found in settings or environment.")
+                raise ValueError("OpenAI API key not provided and not found in environment.")
 
         client = OpenAI(api_key=api_key)
         
-        # Use provided model or get from settings (default to gpt-4o)
+        # Use provided model or default to gpt-4o
         if model is None:
-            from ....core.settings import backend_settings
-            model = backend_settings.get_parsing_openai_model() or "gpt-4o"
+            model = "gpt-4o"
 
         file_ext = os.path.splitext(file_path)[1].lower()
 

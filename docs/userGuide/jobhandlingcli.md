@@ -6,6 +6,71 @@ The Compileo Job Handling CLI provides tools for monitoring and managing backgro
 
 ---
 
+## Job History Management
+
+### View Job History
+
+Jobs are automatically persisted to the database throughout their lifecycle:
+- **Pending**: Job created and waiting in queue
+- **Running**: Job currently executing
+- **Completed**: Job finished successfully (archived to history)
+- **Failed**: Job failed with error (archived to history)
+
+View job history through the GUI Job Dashboard → Job History tab, or via API endpoints.
+
+### Configure Job History Retention
+
+### `compileo config retention [OPTIONS]`
+
+Manage how long job history entries are retained in the database.
+
+**Show Current Settings:**
+```bash
+compileo config retention --show
+```
+
+**Example Output:**
+```
+📅 Job History Retention Settings:
+   Current retention period: 90 days
+   Default: 90 days
+   Range: 1-365 days
+```
+
+**Update Retention Period:**
+```bash
+# Set retention to 60 days
+compileo config retention --days 60
+
+# Set retention to 1 year (365 days)
+compileo config retention --days 365
+```
+
+**Example Output:**
+```
+✅ Successfully updated job history retention to 60 days
+```
+
+**Run Cleanup:**
+```bash
+# Clean up old entries based on current settings
+compileo config retention --cleanup
+```
+
+**Example Output:**
+```
+🧹 Running job history cleanup...
+✅ Cleanup completed successfully
+   Removed: 25 old job history entries
+```
+
+**Notes:**
+- Retention period must be between 1 and 365 days
+- Cleanup removes entries older than the retention period
+- This setting is per-user (multi-tenant isolation)
+
+---
+
 ## Get Job Status
 
 ### `compileo jobs status <job_id>`

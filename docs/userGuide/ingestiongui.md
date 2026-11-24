@@ -2,11 +2,6 @@
 
 The Compileo Ingestion GUI provides an intuitive web interface for document parsing and processing. This guide covers the document upload, parsing, and PDF splitting features available in the GUI.
 
-<div align="center">
-  <a href="../../img/DocumentProcessing.png"><img src="../../img/DocumentProcessing.png" width="400" alt="Intelligent Document Processing Workflow"></a>
-  <p><i>Intelligent Document Processing Workflow</i></p>
-</div>
-
 ## Accessing Document Processing
 
 Navigate to the **"📄 Document Processing"** tab from the main menu. The interface provides comprehensive document management capabilities.
@@ -29,9 +24,9 @@ Before working with documents, select a project from the dropdown at the top of 
 
 1. **Upload Interface**:
    - Click "Browse files" or drag-and-drop documents onto the upload area
-   - **Supported Formats**: PDF, DOCX, DOC, TXT, MD, CSV, JSON, XML, Images (PNG, JPEG, WEBP)
+   - **Supported Formats**: PDF, DOCX, DOC, TXT, MD, CSV, JSON, XML, images (PNG, JPEG, WEBP)
    - **Multiple Files**: Upload several documents simultaneously
-   - **File Size Limits**: Maximum 200MB per file
+   - **File Size Limits**: Maximum 100MB per file
 
 2. **Website Scraping** (if plugin installed):
    - If the Scrapy-Playwright plugin is installed, a toggle will appear to select between "Upload" and "Website" mode.
@@ -42,21 +37,26 @@ Before working with documents, select a project from the dropdown at the top of 
 3. **PDF Splitting Configuration** (appears after file selection):
    - **Pages per Split**: Number of pages per PDF chunk (default: 5, recommended: 5-10)
    - **Overlap Pages**: Overlapping pages between chunks for context continuity (default: 0)
+   - **Page Selection** (optional): Define specific pages to process instead of the entire document
+     - Supports single pages (`1`), ranges (`1-20`), and batches (`1, 1-20, 30-120`)
+     - Leave empty to process all pages
+     - Only applies to PDF documents
    - **Purpose**: Automatically splits large PDFs to prevent AI token limit issues
+     and allows selective processing of specific page ranges for faster, targeted parsing
 
 ### Parser Selection
 
-The GUI features **Reactive Parser Filtering**. When you upload files, the system automatically detects their types and restricts the available parsers to only those capable of processing your specific documents.
+Choose from available AI parsing models:
 
-| Parser | Best For | Supported Formats | API Key |
-|--------|----------|-------------------|---------|
-| **gemini** | Complex layouts, Vision | PDF, TXT, MD, CSV, Images | Yes |
-| **grok** | Technical PDFs | PDF | Yes |
-| **ollama** | Local processing | PDF, TXT, MD | No |
-| **pypdf** | Simple extraction | PDF | No |
-| **unstructured**| Office, MD, Data | **ALL** (DOCX, CSV, XML, etc.) | No |
-| **huggingface** | Advanced OCR | PDF | Yes |
-| **novlm** | Smart routing | **ALL** (Auto-selects best engine) | No |
+| Parser | Best For | API Key Required | Speed | Quality |
+|--------|----------|------------------|-------|---------|
+| **gemini** | Complex layouts, images | Yes | Medium | Excellent |
+| **grok** | Technical content | Yes | Medium | Excellent |
+| **ollama** | Local processing | No | Fast | Good |
+| **pypdf** | Simple text extraction | No | Fastest | Basic |
+| **unstructured** | Office documents | No | Fast | Good |
+| **huggingface** | OCR, scanned docs | Yes | Slow | Excellent |
+| **novlm** | Auto-selection | No | Variable | Good |
 
 **Ollama Configuration**: When using Ollama parsers, fine-tune AI behavior in Settings → AI Model Configuration with parameters like temperature, repeat penalty, and token limits.
 
@@ -256,7 +256,7 @@ These parsers use a **Two-Pass Strategy** (Skim + Parse) for superior structure 
 ### Common Upload Issues
 
 **File Size Limits**:
-- Maximum 200MB per file (configurable via GUI Settings)
+- Maximum 100MB per file
 - Large PDFs are automatically split, but consider pre-splitting very large files
 - Check available disk space before large uploads
 
@@ -275,12 +275,6 @@ These parsers use a **Two-Pass Strategy** (Skim + Parse) for superior structure 
 - Ensure PDF files are not corrupted or password-protected
 - Try different parsers for problematic documents
 - Check file encoding for text-based documents
-
-**HuggingFace Model Download Issues**:
-- The Nanonets-OCR2-3B model is large (~6GB) and can hang during download in certain Docker network environments.
-- **Symptoms**: Parsing jobs "hang" at the model loading stage without errors, or SSL connection errors appear in logs.
-- **Solution**: Pre-populate the `compileo_hf_models` Docker volume by manually copying model weights if download issues persist.
-- **GPU Driver Mismatch**: If HuggingFace defaults to CPU, ensure your host NVIDIA driver supports CUDA 13.0.
 
 **Memory Issues**:
 - Large documents may require more system memory

@@ -6,9 +6,9 @@ from typing import Dict, Any, Optional, List, Callable, Set, Tuple, Union
 from datetime import datetime, timedelta
 import uuid
 import json
+import logging
 import time
 import threading
-from ...core.logging import get_logger
 import psutil
 import os
 from dataclasses import dataclass, field
@@ -22,7 +22,7 @@ from .models import (
     EnhancedExtractionJob
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class QueueProcessor:
@@ -207,6 +207,7 @@ class QueueProcessor:
 
         except Exception as e:
             logger.error(f"Failed to start queued job {job.job_id}: {e}")
+            logger.debug(f"DEBUG_QUEUE_PROCESSOR: Failed to start job {job.job_id}: {e}")
             job.status = JobStatus.PENDING  # Reset status
             # Save reset status to Redis
             if hasattr(queue, 'redis'):

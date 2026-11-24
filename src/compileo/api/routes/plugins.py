@@ -1,16 +1,18 @@
+import logging
 import shutil
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from src.compileo.features.plugin.manager import plugin_manager
+from ..core.dependencies import get_current_active_user, get_current_admin_user
+from ..models.user import User as UserSchema
 
 router = APIRouter()
-
-from ..middleware.logging import logger
+logger = logging.getLogger(__name__)
 
 # Dynamically load plugin routers
 try:
@@ -29,19 +31,29 @@ class PluginInfo(BaseModel):
     description: str
     entry_point: str
     extensions: Dict[str, Dict[str, str]]
+    owner_id: Optional[str] = None
 
 @router.get("/", response_model=List[PluginInfo])
-async def list_plugins():
+async def list_plugins(current_user: UserSchema = Depends(get_current_active_user)):
     """
     List all installed plugins.
     """
+    logger.debug(f"DEBUG: list_plugins called by user {current_user.id} (admin: {current_user.is_admin})")
     try:
-        return plugin_manager.get_all_plugins()
+        # For non-admins, filter by owner_id. For admins, show all.
+        owner_id = current_user.id if not current_user.is_admin else None
+        plugins = plugin_manager.get_all_plugins(owner_id=owner_id)
+        logger.debug(f"DEBUG: Found {len(plugins)} plugins")
+        return plugins
     except Exception as e:
+        logger.debug(f"DEBUG: Error listing plugins: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/upload")
-async def upload_plugin(file: UploadFile = File(...)):
+async def upload_plugin(
+    file: UploadFile = File(...),
+    current_user: UserSchema = Depends(get_current_active_user)
+):
     """
     Upload and install a plugin from a zip file.
     """
@@ -55,7 +67,7 @@ async def upload_plugin(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
         
         # Install plugin
-        plugin_id = plugin_manager.install_plugin(str(temp_zip_path))
+        plugin_id = plugin_manager.install_plugin(str(temp_zip_path), owner_id=current_user.id)
         
         return {"status": "success", "message": f"Plugin {plugin_id} installed successfully", "plugin_id": plugin_id}
         
@@ -69,7 +81,7 @@ async def upload_plugin(file: UploadFile = File(...)):
             os.remove(temp_zip_path)
 
 @router.get("/dataset-formats")
-async def get_dataset_formats():
+async def get_dataset_formats(current_user: UserSchema = Depends(get_current_active_user)):
     """
     Get all available dataset output formats, including built-in and plugin formats.
     """
@@ -78,7 +90,8 @@ async def get_dataset_formats():
         formats = ["jsonl", "parquet", "json"]
 
         # Add plugin formats
-        plugin_formats = plugin_manager.get_extensions("compileo.datasetgen.formatter")
+        owner_id = current_user.id if not current_user.is_admin else None
+        plugin_formats = plugin_manager.get_extensions("compileo.datasetgen.formatter", owner_id=owner_id)
         formats.extend(plugin_formats.keys())
 
         return {"formats": formats}
@@ -86,12 +99,20 @@ async def get_dataset_formats():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{plugin_id}")
-async def uninstall_plugin(plugin_id: str):
+async def uninstall_plugin(
+    plugin_id: str,
+    current_user: UserSchema = Depends(get_current_active_user)
+):
     """
     Uninstall a plugin by ID.
     """
     try:
-        success = plugin_manager.uninstall_plugin(plugin_id)
+        # Check ownership
+        plugin = plugin_manager.get_plugin(plugin_id)
+        if plugin and plugin.get('owner_id') != current_user.id and not current_user.is_admin:
+             raise HTTPException(status_code=403, detail="Access denied")
+
+        success = plugin_manager.uninstall_plugin(plugin_id, current_user.id)
         if not success:
             raise HTTPException(status_code=404, detail="Plugin not found")
         return {"status": "success", "message": f"Plugin {plugin_id} uninstalled"}

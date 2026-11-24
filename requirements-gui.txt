@@ -11,6 +11,7 @@ matplotlib>=3.6.0
 # Additional Streamlit components
 streamlit-extras>=0.3.0
 streamlit-aggrid>=0.3.0
+extra-streamlit-components>=0.1.71
 
 # HTTP client (for API calls)
 httpx>=0.25.0

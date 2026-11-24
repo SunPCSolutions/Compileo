@@ -7,7 +7,7 @@ The Compileo GUI provides a user-friendly web interface for document processing,
 ## Getting Started
 
 ### Prerequisites
-- Running Compileo API server (`uvicorn src.compileo.api.main:app --host 0.0.0.0 --port 8000`)
+- Running Compileo API server (`python -m src.compileo.api.main`)
 - API keys configured for AI services (Gemini, Grok, etc.)
 - At least one project created
 
@@ -59,9 +59,10 @@ Upload new documents and parse existing ones into a clean markdown format.
 #### Workflow
 1. **Select Project**: Choose the target project.
 2. **Upload Files**: Upload new documents (PDF, DOCX, TXT, etc.).
-3. **Select Parser**: Choose the parsing engine (`gemini`, `grok`, `ollama`, `pypdf`, `unstructured`, `huggingface`, `novlm`).
-4. **Select Documents**: Check the boxes next to the documents you want to parse.
-5. **Parse**: Click the "Parse Documents" button. A job will be submitted to the background queue, and you can monitor its progress in the Job Queue sidebar or the dedicated Job Management page.
+3. **Configure Pagination** (optional): Set pages per split, overlap, and page selection for PDFs.
+4. **Select Parser**: Choose the parsing engine (`gemini`, `grok`, `ollama`, `pypdf`, `unstructured`, `huggingface`, `novlm`).
+5. **Select Documents**: Check the boxes next to the documents you want to parse.
+6. **Parse**: Click the "Parse Documents" button. A job will be submitted to the background queue, and you can monitor its progress in the Job Queue sidebar or the dedicated Job Management page.
 
 ### Pre-Parsing PDF Splitter
 
@@ -74,8 +75,17 @@ For very large PDF documents (e.g., thousands of pages), direct parsing by AI mo
 - An **overlap of 1 page** is included between consecutive split files. This overlap helps maintain content continuity, allowing downstream chunking and parsing processes to handle information that spans across the split boundaries effectively.
 - The split files are named sequentially (e.g., `original_document_name_1.pdf`, `original_document_name_2.pdf`).
 
+#### Page Selection
+You can optionally process only specific pages from a PDF instead of the entire document:
+- **Single page**: `1`
+- **Page range**: `1-20`
+- **Batch of ranges**: `1, 1-20, 30-120`
+- The selected pages are extracted into an intermediate PDF in the uploads directory before splitting and parsing.
+- Leave the field empty to process all pages.
+- The intermediate PDF is removed after parsing; split chunk PDFs and the manifest remain in the uploads directory.
+
 #### How it Works
-When you upload a large PDF or initiate a parsing job for one, the system first checks its page count. If it exceeds the 200-page threshold, the splitter automatically creates the smaller PDF files. These smaller files are then processed sequentially by the chosen parsing engine. From the user's perspective, this process is largely transparent, ensuring reliable parsing of even the largest documents.
+When you upload a large PDF or initiate a parsing job for one, the system first checks its page count. If you specified a page selection, the selected pages are extracted into an intermediate PDF in the uploads directory. If the PDF (or extracted subset) exceeds the 200-page threshold, the splitter automatically creates smaller PDF files. These smaller files are then processed sequentially by the chosen parsing engine. The intermediate PDF is removed after parsing; chunk files and manifest remain. From the user's perspective, this process is largely transparent, ensuring reliable parsing of even the largest documents.
 
 ### Configure & Chunk Documents Tab
 
@@ -350,7 +360,15 @@ Define the target audience and purpose for more relevant content:
 - **Domain**: Knowledge area (e.g., "cardiology", "machine learning")
 
 #### Dataset Size Control
-- **Datasets per Chunk**: Number of entries to generate per document chunk (1-10)
+- **Entries per Chunk**: Number of dataset entries to generate per document chunk (0-50). Set to `0` for "Let AI Decide" mode where the AI determines the appropriate number based on content richness.
+
+**"Let AI Decide" Mode:**
+When set to `0`, the AI analyzes content density and generates an optimal number of entries:
+- **Sparse/simple content** → 1-3 entries
+- **Moderate content** → 3-7 entries
+- **Rich/comprehensive content** → 7-15+ entries
+
+This mode is recommended for documents with varying content density where a fixed number may be suboptimal.
 
 #### Data Source Modes
 
@@ -392,22 +410,22 @@ Define the target audience and purpose for more relevant content:
 Comprehensive guided workflow for dataset generation with flexible navigation, automatic processing, and complete AI model selection.
 
 ### Key Features
-- **5-Step Guided Process**: From project selection to review & generate
-- **Flexible Navigation**: Click any step tab to navigate non-linearly. Most steps are "resume-ready" and retrieve state directly from the database.
+- **6-Step Guided Process**: From project selection to dataset generation
+- **Flexible Navigation**: Click any step tab to navigate non-linearly
 - **Automatic File Upload**: Drag-and-drop with immediate processing
 - **Complete AI Model Selection**: 4-model configuration (parsing, chunking, classification, generation)
 - **Full Chunking Strategy Parity**: All Document Processing tab strategies available
-- **Database-Mediated Workflow**: UI state is synchronized with the database, allowing progress to survive session resets.
 - **Smart Data Source Selection**: Automatic taxonomy/chunks fallback
 - **Document Management**: Upload and delete capabilities with error correction
 - **Real-time Progress Monitoring**: Live job tracking with detailed status updates
 
 ### Steps
 1. **Project Selection**: Choose or create project with statistics display
-2. **Parse & Chunk & Taxonomy**: Automated end-to-end processing. Upload documents, select models and chunking strategy, then initiate the full pipeline from parsing to automatic taxonomy generation.
-3. **Edit Taxonomy**: Reactive simplified editor for picking and refining taxonomy structures. Supports renaming and real-time category management.
-4. **Generation Parameters**: Configure generation mode, output format, quality settings, and high-level prompt parameters (Audience, Purpose, Complexity, Domain).
-5. **Review & Generate**: Comprehensive configuration summary and background job execution with progress monitoring.
+2. **Document Upload**: Automatic upload with delete capability and existing document detection
+3. **Processing Configuration**: AI models, chunking strategies, and document selection
+4. **Taxonomy Selection**: Browse/generate taxonomies (optional, with chunks fallback)
+5. **Generation Parameters**: Mode, format, quality settings, and custom prompts
+6. **Review & Generate**: Configuration summary and background job execution
 
 ### Navigation Features
 - **Clickable Step Tabs**: Navigate to any completed step or future steps
@@ -545,7 +563,7 @@ For users with existing processed content:
 ### Common Issues
 
 #### "GUI is frozen during processing"
-- This issue has been resolved with the **Synchronous In-View Monitoring** system. While the interface "waits" for your specific job to complete to show you the result, it does so using non-blocking placeholders. This prevents the entire page from flickering or resetting your scroll position, providing a smooth and stable experience.
+- This issue has been resolved with the new asynchronous job queuing system. All long-running operations now run in the background, keeping the GUI responsive. You can monitor job progress in the Job Queue sidebar or the Job Management page.
 
 #### "Job stuck in pending/running"
 - Check the Job Queue sidebar or Job Management page for detailed status.
@@ -613,7 +631,7 @@ data = {
     "project_id": 123,
     "generation_mode": "default",
     "custom_audience": "medical residents",
-    "datasets_per_chunk": 3
+    "datasets_per_chunk": 3  # Use 0 for "Let AI Decide" mode
 }
 
 response = requests.post("http://localhost:8000/api/v1/datasets/generate", json=data)
@@ -622,7 +640,6 @@ response = requests.post("http://localhost:8000/api/v1/datasets/generate", json=
 ## Support and Resources
 
 - **Documentation**: Check `docs/` folder for detailed guides
-- **Logging System**: See [Logging System Guide](logging.md) for details on log levels and configuration.
 - **CLI Reference**: See `docs/parametersTree.md` for command-line options
 - **API Documentation**: Available at `http://localhost:8000/docs` when API server is running
 - **Logs**: Check terminal output for detailed error messages
@@ -637,5 +654,5 @@ response = requests.post("http://localhost:8000/api/v1/datasets/generate", json=
 6. **Relationship Analysis**: Review discovered relationships to improve taxonomy and extraction quality
 7. **Q&A Customization**: Use domain-specific templates and customize prompts for your target audience
 8. **Quality Assurance**: Always validate extraction results and generated datasets before production use
-9. **Synchronous Monitoring**: Trust the in-view status messages for newly started jobs; they are more accurate than simple percentage bars.
-10. **Scalable Processing**: Monitor resource usage in the Job Management dashboard and adjust batch sizes for optimal performance.
+9. **Scalable Processing**: Monitor resource usage and adjust batch sizes for optimal performance
+10. **Iterative Improvement**: Use extraction results to refine taxonomies and improve future extractions

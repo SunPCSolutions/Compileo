@@ -3,6 +3,8 @@ import requests
 import json
 import os
 import re
+import random
+import time
 from typing import Optional, List, Tuple
 from PIL import Image
 import base64
@@ -63,14 +65,26 @@ def _normalize_markdown_spacing(content: str) -> str:
 
     return content.strip()
 
-def query_grok_vlm(prompt, image=None, images: Optional[List[Image.Image]] = None, model: Optional[str] = None):
+def query_grok_vlm(
+    prompt,
+    image=None,
+    images: Optional[List[Image.Image]] = None,
+    model: Optional[str] = None,
+    api_key: Optional[str] = None,
+    max_retries: int = 3,
+    request_timeout_seconds: int = 120,
+):
     """
     Sends a prompt and image(s) to the Grok VLM and returns the response.
+
+    Includes bounded retries with exponential backoff + jitter and per-request
+    timeout so a single network stall cannot hang the whole parsing pipeline.
     """
-    from ....core.settings import backend_settings
-    api_key = backend_settings.get_setting("grok_api_key")
     if not api_key:
-        raise ValueError("Grok API key not configured in settings.")
+        # Fallback to environment variable if not provided directly
+        api_key = os.environ.get("GROK_API_KEY")
+    if not api_key:
+        raise ValueError("Grok API key not provided and not found in environment.")
 
     api_url = "https://api.x.ai/v1/chat/completions"
 
@@ -113,61 +127,102 @@ def query_grok_vlm(prompt, image=None, images: Optional[List[Image.Image]] = Non
         "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(api_url, json=request_data, headers=headers)
-        response.raise_for_status()
+    retryable_status_codes = {408, 429, 500, 502, 503, 504}
 
-        response_json = response.json()
-        markdown_content = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.debug(
+                f"Grok request attempt {attempt}/{max_retries} "
+                f"(timeout={request_timeout_seconds}s, model={model})"
+            )
 
-        # Clean the response
-        if markdown_content:
-            # Remove common prompt artifacts
-            prompt_artifacts = [
-                "You are an expert document structure analyst and markdown conversion specialist",
-                "CHAIN OF THOUGHT PROCESSING:",
-                "CRITICAL STRUCTURAL REQUIREMENTS:",
-                "CONTENT PRESERVATION RULES:",
-                "OUTPUT QUALITY ASSURANCE:",
-                "<document>",
-                "</document>",
-                "Convert the text within <document> tags",
-                "Return only the markdown content",
-                "Convert the above document to clean, structured markdown"
-            ]
+            response = requests.post(
+                api_url,
+                json=request_data,
+                headers=headers,
+                timeout=request_timeout_seconds,
+            )
+            response.raise_for_status()
 
-            for artifact in prompt_artifacts:
-                if artifact in markdown_content:
-                    parts = markdown_content.split(artifact, 1)
-                    if len(parts) > 1:
-                        markdown_content = parts[1].strip()
+            response_json = response.json()
+            markdown_content = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-            # Also clean up any leading/trailing instruction text
-            lines = markdown_content.split('\n')
-            cleaned_lines = []
-            for line in lines:
-                line = line.strip()
-                if not any(instruction in line.upper() for instruction in [
-                    'PRESERVE', 'CONVERT', 'RETURN ONLY', 'EXTRACTED TEXT', 'CRITICAL', 'IMPORTANT:',
-                    'CONTENT TO CONVERT', 'OUTPUT INSTRUCTION', 'YOU ARE', '<DOCUMENT>', '</DOCUMENT>',
-                    'CHAIN OF THOUGHT', 'STRUCTURAL REQUIREMENTS', 'QUALITY ASSURANCE', 'ANALYSIS:',
-                    'PROCESSING:', 'ASSURANCE:', 'HIERARCHY', 'CONSISTENT'
-                ]):
-                    cleaned_lines.append(line)
+            # Clean the response
+            if markdown_content:
+                # Remove common prompt artifacts
+                prompt_artifacts = [
+                    "You are an expert document structure analyst and markdown conversion specialist",
+                    "CHAIN OF THOUGHT PROCESSING:",
+                    "CRITICAL STRUCTURAL REQUIREMENTS:",
+                    "CONTENT PRESERVATION RULES:",
+                    "OUTPUT QUALITY ASSURANCE:",
+                    "<document>",
+                    "</document>",
+                    "Convert the text within <document> tags",
+                    "Return only the markdown content",
+                    "Convert the above document to clean, structured markdown"
+                ]
 
-            markdown_content = '\n'.join(cleaned_lines).strip()
+                for artifact in prompt_artifacts:
+                    if artifact in markdown_content:
+                        parts = markdown_content.split(artifact, 1)
+                        if len(parts) > 1:
+                            markdown_content = parts[1].strip()
 
-        if not markdown_content:
-            error_msg = f"Error: Grok API returned empty response for image"
+                # Also clean up any leading/trailing instruction text
+                lines = markdown_content.split('\n')
+                cleaned_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if not any(instruction in line.upper() for instruction in [
+                        'PRESERVE', 'CONVERT', 'RETURN ONLY', 'EXTRACTED TEXT', 'CRITICAL', 'IMPORTANT:',
+                        'CONTENT TO CONVERT', 'OUTPUT INSTRUCTION', 'YOU ARE', '<DOCUMENT>', '</DOCUMENT>',
+                        'CHAIN OF THOUGHT', 'STRUCTURAL REQUIREMENTS', 'QUALITY ASSURANCE', 'ANALYSIS:',
+                        'PROCESSING:', 'ASSURANCE:', 'HIERARCHY', 'CONSISTENT'
+                    ]):
+                        cleaned_lines.append(line)
+
+                markdown_content = '\n'.join(cleaned_lines).strip()
+
+            if not markdown_content:
+                error_msg = "Error: Grok API returned empty response for image"
+                logger.error(error_msg)
+                return error_msg
+
+            return markdown_content
+
+        except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError) as e:
+            status_code = None
+            if isinstance(e, requests.exceptions.RequestException):
+                response_obj = getattr(e, "response", None)
+                status_code = getattr(response_obj, "status_code", None)
+
+            is_timeout_or_connection = isinstance(
+                e,
+                (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+            )
+            is_retryable_http = status_code in retryable_status_codes if status_code is not None else False
+            should_retry = attempt < max_retries and (is_timeout_or_connection or is_retryable_http)
+
+            if should_retry:
+                backoff_seconds = (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                logger.warning(
+                    f"Grok API call failed on attempt {attempt}/{max_retries} "
+                    f"(status={status_code}, error={e}). Retrying in {backoff_seconds:.2f}s"
+                )
+                time.sleep(backoff_seconds)
+                continue
+
+            error_msg = (
+                f"Error: Grok API call failed after {attempt} attempt(s)"
+                f" (status={status_code}, timeout={request_timeout_seconds}s): {str(e)}"
+            )
             logger.error(error_msg)
             return error_msg
 
-        return markdown_content
-
-    except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError) as e:
-        error_msg = f"Error: Grok API call failed: {str(e)}"
-        logger.error(error_msg)
-        return error_msg
+    error_msg = f"Error: Grok API call failed after {max_retries} attempts"
+    logger.error(error_msg)
+    return error_msg
 
 def analyze_document_structure(pdf_path: str, api_key: Optional[str] = None, model: Optional[str] = None) -> str:
     """
@@ -180,8 +235,8 @@ def analyze_document_structure(pdf_path: str, api_key: Optional[str] = None, mod
             raise ValueError("GROK_API_KEY environment variable not set or api_key parameter not provided.")
 
     try:
-        # Convert PDF to images (Use DPI=300 as requested)
-        images = convert_pdf_to_optimized_images(pdf_path, dpi=300, max_dimension=1024)
+        # Convert PDF to images (Use DPI=200 for consistency with Gemini)
+        images = convert_pdf_to_optimized_images(pdf_path, dpi=200, max_dimension=1024)
         
     except Exception as e:
         logger.error(f"Structure analysis failed: {e}")
@@ -202,7 +257,7 @@ Do not extract content."""
         try:
             logger.debug(f"Analyzing document structure ({len(images)} pages)...")
             # Send all images for analysis
-            response = query_grok_vlm(prompt, images=images, model=model)
+            response = query_grok_vlm(prompt, images=images, model=model, api_key=api_key)
             if response and "Error" not in response:
                 return response
         except Exception as e:
@@ -229,7 +284,7 @@ def parse_pdf_with_grok(
 
     # Convert PDF to optimized images
     try:
-        images = convert_pdf_to_optimized_images(pdf_path, dpi=300, max_dimension=1024)
+        images = convert_pdf_to_optimized_images(pdf_path, dpi=200, max_dimension=1024)
     except Exception as e:
         raise ValueError(f"Failed to process PDF file: {e}")
 
@@ -288,7 +343,7 @@ Output ONLY the converted markdown - nothing else, no additions, no modification
             prompt = f"Page {i+1} of {len(images)}: {prompt}"
 
         try:
-            markdown = query_grok_vlm(prompt, image=image, model=model)
+            markdown = query_grok_vlm(prompt, image=image, model=model, api_key=api_key)
             # Clean up the response - remove commentary and duplicate content
             if markdown and len(markdown.strip()) > 0:
                 markdown = _clean_response(markdown)

@@ -1,686 +1,258 @@
-from typing import Optional
+import logging
+from typing import Optional, Dict, Any, Union, List
 from src.compileo.storage.src.project.database_repositories import PromptRepository, DatasetParameterRepository
-from ...core.logging import get_logger
+from .constants import (
+    QA_RESPONSE_SCHEMA, QUESTION_GENERATION_SCHEMA, ANSWER_GENERATION_SCHEMA,
+    SUMMARIZATION_SCHEMA, build_json_instructions, DEFAULT_DATASET_PARAMS
+)
 
-logger = get_logger(__name__)
 
 class PromptBuilder:
-    """
-    Builds prompts by combining templates and dataset parameters.
-    """
-    def __init__(self, prompt_repository: PromptRepository, dataset_parameter_repository: DatasetParameterRepository):
-        """
-        Initializes the PromptBuilder.
-
-        Args:
-            prompt_repository: The repository for accessing prompt templates.
-            dataset_parameter_repository: The repository for accessing dataset parameters.
-        """
+    """Builds prompts by combining templates and dataset parameters."""
+    
+    def __init__(self, prompt_repository: PromptRepository, 
+                 dataset_parameter_repository: DatasetParameterRepository):
         self.prompt_repository = prompt_repository
         self.dataset_parameter_repository = dataset_parameter_repository
 
-    def build_prompt(self, project_id: int, prompt_name: str, chunk_text: Optional[str] = None,
-                    taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                    datasets_per_chunk: int = 3) -> str:
-        """
-        Builds a prompt by combining a template with dataset parameters.
+    def _safe_format(self, template: str, param_dict: dict) -> str:
+        """Safely formats a template by replacing placeholders."""
+        result = template
+        for key, value in param_dict.items():
+            placeholder = "{" + str(key) + "}"
+            if placeholder in result:
+                result = result.replace(placeholder, str(value))
+        return result
 
-        Args:
-            project_id: The ID of the project.
-            prompt_name: The name of the prompt template to use.
-            chunk_text: The text chunk to insert (optional).
-
-        Returns:
-            The generated prompt with parameters injected.
-
-        Raises:
-            ValueError: If the prompt or dataset parameters are not found.
-        """
-        prompt_record = self.prompt_repository.get_by_name(prompt_name)
-        if prompt_record:
-            prompt_template = prompt_record[2]  # content is the third column (index 2)
-        elif prompt_name == "default" or prompt_name == "qa_pairs":
-            # Hardcoded default prompt template for Q&A dataset generation
-            prompt_template = """Generate {datasets_per_chunk} question-answer pairs from the following content.
-
-Content: {chunk}
-
-Instructions:
-- Create diverse, high-quality questions that test understanding of the content
-- Provide accurate, comprehensive answers based only on the given content
-- Ensure questions are answerable using only the provided information
-- Vary question types (factual, analytical, applicative)
-- Focus on key concepts, important details, and relationships in the content
-
-{taxonomy_instructions}
-
-{purpose_context}{audience_context}{complexity_level_context}
-
-Format your response as a JSON array of objects with this structure:
-[
-  {{
-    "question": "Your question here",
-    "answer": "Your answer here",
-    "category": "content_category",
-    "difficulty": "easy|medium|hard"
-  }}
-]"""
-        else:
+    def _get_prompt_template(self, prompt_name: str, project_id: str, owner_id: str) -> str:
+        """Fetch and extract prompt template from repository."""
+        prompt_record = self.prompt_repository.get_by_name(prompt_name, str(project_id), owner_id)
+        if not prompt_record:
             raise ValueError(f"Prompt '{prompt_name}' not found.")
 
-        # Get parameter dictionary, with fallback for default prompt
-        try:
-            param_dict = self.get_param_dict(project_id)
-        except ValueError:
-            if prompt_name == "default":
-                # Fallback parameters for default prompt when dataset parameters don't exist
-                param_dict = {
-                    'datasets_per_chunk': datasets_per_chunk,
-                    'purpose_context': '',
-                    'audience_context': '',
-                    'complexity_level_context': ' with intermediate complexity level'
-                }
+        if isinstance(prompt_record, dict):
+            return prompt_record.get('content', '')
+        elif isinstance(prompt_record, (tuple, list)):
+            return prompt_record[2]
+        return str(prompt_record)
+
+    def _build_base_prompt(self, template: str, chunk_text: Optional[str], 
+                          param_dict: dict) -> str:
+        """Build base prompt with chunk text insertion."""
+        if chunk_text is not None:
+            if "{chunk}" in template:
+                template = template.replace("{chunk}", chunk_text)
             else:
-                raise
+                template = f"Content: {chunk_text}\n\n{template}"
+        return self._safe_format(template, param_dict)
 
-        # Ensure datasets_per_chunk is in param_dict
-        param_dict['datasets_per_chunk'] = datasets_per_chunk
+    def build_prompt(self, project_id: str, owner_id: str, prompt_name: str,
+                    chunk_text: Optional[str] = None,
+                    taxonomy_project: Optional[str] = None,
+                    taxonomy_name: Optional[str] = None,
+                    datasets_per_chunk: int = 3) -> str:
+        """Build main QA generation prompt.
+        
+        Args:
+            datasets_per_chunk: Number of entries per chunk. Use 0 for AI-determined count.
+        """
+        prompt_template = self._get_prompt_template(prompt_name, project_id, owner_id)
+        param_dict = self.get_param_dict(project_id, owner_id)
+        param_dict['datasets_per_chunk'] = datasets_per_chunk if datasets_per_chunk > 0 else "AI-determined"
 
-        # Ensure taxonomy-related parameters exist
-        param_dict.setdefault('taxonomy_instructions', '')
-        param_dict.setdefault('taxonomy_name', '')
-        param_dict.setdefault('taxonomy_description', '')
-        param_dict.setdefault('taxonomy_categories', '')
-
-        # Load taxonomy if specified
-        taxonomy_info = None
-        if taxonomy_project and taxonomy_name:
-            from src.compileo.features.taxonomy.loader import TaxonomyLoader
-            from src.compileo.storage.src.project.database_repositories import ProcessedOutputRepository
-            # Note: In a real implementation, we'd inject the repo, but for now we'll create it
-            # This is a temporary solution - in production, this should be injected
-            import sqlite3
-            from src.compileo.storage.src.database import get_db_connection
-            db_conn = get_db_connection()
-            processed_repo = ProcessedOutputRepository(db_conn)
-            taxonomy_loader = TaxonomyLoader(processed_repo)
-            try:
-                taxonomy = taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
-                if taxonomy:
-                    taxonomy_info = self._extract_taxonomy_info(taxonomy, param_dict)
-            except Exception as e:
-                # Log warning but continue without taxonomy
-                logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
-
-        # Add taxonomy info to param_dict if available
+        # Load taxonomy info if specified
+        taxonomy_info = self._load_taxonomy_info(taxonomy_project, taxonomy_name, owner_id)
         if taxonomy_info:
             param_dict.update(taxonomy_info)
 
-        # Handle legacy {Na} placeholder (maps to taxonomy_name)
-        param_dict.setdefault('Na', param_dict.get('taxonomy_name', ''))
+        final_prompt = self._build_base_prompt(prompt_template, chunk_text, param_dict)
 
-        # Replace {chunk} with actual chunk text if provided
-        if chunk_text is not None:
-            if "{chunk}" in prompt_template:
-                final_prompt = prompt_template.replace("{chunk}", chunk_text)
+        # Add QA-specific instructions
+        if "question" in final_prompt.lower() or "answer" in final_prompt.lower():
+            # Use AI-determined schema and instructions when datasets_per_chunk is 0
+            if datasets_per_chunk == 0:
+                from .constants import QA_RESPONSE_ARRAY_SCHEMA
+                final_prompt += build_json_instructions(
+                    QA_RESPONSE_ARRAY_SCHEMA,
+                    ai_decides=True
+                )
             else:
-                # Fallback: Prepend content if placeholder is missing
-                final_prompt = f"Content: {chunk_text}\n\n{prompt_template}"
-        else:
-            final_prompt = prompt_template
-
-        # Format with parameters (avoiding {chunk} conflicts)
-        final_prompt = final_prompt.format(**param_dict)
-
-        # Append reasoning metadata instructions for enhanced dataset generation
-        reasoning_instructions = """
-
-CRITICAL CONSTRAINTS:
-- ONLY use information and concepts that are explicitly present in the provided text chunk above.
-- DO NOT draw from external knowledge, general knowledge, or information not contained in the text.
-- DO NOT generate synthetic or hypothetical content.
-- If the text does not contain sufficient information for a response, do not generate one.
-- Base all content strictly on the information provided in the text chunk.
-
-IMPORTANT: Provide your response as a valid machine-readable structure with the following fields:
-{
-  "question": "The question you generated based on the content",
-  "answer": "The answer to the question",
-  "reasoning": "Brief explanation of your reasoning process",
-  "confidence_score": 0.0-1.0,
-  "reasoning_steps": ["Step 1", "Step 2", "Step 3"]
-}
-
-Return ONLY the raw object, no additional text."""
-
-        final_prompt += reasoning_instructions
+                final_prompt += build_json_instructions(
+                    QA_RESPONSE_SCHEMA,
+                    multiple_items=datasets_per_chunk
+                )
 
         return final_prompt
 
-    def get_param_dict(self, project_id: int) -> dict:
-        """
-        Retrieves and formats dataset parameters into a dictionary.
-
-        Args:
-            project_id: The ID of the project.
-
-        Returns:
-            A dictionary of dataset parameters.
+    def _load_taxonomy_info(self, taxonomy_project: Optional[str], 
+                           taxonomy_name: Optional[str],
+                           owner_id: str) -> Optional[Dict[str, str]]:
+        """Load taxonomy information if specified."""
+        if not taxonomy_project or not taxonomy_name:
+            return None
+            
+        from src.compileo.features.taxonomy.loader import TaxonomyLoader
+        from src.compileo.storage.src.project.database_repositories import TaxonomyRepository
+        from src.compileo.storage.src.database import get_db_connection
         
-        Raises:
-            ValueError: If dataset parameters for the project are not found.
-        """
-        params_records = self.dataset_parameter_repository.get_by_project_id(project_id)
-        if not params_records:
-            raise ValueError(f"Dataset parameters for project ID '{project_id}' not found.")
+        try:
+            from src.compileo.storage.src.project.database_repositories import ProjectRepository
+            taxonomy_repo = TaxonomyRepository(owner_id)
+            project_repo = ProjectRepository(owner_id)
+            taxonomy_loader = TaxonomyLoader(taxonomy_repo, project_repo)
+            taxonomy = taxonomy_loader.load_taxonomy_by_project(
+                taxonomy_project, owner_id=owner_id, taxonomy_name=taxonomy_name
+            )
+            if taxonomy:
+                return self._extract_taxonomy_info(taxonomy)
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Warning: Could not load taxonomy: {e}")
+        return None
 
-        # Using the first set of parameters found for the project.
-        if isinstance(params_records, list) and params_records:
-            params = params_records[0]  # Get the first row
-        else:
-            params = params_records  # Single row
+    def _build_generation_prompt(self, project_id: str, owner_id: str, 
+                                prompt_name: str, chunk_text: str,
+                                response_schema: Dict[str, Any],
+                                extra_context: str = "") -> str:
+        """Generic method for building generation prompts."""
+        prompt_template = self._get_prompt_template(prompt_name, project_id, owner_id)
+        param_dict = self.get_param_dict(project_id, owner_id)
+        param_dict['chunk_text'] = chunk_text
+        
+        final_prompt = self._build_base_prompt(prompt_template, chunk_text, param_dict)
+        
+        if extra_context:
+            final_prompt += f"\n\n{extra_context}"
+        
+        final_prompt += build_json_instructions(response_schema)
+        
+        return final_prompt
 
-        # Column names from the 'dataset_parameters' table schema.
-        param_keys = [
-            "id", "project_id", "purpose", "audience", "extraction_rules",
-            "dataset_format", "question_style", "answer_style",
-            "negativity_ratio", "data_augmentation", "custom_audience",
-            "custom_purpose", "complexity_level", "domain"
-        ]
+    def build_question_generation_prompt(self, project_id: str, owner_id: str, 
+                                        chunk_text: str, taxonomy_project=None, 
+                                        taxonomy_name=None) -> str:
+        """Build prompt for question generation."""
+        return self._build_generation_prompt(
+            project_id, owner_id, "question_generation", chunk_text,
+            QUESTION_GENERATION_SCHEMA
+        )
 
-        # Convert Row object to dict or use existing dict
-        if isinstance(params, dict):
-            param_dict = params
-        elif hasattr(params, '__getitem__'):
-            # Handle Row or tuple by index
-            try:
-                params_tuple = tuple(params[i] for i in range(len(param_keys)))
-                param_dict = dict(zip(param_keys, params_tuple))
-            except (KeyError, IndexError):
-                # Handle Row by key if index fails
-                param_dict = {key: params[key] for key in param_keys if key in params}
-        else:
-            param_dict = {}
+    def build_answer_generation_prompt(self, project_id: str, owner_id: str, 
+                                      chunk_text: str, taxonomy_project=None, 
+                                      taxonomy_name=None) -> str:
+        """Build prompt for answer generation."""
+        return self._build_generation_prompt(
+            project_id, owner_id, "answer_generation", chunk_text,
+            ANSWER_GENERATION_SCHEMA
+        )
 
-        # Provide defaults for new fields if they don't exist (backward compatibility)
-        param_dict.setdefault('custom_audience', '')
-        param_dict.setdefault('custom_purpose', '')
-        param_dict.setdefault('complexity_level', 'intermediate')
-        param_dict.setdefault('domain', 'general')
+    def build_summarization_prompt(self, project_id: str, owner_id: str, 
+                                  chunk_text: str, taxonomy_project=None, 
+                                  taxonomy_name=None) -> str:
+        """Build prompt for summarization."""
+        return self._build_generation_prompt(
+            project_id, owner_id, "summarization", chunk_text,
+            SUMMARIZATION_SCHEMA
+        )
 
-        # Handle optional complexity level - create context string for prompts
+    def get_param_dict(self, project_id: str, owner_id: str) -> dict:
+        """Get dataset parameters with defaults applied."""
+        params_records = self.dataset_parameter_repository.get_parameters_by_project(project_id)
+        param_dict = {}
+        
+        if params_records and isinstance(params_records, list):
+            params = params_records[0]
+            if isinstance(params, dict):
+                param_dict = params.copy()
+            elif isinstance(params, (tuple, list)):
+                param_keys = ["id", "owner_id", "project_id", "purpose", "audience", 
+                             "extraction_rules", "dataset_format", "question_style", 
+                             "answer_style", "negativity_ratio", "data_augmentation", 
+                             "custom_audience", "custom_purpose", "complexity_level", "domain"]
+                param_dict = dict(zip(param_keys, params))
+        
+        # Apply defaults
+        param_dict.setdefault("id", "default")
+        param_dict.setdefault("owner_id", owner_id)
+        param_dict.setdefault("project_id", project_id)
+        
+        for key, value in DEFAULT_DATASET_PARAMS.items():
+            param_dict.setdefault(key, value)
+        
+        # Add computed context
         complexity_level = param_dict.get('complexity_level', 'intermediate')
-        if complexity_level == 'auto' or not complexity_level:
-            param_dict['complexity_level_context'] = ''
-        else:
-            param_dict['complexity_level_context'] = f' with {complexity_level} complexity level'
-
-        # Ensure context parameters exist (for template compatibility)
-        param_dict.setdefault('purpose_context', '')
-        param_dict.setdefault('audience_context', '')
-
+        param_dict['complexity_level_context'] = (
+            f' with {complexity_level} complexity level' 
+            if complexity_level and complexity_level != 'auto' else ''
+        )
+        
         return param_dict
 
-    def build_question_generation_prompt(self, project_id: int, chunk_text: str,
-                                       taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                                       datasets_per_chunk: int = 3) -> str:
-        """
-        Builds a prompt for generating questions from a text chunk.
-
-        Args:
-            project_id: The ID of the project.
-            chunk_text: The text chunk to generate questions from.
-            datasets_per_chunk: Number of questions to generate.
-
-        Returns:
-            A string containing the formatted prompt for question generation.
-        """
-        param_dict = self.get_param_dict(project_id)
-        param_dict['datasets_per_chunk'] = datasets_per_chunk
-
-        # Load taxonomy if specified
-        if taxonomy_project and taxonomy_name:
-            from src.compileo.features.taxonomy.loader import TaxonomyLoader
-            from src.compileo.storage.src.project.database_repositories import ProcessedOutputRepository
-            import sqlite3
-            from src.compileo.storage.src.database import get_db_connection
-            db_conn = get_db_connection()
-            processed_repo = ProcessedOutputRepository(db_conn)
-            taxonomy_loader = TaxonomyLoader(processed_repo)
-            try:
-                taxonomy = taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
-                if taxonomy:
-                    taxonomy_info = self._extract_taxonomy_info(taxonomy, param_dict)
-                    param_dict.update(taxonomy_info)
-            except Exception as e:
-                logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
-
-        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
-        param_dict.setdefault('taxonomy_instructions', '')
-        param_dict.setdefault('taxonomy_name', '')
-        param_dict.setdefault('taxonomy_description', '')
-        param_dict.setdefault('taxonomy_categories', '')
-
-        prompt_record = self.prompt_repository.get_by_name("question_generation")
-        if prompt_record:
-            prompt_template = prompt_record[2]
-        else:
-            # Fallback template
-            prompt_template = """Generate {datasets_per_chunk} questions from the following content.
-
-Content: {chunk_text}
-
-Instructions:
-- Create diverse, high-quality questions that test understanding of the content
-- Ensure questions are answerable using only the provided information
-- Vary question types (factual, analytical, applicative)
-- Focus on key concepts, important details, and relationships in the content
-
-{taxonomy_instructions}
-
-{purpose_context}{audience_context}{complexity_level_context}
-
-Format your response as a JSON array of objects with this structure:
-[
-  {{
-    "question": "Your question here",
-    "category": "content_category",
-    "difficulty": "easy|medium|hard"
-  }}
-]"""
-
-        # Format the prompt with the parameters and the chunk text
-        final_prompt = prompt_template.format(
-            chunk_text=chunk_text,
-            **param_dict
-        )
-
-        # Ensure chunk text is included
-        if chunk_text not in final_prompt:
-            final_prompt = f"Content: {chunk_text}\n\n{final_prompt}"
-
-        # Append reasoning metadata instructions
-        reasoning_instructions = """
-
-CRITICAL CONSTRAINTS:
-- ONLY use information and concepts that are explicitly present in the provided text chunk above.
-- DO NOT draw from external knowledge, general knowledge, or information not contained in the text.
-- DO NOT generate synthetic or hypothetical content.
-- If the text does not contain sufficient information for questions, do not generate them.
-- Base all questions strictly on the content provided in the text chunk.
-
-IMPORTANT: Provide your response as a valid machine-readable structure with the following fields:
-{
-  "question": "The question you generated based on the content",
-  "reasoning": "Brief explanation of your reasoning process",
-  "confidence_score": 0.0-1.0,
-  "reasoning_steps": ["Step 1", "Step 2", "Step 3"]
-}
-
-Return ONLY the raw object, no additional text."""
-
-        final_prompt += reasoning_instructions
-
-        return final_prompt
-
-    def build_answer_generation_prompt(self, project_id: int, chunk_text: str,
-                                     taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                                     datasets_per_chunk: int = 3) -> str:
-        """
-        Builds a prompt for generating answers from a text chunk.
-
-        Args:
-            project_id: The ID of the project.
-            chunk_text: The text chunk to generate answers from.
-            datasets_per_chunk: Number of answers to generate.
-
-        Returns:
-            A string containing the formatted prompt for answer generation.
-        """
-        param_dict = self.get_param_dict(project_id)
-        param_dict['datasets_per_chunk'] = datasets_per_chunk
-
-        # Load taxonomy if specified
-        if taxonomy_project and taxonomy_name:
-            from src.compileo.features.taxonomy.loader import TaxonomyLoader
-            from src.compileo.storage.src.project.database_repositories import ProcessedOutputRepository
-            import sqlite3
-            from src.compileo.storage.src.database import get_db_connection
-            db_conn = get_db_connection()
-            processed_repo = ProcessedOutputRepository(db_conn)
-            taxonomy_loader = TaxonomyLoader(processed_repo)
-            try:
-                taxonomy = taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
-                if taxonomy:
-                    taxonomy_info = self._extract_taxonomy_info(taxonomy, param_dict)
-                    param_dict.update(taxonomy_info)
-            except Exception as e:
-                logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
-
-        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
-        param_dict.setdefault('taxonomy_instructions', '')
-        param_dict.setdefault('taxonomy_name', '')
-        param_dict.setdefault('taxonomy_description', '')
-        param_dict.setdefault('taxonomy_categories', '')
-
-        prompt_record = self.prompt_repository.get_by_name("answer_generation")
-        if prompt_record:
-            prompt_template = prompt_record[2]
-        else:
-            # Fallback template
-            prompt_template = """Generate {datasets_per_chunk} answers for the following question based on the content.
-
-Question: {question}
-Content: {chunk_text}
-
-Instructions:
-- Provide accurate, comprehensive answers based only on the given content
-- Ensure answers are supported by the provided information
-- Include relevant details and context from the content
-
-{taxonomy_instructions}
-
-{purpose_context}{audience_context}{complexity_level_context}
-
-Format your response as a JSON array of objects with this structure:
-[
-  {{
-    "answer": "Your answer here",
-    "category": "content_category",
-    "confidence": 0.0-1.0
-  }}
-]"""
-
-        # Format the prompt with the parameters and the chunk text
-        final_prompt = prompt_template.format(
-            chunk_text=chunk_text,
-            **param_dict
-        )
-
-        # Ensure chunk text is included
-        if chunk_text not in final_prompt:
-            final_prompt = f"Content: {chunk_text}\n\n{final_prompt}"
-
-        # Append reasoning metadata instructions
-        reasoning_instructions = """
-
-CRITICAL CONSTRAINTS:
-- ONLY use information and concepts that are explicitly present in the provided text chunk above.
-- DO NOT draw from external knowledge, general knowledge, or information not contained in the text.
-- DO NOT generate synthetic or hypothetical content.
-- If the text does not contain sufficient information for answers, do not generate them.
-- Base all answers strictly on the content provided in the text chunk.
-
-IMPORTANT: Provide your response as a valid machine-readable structure with the following fields:
-{
-  "answer": "The answer you generated based on the content",
-  "reasoning": "Brief explanation of your reasoning process",
-  "confidence_score": 0.0-1.0,
-  "reasoning_steps": ["Step 1", "Step 2", "Step 3"]
-}
-
-Return ONLY the raw object, no additional text."""
-
-        final_prompt += reasoning_instructions
-
-        return final_prompt
-
-    def build_summarization_prompt(self, project_id: int, chunk_text: str,
-                                 taxonomy_project: Optional[str] = None, taxonomy_name: Optional[str] = None,
-                                 datasets_per_chunk: int = 3) -> str:
-        """
-        Builds a prompt for generating summaries from a text chunk.
-
-        Args:
-            project_id: The ID of the project.
-            chunk_text: The text chunk to summarize.
-            datasets_per_chunk: Number of summaries to generate.
-
-        Returns:
-            A string containing the formatted prompt for summarization.
-        """
-        param_dict = self.get_param_dict(project_id)
-        param_dict['datasets_per_chunk'] = datasets_per_chunk
-
-        # Load taxonomy if specified
-        if taxonomy_project and taxonomy_name:
-            from src.compileo.features.taxonomy.loader import TaxonomyLoader
-            from src.compileo.storage.src.project.database_repositories import ProcessedOutputRepository
-            import sqlite3
-            from src.compileo.storage.src.database import get_db_connection
-            db_conn = get_db_connection()
-            processed_repo = ProcessedOutputRepository(db_conn)
-            taxonomy_loader = TaxonomyLoader(processed_repo)
-            try:
-                taxonomy = taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
-                if taxonomy:
-                    taxonomy_info = self._extract_taxonomy_info(taxonomy, param_dict)
-                    param_dict.update(taxonomy_info)
-            except Exception as e:
-                logger.warning(f"Could not load taxonomy {taxonomy_project}/{taxonomy_name}: {e}")
-
-        # Ensure taxonomy-related parameters exist even when no taxonomy is loaded
-        param_dict.setdefault('taxonomy_instructions', '')
-        param_dict.setdefault('taxonomy_name', '')
-        param_dict.setdefault('taxonomy_description', '')
-        param_dict.setdefault('taxonomy_categories', '')
-
-        prompt_record = self.prompt_repository.get_by_name("summarization")
-        if prompt_record:
-            prompt_template = prompt_record[2]
-        else:
-            # Fallback template
-            prompt_template = """Generate {datasets_per_chunk} summaries from the following content.
-
-Content: {chunk_text}
-
-Instructions:
-- Create concise, accurate summaries that capture the main points
-- Focus on key concepts and important details
-- Maintain factual accuracy from the source content
-
-{taxonomy_instructions}
-
-{purpose_context}{audience_context}{complexity_level_context}
-
-Format your response as a JSON array of objects with this structure:
-[
-  {{
-    "summary": "Your summary here",
-    "key_points": ["Point 1", "Point 2", "Point 3"],
-    "category": "content_category"
-  }}
-]"""
-
-        # Format the prompt with the parameters and the chunk text
-        final_prompt = prompt_template.format(
-            chunk_text=chunk_text,
-            **param_dict
-        )
-
-        # Ensure chunk text is included
-        if chunk_text not in final_prompt:
-            final_prompt = f"Content: {chunk_text}\n\n{final_prompt}"
-
-        # Append reasoning metadata instructions
-        reasoning_instructions = """
-
-CRITICAL CONSTRAINTS:
-- ONLY use information and concepts that are explicitly present in the provided text chunk above.
-- DO NOT draw from external knowledge, general knowledge, or information not contained in the text.
-- DO NOT generate synthetic or hypothetical content.
-- If the text does not contain sufficient information for summarization, do not generate one.
-- Base all summaries strictly on the content provided in the text chunk.
-
-IMPORTANT: Provide your response as a valid machine-readable structure with the following fields:
-{
-  "summary": "Concise summary of the text",
-  "key_points": ["Point 1", "Point 2", "Point 3"],
-  "reasoning": "Brief explanation of your reasoning process",
-  "confidence_score": 0.0-1.0,
-  "reasoning_steps": ["Step 1", "Step 2", "Step 3"]
-}
-
-Return ONLY the raw object, no additional text."""
-
-        final_prompt += reasoning_instructions
-
-        return final_prompt
-
-    def _extract_taxonomy_info(self, taxonomy, param_dict: dict) -> dict:
-        """
-        Extract taxonomy information for prompt incorporation based on purpose and audience.
-
-        Args:
-            taxonomy: HierarchicalCategory taxonomy object
-            param_dict: Current parameter dictionary with purpose and audience
-
-        Returns:
-            Dictionary with taxonomy-related parameters for prompt formatting
-        """
-        purpose = param_dict.get('purpose', '').lower()
-        audience = param_dict.get('audience', '').lower()
-
-        taxonomy_info = {
-            'taxonomy_name': taxonomy.name,
-            'taxonomy_description': taxonomy.description or '',
-            'taxonomy_categories': self._flatten_taxonomy_categories(taxonomy)
+    def _extract_taxonomy_info(self, taxonomy) -> dict:
+        """Extract taxonomy information into a dictionary."""
+        info = {
+            'taxonomy_name': taxonomy.name if hasattr(taxonomy, 'name') else 'unknown',
+            'taxonomy_description': taxonomy.description if hasattr(taxonomy, 'description') else ''
         }
-
-        # Adapt content based on purpose and audience
-        if 'clinical' in purpose or 'diagnosis' in purpose:
-            if 'expert' in audience:
-                taxonomy_info['taxonomy_focus'] = 'clinical_diagnosis_expert'
-                taxonomy_info['taxonomy_instructions'] = (
-                    "Focus on differential diagnosis, pathophysiology, and evidence-based clinical reasoning. "
-                    "Use medical terminology and consider comorbidities."
-                )
-            elif 'novice' in audience or 'student' in audience:
-                taxonomy_info['taxonomy_focus'] = 'clinical_diagnosis_novice'
-                taxonomy_info['taxonomy_instructions'] = (
-                    "Explain diagnoses using simple language, focus on key symptoms and basic pathophysiology. "
-                    "Avoid complex medical jargon or provide explanations."
-                )
-            else:
-                taxonomy_info['taxonomy_focus'] = 'clinical_diagnosis_general'
-                taxonomy_info['taxonomy_instructions'] = (
-                    "Provide balanced clinical information suitable for healthcare professionals."
-                )
-        else:
-            # Default taxonomy integration
-            taxonomy_info['taxonomy_focus'] = 'general'
-            taxonomy_info['taxonomy_instructions'] = (
-                f"Use the taxonomy categories: {taxonomy_info['taxonomy_categories']} "
-                "to structure your response appropriately."
-            )
-
-        return taxonomy_info
-
-    def validate_taxonomy(self, taxonomy_project: str, taxonomy_name: str) -> bool:
-        """
-        Validate that the specified taxonomy exists and is accessible.
-
-        Args:
-            taxonomy_project: Project name containing the taxonomy
-            taxonomy_name: Name of the taxonomy
-
-        Returns:
-            True if taxonomy exists and is valid, False otherwise
-        """
-        if not taxonomy_project or not taxonomy_name:
-            return False
-
-        try:
-            from src.compileo.features.taxonomy.loader import TaxonomyLoader
-            from src.compileo.storage.src.project.database_repositories import ProcessedOutputRepository
-            import sqlite3
-            from src.compileo.storage.src.database import get_db_connection
-            db_conn = get_db_connection()
-            processed_repo = ProcessedOutputRepository(db_conn)
-            taxonomy_loader = TaxonomyLoader(processed_repo)
-            taxonomy = taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
-            return taxonomy is not None
-        except Exception as e:
-            logger.error(f"Taxonomy validation failed: {e}")
-            return False
-
-    def _flatten_taxonomy_categories(self, taxonomy, max_depth: int = 3) -> str:
-        """
-        Flatten taxonomy categories into a readable string.
-
-        Args:
-            taxonomy: HierarchicalCategory taxonomy object
-            max_depth: Maximum depth to traverse
-
-        Returns:
-            Comma-separated string of category names
-        """
+        
         categories = []
-
-        def collect_categories(cat, depth=0):
-            if depth >= max_depth:
+        def collect(cat, depth=0):
+            if depth >= 3 or not cat:
                 return
-            categories.append(cat.name)
-            for child in cat.children:
-                collect_categories(child, depth + 1)
-
-        collect_categories(taxonomy)
-        return ', '.join(categories)
-
-    def build_advanced_extraction_prompt(self, project_id: int, chunk_text: str) -> str:
-        """
-        Builds a prompt for advanced data extraction from a text chunk.
-
-        Args:
-            project_id: The ID of the project.
-            chunk_text: The text chunk to be processed.
-
-        Returns:
-            A string containing the formatted prompt for the LLM.
+            if hasattr(cat, 'name'):
+                categories.append(cat.name)
+            if hasattr(cat, 'children'):
+                for child in cat.children:
+                    collect(child, depth + 1)
         
-        Raises:
-            ValueError: If the prompt or dataset parameters are not found.
-        """
-        param_dict = self.get_param_dict(project_id)
-        
-        prompt_template = self.prompt_repository.get_by_name("advanced_extraction")
-        if not prompt_template:
-            raise ValueError("Prompt 'advanced_extraction' not found.")
+        collect(taxonomy)
+        info['taxonomy_categories'] = ', '.join(categories)
+        info['taxonomy_instructions'] = f"Use categories: {info['taxonomy_categories']}"
+        return info
 
-        # Format the prompt with the parameters and the chunk text
-        final_prompt = prompt_template.format(
-            chunk_text=chunk_text,
-            **param_dict
+    def _build_simple_prompt(self, project_id: str, owner_id: str, 
+                            prompt_name: str, chunk_text: str,
+                            extra_params: Optional[dict] = None) -> str:
+        """Build a simple prompt with optional extra parameters."""
+        param_dict = self.get_param_dict(project_id, owner_id)
+        param_dict['chunk_text'] = chunk_text
+        
+        if extra_params:
+            param_dict.update(extra_params)
+            
+        prompt_record = self.prompt_repository.get_by_name(prompt_name, str(project_id), owner_id)
+        
+        if not prompt_record:
+            raise ValueError(f"Prompt '{prompt_name}' not found.")
+            
+        template = prompt_record.get('content', '') if isinstance(prompt_record, dict) else str(prompt_record)
+        return self._safe_format(template, param_dict)
+
+    def build_instruction_following_prompt(self, project_id: str, owner_id: str, chunk_text: str) -> str:
+        """Build prompt for instruction following generation."""
+        return self._build_simple_prompt(project_id, owner_id, "instruction_following", chunk_text)
+
+    def build_advanced_extraction_prompt(self, project_id: str, owner_id: str, chunk_text: str) -> str:
+        """Build prompt for advanced extraction."""
+        return self._build_simple_prompt(project_id, owner_id, "advanced_extraction", chunk_text)
+
+    def build_classification_prompt(self, project_id: str, owner_id: str, 
+                                   chunk_text: str, classification_schema: dict) -> str:
+        """Build prompt for classification tasks."""
+        return self._build_simple_prompt(
+            project_id, owner_id, "classification", chunk_text,
+            extra_params={'classification_schema': str(classification_schema)}
         )
 
-        return final_prompt
-
-    def build_classification_prompt(self, project_id: int, chunk_text: str, classification_schema: dict) -> str:
-        """
-        Builds a prompt for classifying a text chunk based on a schema.
-
-        Args:
-            project_id: The ID of the project.
-            chunk_text: The text chunk to be classified.
-            classification_schema: A dictionary defining the classification schema.
-
-        Returns:
-            A string containing the formatted prompt for the LLM.
+    def build_custom_prompt(self, project_id: str, owner_id: str, 
+                           custom_prompt: str, chunk_text: Optional[str] = None) -> str:
+        """Build a prompt using a custom template string."""
+        param_dict = self.get_param_dict(project_id, owner_id)
+        final_prompt = custom_prompt
         
-        Raises:
-            ValueError: If the prompt or dataset parameters are not found.
-        """
-        param_dict = self.get_param_dict(project_id)
-        
-        prompt_template = self.prompt_repository.get_by_name("classification")
-        if not prompt_template:
-            raise ValueError("Prompt 'classification' not found.")
-
-        # Format the prompt with the parameters, chunk text, and schema
-        final_prompt = prompt_template.format(
-            chunk_text=chunk_text,
-            classification_schema=classification_schema,
-            **param_dict
-        )
-
-        return final_prompt
+        if chunk_text is not None:
+            if "{chunk}" in final_prompt:
+                final_prompt = final_prompt.replace("{chunk}", chunk_text)
+            else:
+                final_prompt = f"Content: {chunk_text}\n\n{final_prompt}"
+                
+        return self._safe_format(final_prompt, param_dict)

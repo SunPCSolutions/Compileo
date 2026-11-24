@@ -19,35 +19,140 @@ def render_settings():
     """Render the settings page."""
     st.title("⚙️ Settings")
     
-    tab_general, tab_plugins = st.tabs(["General", "Plugins"])
+    tab_general, tab_prompts, tab_plugins = st.tabs(["General", "Default Prompts", "Plugins"])
     
     with tab_plugins:
         render_plugins_tab()
         
+    with tab_prompts:
+        render_default_prompts()
+
     with tab_general:
         render_general_settings()
+
+def render_default_prompts():
+    """Render the default prompts editor tab."""
+    st.markdown("Configure default prompts for dataset generation. Changes here will create overrides for your account.")
+
+    # List of default prompt names to manage
+    prompt_names = [
+        "qa_pairs",
+        "question_generation",
+        "answer_generation",
+        "summarization",
+        "instruction_following",
+        "classification",
+        "advanced_extraction"
+    ]
+
+    # Prompt descriptions map
+    prompt_descriptions = {
+        "qa_pairs": "Question & Answer Pairs (General)",
+        "question_generation": "Questions Only",
+        "answer_generation": "Answers Only",
+        "summarization": "Summarization",
+        "instruction_following": "Instruction Following",
+        "classification": "Classification",
+        "advanced_extraction": "Advanced Extraction"
+    }
+
+    # Fetch and display each prompt
+    project_id = session_state.selected_project_id
+    
+    if not project_id:
+        st.info("No project selected. Please select a project to edit its default prompts.")
+        try:
+            # Fetch projects to allow selection
+            projects_resp = api_client.get("/api/v1/projects")
+            if projects_resp and "projects" in projects_resp:
+                projects = projects_resp["projects"]
+                if projects:
+                    proj_map = {p['name']: p['id'] for p in projects}
+                    selected_name = st.selectbox("Select Project to Configure", list(proj_map.keys()), key="prompt_settings_project_select")
+                    if selected_name:
+                        project_id = proj_map[selected_name]
+                        st.caption(f"Editing prompts for project: **{selected_name}**")
+                else:
+                    st.warning("No projects available.")
+                    return
+            else:
+                st.error("Failed to load projects.")
+                return
+        except Exception as e:
+            st.error(f"Error loading projects: {e}")
+            return
+
+    # Create a form to save all at once or individual save buttons? Individual expadners is better.
+    
+    for name in prompt_names:
+        with st.expander(f"{prompt_descriptions.get(name, name)} ({name})"):
+            # Fetch current value
+            try:
+                # Use API to get effective prompt (system default or user override)
+                response = api_client.get(f"/api/v1/prompts/by-name/{name}", params={"project_id": project_id})
+                
+                current_content = ""
+                prompt_id = None
+                
+                if response:
+                    current_content = response.get("content", "")
+                    prompt_id = response.get("id")
+                else:
+                    # Not found (API error or 404). If 404, it might mean no system default either?
+                    # But we populated system defaults.
+                    # The API /by-name/ searches: user override -> system default.
+                    # So if it returns 404, something is wrong with migration.
+                    st.warning(f"Default prompt '{name}' not found.")
+                
+                new_content = st.text_area(
+                    "Prompt Template",
+                    value=current_content,
+                    height=300,
+                    key=f"prompt_{name}_{project_id}"
+                )
+                
+                if st.button(f"Save '{name}' Prompt", key=f"save_{name}"):
+                    # Save logic
+                    try:
+                        owner_id = response.get("owner_id") if response else None
+                        if prompt_id and owner_id and owner_id != "system":
+                            # Update existing override
+                            api_client.put(f"/api/v1/prompts/{prompt_id}", data={"content": new_content, "name": name})
+                            st.success(f"Updated override for '{name}'")
+                        else:
+                            # Create new override (if it was system default or didn't exist)
+                            # Append query params to URL since post() doesn't support params kwarg
+                            api_client.post(f"/api/v1/prompts/?project_id={project_id}", data={"name": name, "content": new_content})
+                            st.success(f"Created override for '{name}'")
+                            
+                        # Refresh to get new ID/state
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to save prompt: {e}")
+                
+                owner_id = response.get("owner_id") if response else None
+                if prompt_id and owner_id and owner_id != "system":
+                    if st.button(f"Reset to System Default", key=f"reset_{name}"):
+                        try:
+                            api_client.delete(f"/api/v1/prompts/{prompt_id}")
+                            st.success(f"Reset '{name}' to system default")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to reset prompt: {e}")
+
+            except Exception as e:
+                st.error(f"Error loading prompt '{name}': {e}")
 
 def render_general_settings():
     """Render the general settings tab."""
     st.markdown("Configure application preferences and API settings.")
 
     # Load saved settings
-    saved_settings = settings_storage.load_settings()
+    saved_settings = settings_storage.load_settings(owner_id=session_state.user_id)
 
     # API Settings
     st.subheader("🔗 API Configuration")
     with st.expander("API Settings", expanded=True):
-        # API Key input (already in sidebar, but also here for completeness)
-        api_key = st.text_input(
-            "API Key",
-            value=session_state.api_key or saved_settings.get("api_key", ""),
-            type="password",
-            help="Enter your API key for backend authentication",
-            key="settings_api_key"
-        )
-        if api_key != (session_state.api_key or ""):
-            session_state.api_key = api_key
-
         # API Base URL
         api_url = st.text_input(
             "API Base URL",
@@ -370,7 +475,9 @@ def render_general_settings():
 
                         with param_cols2[0]:
                             numpred_key = f"{task_key}_ollama_num_predict"
-                            default_numpred = saved_settings.get(numpred_key, "1024")
+                            # Default to 4096 for generation tasks to allow longer outputs (multiple Q&A pairs)
+                            default_val = "4096" if task_key == "generation" else "1024"
+                            default_numpred = saved_settings.get(numpred_key, default_val)
                             numpred_val = st.text_input(
                                 "Num Predict",
                                 value=str(default_numpred),
@@ -380,7 +487,7 @@ def render_general_settings():
 
                         with param_cols2[1]:
                             numctx_key = f"{task_key}_ollama_num_ctx"
-                            default_numctx = saved_settings.get(numctx_key, "4096")
+                            default_numctx = saved_settings.get(numctx_key, "32768")
                             numctx_val = st.text_input(
                                 "Num Ctx",
                                 value=str(default_numctx),
@@ -444,26 +551,6 @@ def render_general_settings():
 
             st.markdown("---")
 
-        # Advanced Settings
-        with st.expander("Advanced Model Settings"):
-            taxonomy_depth = st.slider(
-                "Taxonomy Hierarchy Depth",
-                min_value=1,
-                max_value=5,
-                value=saved_settings.get("taxonomy_depth", 3),
-                help="Maximum depth for generated taxonomy hierarchies",
-                key="taxonomy_depth"
-            )
-
-            sample_size = st.slider(
-                "Taxonomy Sample Size",
-                min_value=10,
-                max_value=500,
-                value=saved_settings.get("sample_size", 100),
-                help="Number of chunks to sample for taxonomy generation",
-                key="sample_size"
-            )
-
     # UI Settings
     st.subheader("🎨 User Interface")
     with st.expander("Display Settings"):
@@ -476,45 +563,34 @@ def render_general_settings():
             help="Choose the application theme"
         )
 
-        page_size = st.slider(
-            "Default Page Size",
-            min_value=10,
-            max_value=100,
-            value=saved_settings.get("default_page_size", config.default_page_size),
-            help="Number of items to display per page"
-        )
-
     # Processing Settings
     st.subheader("⚡ Processing Configuration")
     with st.expander("Processing Settings"):
         col1, col2 = st.columns(2)
 
         with col1:
+            max_per_user_default = min(
+                saved_settings.get("max_concurrent_jobs_per_user", 6),
+                50
+            )
+            max_concurrent_per_user = st.number_input(
+                "Max Concurrent Jobs Per User",
+                min_value=1,
+                max_value=50,
+                value=max_per_user_default,
+                help="Maximum number of concurrent processing jobs per user (capped by system ceiling)",
+                key="per_user_jobs_input"
+            )
+
+        with col2:
             max_concurrent = st.number_input(
                 "Max Concurrent Jobs (Global)",
                 min_value=1,
                 max_value=50,
                 value=saved_settings.get("max_concurrent_jobs", config.max_concurrent_jobs),
-                help="Maximum number of concurrent processing jobs across all users",
+                help="Maximum number of concurrent processing jobs across all users (capped by system ceiling)",
                 key="global_jobs_input"
             )
-
-        with col2:
-            # TODO: Uncomment when multi-user architecture is implemented
-            # max_per_user_default = min(
-            #     saved_settings.get("max_concurrent_jobs_per_user", 3),
-            #     max_concurrent
-            # )
-            # max_concurrent_per_user = st.number_input(
-            #     "Max Concurrent Jobs Per User",
-            #     min_value=1,
-            #     max_value=max_concurrent,  # Dynamic max based on global limit
-            #     value=max_per_user_default,
-            #     help="Maximum number of concurrent processing jobs per user",
-            #     key="per_user_jobs_input"
-            # )
-            # Single-user mode: per-user limit equals global limit
-            max_concurrent_per_user = max_concurrent
 
         quality_threshold = st.slider(
             "Quality Threshold",
@@ -536,8 +612,84 @@ def render_general_settings():
             help="Maximum file size for uploads"
         )
 
-        st.write("**Allowed File Types:**")
-        st.code(", ".join(config.allowed_file_types))
+    # System And Job Logging
+    st.subheader("📝 System And Job Logging")
+
+    with st.expander("Logging Settings"):
+        # Get current log level
+        try:
+            current_log_level = saved_settings.get("log_level", "none")
+        except:
+            current_log_level = "none"
+
+        log_level = st.selectbox(
+            "Log Level",
+            options=["none", "error", "debug"],
+            index=["none", "error", "debug"].index(current_log_level) if current_log_level in ["none", "error", "debug"] else 0,
+            help="Set the global log level for the application. Will be applied when you save settings.",
+            key="settings_log_level"
+        )
+
+        st.markdown("---")
+        st.markdown("**Job History Retention**")
+
+        # Get current retention days
+        try:
+            current_retention_days = saved_settings.get("job_history_retention_days", 90)
+        except:
+            current_retention_days = 90
+
+        retention_days = st.number_input(
+            "Retention Period (days)",
+            min_value=1,
+            max_value=365,
+            value=current_retention_days,
+            help="Number of days to retain completed/failed job history. Older entries are automatically cleaned up.",
+            key="settings_job_history_retention_days"
+        )
+
+        # Add cleanup button
+        if st.button("🧹 Run Cleanup Now", key="run_job_history_cleanup"):
+            try:
+                response = api_client.post("/api/v1/jobs/history/cleanup/apply-settings")
+                if response:
+                    deleted = response.get("deleted_count", 0)
+                    st.success(f"✅ Cleanup completed! Deleted {deleted} old job history entries.")
+                else:
+                    st.error("❌ Failed to run cleanup")
+            except Exception as e:
+                st.error(f"❌ Error running cleanup: {e}")
+
+    # License Management
+    st.subheader("🔑 License Management")
+    with st.expander("License Details", expanded=False):
+        try:
+            status = api_client.get("/api/v1/licensing/status")
+            # st.write(f"DEBUG: Status response: {status}") # Uncomment to debug
+            if status and isinstance(status, dict) and status.get('status'):
+                lic_status = status.get('status', 'unknown')
+                lic_key = status.get('key', '****-****-****-****')
+                st.write(f"**Status:** {lic_status.upper()}")
+                st.write(f"**Key:** `{lic_key[:4]}****-****-****-{lic_key[-4:]}`")
+                if status.get('expiry'):
+                    st.write(f"**Expires:** {status.get('expiry')}")
+                
+                if st.button("Force Re-validate License"):
+                    with st.spinner("Validating..."):
+                        res = api_client.post("/api/v1/licensing/validate")
+                        if res:
+                            st.success("Validation complete")
+                            st.rerun()
+                        else:
+                            st.error("Validation failed")
+            else:
+                st.warning("No active license found.")
+                if st.button("Go to Activation Page"):
+                    st.session_state.license_valid = False
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Failed to fetch license status: {str(e)}")
+            st.exception(e) # Show full traceback
 
     # Validation before save
     validation_errors = []
@@ -548,19 +700,6 @@ def render_general_settings():
         # Auto-correct the value
         max_concurrent_per_user = max_concurrent
 
-    # Logging Settings
-    st.subheader("📝 Logging Configuration")
-    with st.expander("Logging Settings", expanded=True):
-        log_level = st.selectbox(
-            "Log Level",
-            options=["none", "error", "debug"],
-            index=["none", "error", "debug"].index(
-                saved_settings.get("log_level", "debug")
-            ),
-            help="Choose the log level for the application. 'none' disables all logs, 'error' shows only errors, and 'debug' shows extensive reporting.",
-            key="settings_log_level"
-        )
-
     # Save Settings
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -568,28 +707,24 @@ def render_general_settings():
         if st.button("💾 Save Settings", type="primary", width='stretch', disabled=save_disabled):
             # Collect all settings
             settings_to_save = {
-                "api_key": api_key,
                 "api_base_url": api_url,
                 "ollama_base_url": ollama_url,
                 "gemini_api_key": gemini_key,
                 "grok_api_key": grok_key,
                 "huggingface_api_key": huggingface_key,
                 "openai_api_key": openai_key,
-                "log_level": log_level,
-                "taxonomy_depth": taxonomy_depth,
-                "sample_size": sample_size,
                 "theme": theme,
-                "default_page_size": page_size,
                 "max_concurrent_jobs": max_concurrent,
                 "max_concurrent_jobs_per_user": max_concurrent_per_user,
                 "quality_threshold": quality_threshold,
                 "max_file_size_mb": max_file_size,
+                "log_level": log_level,
+                "job_history_retention_days": retention_days,
             }
 
             # Add job configuration
             settings_to_save["max_concurrent_jobs"] = max_concurrent
-            # TODO: Uncomment when multi-user architecture is implemented
-            # settings_to_save["max_concurrent_jobs_per_user"] = max_concurrent_per_user
+            settings_to_save["max_concurrent_jobs_per_user"] = max_concurrent_per_user
             settings_to_save["quality_threshold"] = quality_threshold
 
             # Add all model configurations (always save them)
@@ -731,9 +866,16 @@ def render_general_settings():
                 settings_to_save["generation_ollama_num_ctx"] = int(generation_ollama_num_ctx)
 
             # Save to database
-            if settings_storage.save_settings(settings_to_save):
+            if settings_storage.save_settings(settings_to_save, owner_id=session_state.user_id):
                 # Update API client with new settings
-                api_client.update_settings(base_url=api_url, api_key=api_key)
+                api_client.update_settings(base_url=api_url)
+                
+                # Apply log level change to the API
+                try:
+                    api_client.post("/api/v1/settings/log-level", data={"level": log_level})
+                except Exception as e:
+                    st.warning(f"Settings saved but failed to apply log level: {e}")
+                
                 st.success("Settings saved successfully!")
             else:
                 st.error("Failed to save settings. Please try again.")
@@ -744,7 +886,7 @@ def render_general_settings():
 
     # Reset to Defaults
     if st.button("🔄 Reset to Defaults", help="Reset all settings to default values"):
-        if settings_storage.reset_settings():
+        if settings_storage.reset_settings(owner_id=session_state.user_id):
             st.info("Settings reset to defaults")
             st.rerun()  # Refresh to show default values
         else:
@@ -755,7 +897,7 @@ def render_general_settings():
     with st.expander("System Info"):
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("API Status", "Connected" if session_state.api_key else "Not Configured")
+            st.metric("API Status", "Connected" if session_state.authenticated else "Not Configured")
             st.metric("Database", "Connected")
         with col2:
             st.metric("Vector Store", "Connected")

@@ -63,10 +63,25 @@ curl -X POST "http://localhost:8000/api/v1/documents/parse" \
   }'
 ```
 
+**Parse with Page Selection:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/documents/parse" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": 1,
+    "document_ids": [101],
+    "parser": "gemini",
+    "page_selection": "1-30, 251-300"
+  }'
+```
+
+This parses only pages 1-30 and 251-300 from the PDF, extracting those pages into a temporary file before processing.
+
 **Request Body:**
 - `project_id`: Project containing documents
 - `document_ids`: Array of document IDs to parse
 - `parser`: Parser type (`gemini`, `grok`, `ollama`, `pypdf`, `unstructured`, `huggingface`, `novlm`)
+- `page_selection` (optional): Page selection expression for PDF documents. Supports single pages (`1`), ranges (`1-20`), and batches (`1, 1-20, 30-120`). Leave empty to process all pages.
 
 **Response:**
 ```json

@@ -49,7 +49,7 @@ Return ONLY a valid JSON object with the taxonomy structure, no additional text 
     def build_taxonomy_prompt(
         content: str,
         domain: str,
-        depth: Optional[int],
+        depth: int,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
     ) -> str:
@@ -83,7 +83,7 @@ Return ONLY a valid JSON object with the taxonomy structure, no additional text 
 
 **Task Requirements:**
 1. Analyze the content to identify main themes, concepts, and categories
-{f"2. Create a hierarchical taxonomy with maximum depth of {depth} levels" if depth else "2. Create a hierarchical taxonomy that best captures the content structure (no fixed depth limit)"}
+2. Create a hierarchical taxonomy with maximum depth of {depth} levels
 3. Ensure categories are specific to the {domain} domain
 4. Use clear, descriptive names for categories
 5. Include confidence scores (0.0-1.0) for each category based on content evidence
@@ -118,7 +118,7 @@ Return a valid JSON object with this exact structure:
 **Important:**
 - Return ONLY the JSON object, no other text
 - Ensure the JSON is valid and properly formatted
-{f"- Maximum depth: {depth} levels" if depth else "- Determine the optimal depth based on content complexity"}
+- Maximum depth: {depth} levels
 - Include confidence_threshold for each category (0.0-1.0)
 - Make category names specific and actionable"""
 
@@ -172,7 +172,7 @@ Return ONLY a valid JSON object with the extended taxonomy structure, no additio
     def build_taxonomy_extension_prompt(
         existing_taxonomy: Dict[str, Any],
         content: str,
-        additional_depth: Optional[int],
+        additional_depth: int,
         domain: str,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
@@ -205,7 +205,7 @@ Return ONLY a valid JSON object with the extended taxonomy structure, no additio
         # Convert existing taxonomy to readable format
         existing_taxonomy_str = json.dumps(existing_taxonomy, indent=2)
 
-        prompt = f"""You are an expert taxonomist specializing in {domain} knowledge organization. Your task is to extend an existing taxonomy by adding {f'{additional_depth} additional levels of ' if additional_depth else ''}subcategories based on the provided content.
+        prompt = f"""You are an expert taxonomist specializing in {domain} knowledge organization. Your task is to extend an existing taxonomy by adding {additional_depth} additional levels of subcategories based on the provided content.
 
 **Domain Context:** {domain_context}
 
@@ -249,7 +249,7 @@ Return a valid JSON object representing the extended taxonomy with this exact st
 **Important:**
 - Return ONLY the JSON object, no other text
 - Ensure the JSON is valid and properly formatted
-{f"- Add exactly {additional_depth} additional levels to the existing taxonomy" if additional_depth else "- Add appropriate subcategories to enhance the existing structure"}
+- Add exactly {additional_depth} additional levels to the existing taxonomy
 - Include confidence_threshold for each new category (0.0-1.0)
 - Make category names specific and actionable
 - Preserve the existing taxonomy structure and add subcategories to appropriate nodes"""
@@ -276,7 +276,12 @@ Return a valid JSON object representing the extended taxonomy with this exact st
             "general": "Create a general-purpose taxonomy suitable for most content types. Focus on universal categories like people, places, events, concepts, etc."
         }
 
-        return contexts.get(domain.lower(), contexts["general"])
+        domain_lower = domain.lower()
+        if domain_lower in contexts:
+            return contexts[domain_lower]
+        
+        # Fallback for custom domains
+        return f"Focus on concepts, categories, and relationships relevant to the {domain} domain. Organize the knowledge according to the principles, terminology, and structural patterns common in the {domain} field."
 
     @staticmethod
     def _get_specificity_instruction(specificity_level: int) -> str:

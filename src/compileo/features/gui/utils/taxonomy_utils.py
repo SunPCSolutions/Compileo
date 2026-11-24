@@ -5,7 +5,6 @@ from typing import Dict, Any, List, Optional
 import time
 
 from src.compileo.features.gui.services.api_client import api_client, APIError
-from src.compileo.features.gui.services.job_monitoring_service import monitor_job_synchronously
 
 
 @st.cache_data(ttl=300)
@@ -172,14 +171,6 @@ def generate_unified_ai_taxonomy(taxonomy: Dict[str, Any]):
 
         if response is None:
             st.error("Failed to generate AI taxonomy - API call returned no response")
-        elif 'job_id' in response:
-            job_id = response['job_id']
-            st.success(f"✅ AI Taxonomy generation started! Job ID: {job_id}")
-            # Monitor job synchronously in-view (Wizard-style)
-            success = monitor_job_synchronously(job_id, success_text="Taxonomy generation completed!")
-            if success:
-                st.cache_data.clear()
-                st.rerun()
         elif 'id' in response and 'name' in response:
             taxonomy_name = taxonomy['name'].strip() if taxonomy['name'].strip() else response.get('name', 'AI Generated Taxonomy')
             st.success(f"AI taxonomy '{taxonomy_name}' generated successfully!")
@@ -192,13 +183,10 @@ def generate_unified_ai_taxonomy(taxonomy: Dict[str, Any]):
         st.error(f"Failed to generate AI taxonomy: {e}")
 
 
-def save_unified_taxonomy(taxonomy: Dict[str, Any], silent: bool = False):
-    """Save the unified taxonomy via API. Handles both creation and updates."""
+def save_unified_taxonomy(taxonomy: Dict[str, Any]):
+    """Save the unified taxonomy via API."""
     try:
-        # Check for existing ID
-        taxonomy_id = taxonomy.get("loaded_taxonomy_id") or taxonomy.get("id")
-        
-        taxonomy_payload = {
+        taxonomy_data = {
             "name": taxonomy["name"],
             "description": taxonomy["description"],
             "project_id": taxonomy["project_id"],
@@ -209,57 +197,25 @@ def save_unified_taxonomy(taxonomy: Dict[str, Any], silent: bool = False):
             }
         }
 
-        if taxonomy_id:
-            # UPDATE existing taxonomy
-            if silent:
-                api_client.put(f"/api/v1/taxonomy/{taxonomy_id}", taxonomy_payload)
-                st.cache_data.clear()
-                return
-            
-            with st.spinner("Updating taxonomy..."):
-                response = api_client.put(f"/api/v1/taxonomy/{taxonomy_id}", taxonomy_payload)
-            
-            st.success(f"Taxonomy '{taxonomy['name']}' updated successfully!")
-        else:
-            # CREATE new taxonomy
-            if silent:
-                response = api_client.post("/api/v1/taxonomy/", taxonomy_payload)
-                if response and response.get("id"):
-                    taxonomy["id"] = response["id"]
-                    taxonomy["loaded_taxonomy_id"] = response["id"]
-                st.cache_data.clear()
-                return
+        with st.spinner("Saving taxonomy..."):
+            response = api_client.post("/api/v1/taxonomy/", taxonomy_data)
 
-            with st.spinner("Creating taxonomy..."):
-                response = api_client.post("/api/v1/taxonomy/", taxonomy_payload)
-
-            if response and response.get("id"):
-                taxonomy["id"] = response["id"]
-                taxonomy["loaded_taxonomy_id"] = response["id"]
-
-            st.success(f"Taxonomy '{taxonomy['name']}' created successfully!")
-        
-        # Only clear state and rerun if not silent
-        if not silent:
-            if "unified_taxonomy" in st.session_state:
-                del st.session_state.unified_taxonomy
-            st.cache_data.clear()
-            st.rerun()
+        st.success(f"Taxonomy '{taxonomy['name']}' created successfully!")
+        del st.session_state.unified_taxonomy
+        st.cache_data.clear()
+        st.rerun()
 
     except APIError as e:
-        if not silent:
-            st.error(f"Failed to save taxonomy: {e}")
+        st.error(f"Failed to save taxonomy: {e}")
     except Exception as e:
         st.error(f"An unexpected error occurred: {str(e)}")
 
 
 def save_manual_taxonomy(taxonomy: Dict[str, Any]):
-    """Save the manual taxonomy via API. Handles both creation and updates."""
+    """Save the manual taxonomy via API."""
     try:
-        taxonomy_id = taxonomy.get("id")
-        
         # Prepare the taxonomy data - wrap categories in a structure expected by API
-        taxonomy_payload = {
+        taxonomy_data = {
             "name": taxonomy["name"],
             "description": taxonomy["description"],
             "project_id": taxonomy["project_id"],
@@ -270,18 +226,12 @@ def save_manual_taxonomy(taxonomy: Dict[str, Any]):
             }
         }
 
-        if taxonomy_id:
-            with st.spinner("Updating taxonomy..."):
-                response = api_client.put(f"/api/v1/taxonomy/{taxonomy_id}", taxonomy_payload)
-            st.success(f"Manual taxonomy '{taxonomy['name']}' updated successfully!")
-        else:
-            with st.spinner("Creating taxonomy..."):
-                response = api_client.post("/api/v1/taxonomy/", taxonomy_payload)
-            st.success(f"Manual taxonomy '{taxonomy['name']}' created successfully!")
+        with st.spinner("Saving taxonomy..."):
+            response = api_client.post("/api/v1/taxonomy/", taxonomy_data)
 
+        st.success(f"Manual taxonomy '{taxonomy['name']}' created successfully!")
         # Clear the form
-        if "manual_taxonomy" in st.session_state:
-            del st.session_state.manual_taxonomy
+        del st.session_state.manual_taxonomy
         st.cache_data.clear()
         st.rerun()
 
@@ -310,14 +260,6 @@ def generate_ai_taxonomy_sync(name: str, project_id: int, document_ids: List[int
             response = api_client.post("/api/v1/taxonomy/generate", request_data)
         if response is None:
             st.error("Failed to generate AI taxonomy - API call returned no response")
-        elif 'job_id' in response:
-            job_id = response['job_id']
-            st.success(f"✅ AI Taxonomy generation started! Job ID: {job_id}")
-            # Monitor job synchronously in-view (Wizard-style)
-            success = monitor_job_synchronously(job_id, success_text="Taxonomy generation completed!")
-            if success:
-                st.cache_data.clear()
-                st.rerun()
         elif 'id' in response and 'name' in response:
             st.success(f"AI taxonomy '{name}' generated successfully!")
             st.cache_data.clear()
@@ -363,14 +305,6 @@ def extend_taxonomy_with_ai(taxonomy: Dict[str, Any], additional_depth: int, gen
 
             if extended_response is None:
                 st.error("Failed to extend taxonomy - API call returned no response")
-            elif 'job_id' in extended_response:
-                job_id = extended_response['job_id']
-                st.success(f"✅ Taxonomy extension started! Job ID: {job_id}")
-                # Monitor job synchronously in-view (Wizard-style)
-                success = monitor_job_synchronously(job_id, success_text="Taxonomy extension completed!")
-                if success:
-                    st.cache_data.clear()
-                    st.rerun()
             elif "extended_taxonomy" in extended_response:
                 # Handle category extension response (new format for temp taxonomies)
                 st.success(f"Taxonomy extended successfully!")

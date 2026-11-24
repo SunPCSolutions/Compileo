@@ -14,12 +14,14 @@ class LogLevelUpdate(BaseModel):
 @router.get("/log-level")
 async def get_log_level():
     """Get the current global log level."""
-    return {"log_level": BackendSettings.get_log_level()}
+    settings = BackendSettings()
+    return {"log_level": settings.get_log_level()}
 
 @router.post("/log-level")
 async def set_log_level(update: LogLevelUpdate):
     """Set the global log level."""
-    if BackendSettings.set_log_level(update.level):
+    settings = BackendSettings()
+    if settings.set_log_level(update.level):
         # Update current process logging
         setup_logging(update.level)
         return {"message": f"Log level updated to {update.level.value}"}

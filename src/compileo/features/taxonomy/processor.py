@@ -7,10 +7,6 @@ merging, and loading operations for the document processing pipeline.
 
 import json
 from typing import List, Optional
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
-
 from src.compileo.features.extraction.context_models import HierarchicalCategory
 from src.compileo.storage.src.project.database_repositories import TaxonomyRepository
 from src.compileo.storage.src.project.file_manager import FileManager
@@ -48,7 +44,7 @@ class TaxonomyProcessor:
         self.gemini_api_key = gemini_api_key
         self.taxonomy_provider = taxonomy_provider
         from src.compileo.storage.src.project.database_repositories import ProjectRepository
-        self.loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(taxonomy_repo.db))
+        self.loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(taxonomy_repo.db_connection))
 
         # Initialize the appropriate generator
         if taxonomy_provider == "ollama":
@@ -105,16 +101,13 @@ class TaxonomyProcessor:
                 stored_path = self.file_manager.store_file(project_id, None, filename, content.encode('utf-8'))
 
                 # Store taxonomy metadata in database
-                from datetime import datetime
-                import uuid
-                self.repo.create_taxonomy({
-                    "id": str(uuid.uuid4()),
-                    "project_id": str(project_id),
-                    "name": f"auto_{domain}_{len(chunks)}chunks",
-                    "structure": generated_taxonomy_data,
-                    "created_at": datetime.now(),
-                    "updated_at": datetime.now()
-                })
+                self.repo.create_taxonomy(
+                    project_id=project_id,
+                    name=f"auto_{domain}_{len(chunks)}chunks",
+                    taxonomy_data=json.dumps(generated_taxonomy_data),
+                    generation_config=json.dumps({"domain": domain, "chunks_count": len(chunks)}),
+                    confidence_score=generated_taxonomy_data.get("analytics", {}).get("overall_confidence")
+                )
 
                 # Parse back to HierarchicalCategory
                 taxonomy_data = generated_taxonomy_data
@@ -123,18 +116,18 @@ class TaxonomyProcessor:
                 else:
                     taxonomy = self.loader._parse_taxonomy(taxonomy_data)
 
-                logger.info(f"✅ Auto-generated taxonomy with {len(taxonomy.children)} categories")
+                self.logger.info(f"✅ Auto-generated taxonomy with {len(taxonomy.children)} categories")
 
             except Exception as e:
-                logger.warning(f"Failed to auto-generate taxonomy: {e}")
+                self.logger.warning(f"Warning: Failed to auto-generate taxonomy: {e}")
 
         # Merge with user taxonomy if both exist
         if user_taxonomy and taxonomy:
             taxonomy = self.loader.merge_taxonomies(user_taxonomy, taxonomy, "manual", "auto")
-            logger.info(f"📋 Merged taxonomies: {len(taxonomy.children)} total categories")
+            self.logger.info(f"📋 Merged taxonomies: {len(taxonomy.children)} total categories")
         elif user_taxonomy:
             taxonomy = user_taxonomy
-            logger.info(f"📄 Using user-provided taxonomy with {len(taxonomy.children)} categories")
+            self.logger.info(f"📄 Using user-provided taxonomy with {len(taxonomy.children)} categories")
 
         # Save merged taxonomy if requested
         if save_merged and taxonomy:
@@ -145,19 +138,16 @@ class TaxonomyProcessor:
                 stored_path = self.file_manager.store_file(project_id, None, filename, content.encode('utf-8'))
 
                 # Store taxonomy metadata in database
-                from datetime import datetime
-                import uuid
-                self.repo.create_taxonomy({
-                    "id": str(uuid.uuid4()),
-                    "project_id": str(project_id),
-                    "name": f"merged_{domain}_{len(taxonomy.children)}categories",
-                    "structure": taxonomy_dict,
-                    "created_at": datetime.now(),
-                    "updated_at": datetime.now()
-                })
-                logger.info(f"Saved merged taxonomy to: {stored_path}")
+                self.repo.create_taxonomy(
+                    project_id=project_id,
+                    name=f"merged_{domain}_{len(taxonomy.children)}categories",
+                    taxonomy_data=json.dumps(taxonomy_dict),
+                    generation_config=json.dumps({"domain": domain, "merge_type": "manual_auto"}),
+                    confidence_score=None  # Could calculate based on sources
+                )
+                self.logger.info(f"💾 Saved merged taxonomy to: {stored_path}")
             except Exception as e:
-                logger.warning(f"Failed to save merged taxonomy: {e}")
+                self.logger.warning(f"Warning: Failed to save merged taxonomy: {e}")
 
         return taxonomy
 

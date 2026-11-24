@@ -20,7 +20,8 @@ def setup_logging(level: Optional[LogLevel] = None):
         level: LogLevel to use. If None, reads from BackendSettings.
     """
     if level is None:
-        level = BackendSettings.get_log_level()
+        settings = BackendSettings()
+        level = settings.get_log_level()
     
     # Map LogLevel to logging module levels
     log_mapping = {

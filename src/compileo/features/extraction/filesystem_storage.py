@@ -183,15 +183,20 @@ class ExtractionFileManager:
     Handles directory creation, file naming, and atomic operations.
     """
 
-    def __init__(self, base_path: str = "storage/extract"):
+    def __init__(self, base_path: Optional[str] = None):
         """
         Initialize the file manager.
 
         Args:
-            base_path: Base directory for extraction files
+            base_path: Base directory for extraction files. If None, uses default multi-user path.
         """
-        self.base_path = Path(base_path)
-        self._ensure_base_directory()
+        if base_path:
+            self.base_path = Path(base_path)
+        else:
+            from ...storage.src.project.file_manager import FileManager
+            self.base_path = FileManager.get_storage_base_path() / "extract"
+        
+        # self._ensure_base_directory() # Deprecated - everything is under user IDs
 
     def _ensure_base_directory(self) -> None:
         """Ensure the base extraction directory exists."""
@@ -201,52 +206,55 @@ class ExtractionFileManager:
         except Exception as e:
             raise DirectoryCreationError(f"Failed to create extraction directory {self.base_path}: {e}")
 
-    def get_project_directory(self, project_id: int) -> Path:
+    def get_project_directory(self, project_id: Union[int, str], owner_id: str) -> Path:
         """
-        Get the directory path for a specific project.
+        Get the directory path for a specific project and user.
 
         Args:
             project_id: The project ID
+            owner_id: The owner ID
 
         Returns:
             Path to the project's directory
         """
-        return self.base_path / str(project_id)
+        # base_path is 'storage/extract' by default, base_path.parent is 'storage'
+        return self.base_path.parent / owner_id / "extract" / str(project_id)
 
-    def ensure_project_directory(self, project_id: int) -> Path:
+    def ensure_project_directory(self, project_id: Union[int, str], owner_id: str) -> Path:
         """
         Ensure the project directory exists and return its path.
 
         Args:
             project_id: The project ID
+            owner_id: The owner ID
 
         Returns:
             Path to the project's directory
         """
-        project_dir = self.get_project_directory(project_id)
+        project_dir = self.get_project_directory(project_id, owner_id)
         try:
             project_dir.mkdir(parents=True, exist_ok=True)
             return project_dir
         except Exception as e:
             raise DirectoryCreationError(f"Failed to create project directory {project_dir}: {e}")
 
-    def list_job_files(self, job_id: str) -> List[Path]:
+    def list_job_files(self, job_id: str, owner_id: str) -> List[Path]:
         """
-        List all files for a job across all project directories.
+        List all files for a job for a specific user.
         
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
             
         Returns:
             List of file paths
         """
         all_files = []
+        user_extract_path = self.base_path.parent / owner_id / "extract"
         
-        # Check all project directories for this job's files
-        # Ideally list_job_files should take project_id for efficiency
-        if self.base_path.exists():
-            for project_dir in self.base_path.iterdir():
-                if project_dir.is_dir() and project_dir.name.isdigit():
+        if user_extract_path.exists():
+            for project_dir in user_extract_path.iterdir():
+                if project_dir.is_dir():
                     try:
                         all_files.extend(list(project_dir.glob(f"extraction_{job_id}_*.json")))
                     except Exception:
@@ -425,17 +433,18 @@ class ExtractionFileManager:
             logger.error(f"Failed to delete file {file_path}: {e}")
             return False
 
-    def list_project_files(self, project_id: int) -> List[Path]:
+    def list_project_files(self, project_id: int, owner_id: str) -> List[Path]:
         """
-        List all extraction files for a project.
+        List all extraction files for a project and user.
 
         Args:
             project_id: The project ID
+            owner_id: The owner ID
 
         Returns:
             List of file paths
         """
-        project_dir = self.get_project_directory(project_id)
+        project_dir = self.get_project_directory(project_id, owner_id)
         if not project_dir.exists():
             return []
 
@@ -495,16 +504,17 @@ class FilesystemStorageManager:
         """
         self.file_manager = file_manager
 
-    def store_results(self, job_id: str, project_id: int, taxonomy_id: int,
-                      results: List[Dict[str, Any]], chunk_size: Optional[int] = None) -> List[str]:
+    def store_results(self, job_id: str, project_id: Union[int, str], taxonomy_id: Union[int, str],
+                      results: List[Dict[str, Any]], owner_id: str, chunk_size: Optional[int] = None) -> List[str]:
         """
-        Store extraction results to filesystem, potentially in chunks.
+        Store extraction results to filesystem, potentially in chunks for a specific user.
 
         Args:
             job_id: The extraction job ID
             project_id: The project ID
             taxonomy_id: The taxonomy ID
             results: List of result dictionaries
+            owner_id: The owner ID
             chunk_size: Optional chunk size for splitting large result sets
 
         Returns:
@@ -530,8 +540,8 @@ class FilesystemStorageManager:
 
             categories_found = sorted(list(categories_found))
 
-            # Ensure project directory exists
-            project_dir = self.file_manager.ensure_project_directory(project_id)
+            # Ensure project directory exists for user
+            project_dir = self.file_manager.ensure_project_directory(project_id, owner_id)
 
             current_chunk = []
             chunk_index = 0
@@ -621,7 +631,8 @@ class FilesystemStorageManager:
                         prev_file_path = self.file_manager.base_path / prev_file
                         self._update_next_chunk_reference(prev_file_path, filename)
 
-                    stored_files.append(str(file_path.relative_to(self.file_manager.base_path)))
+                    # Use base_path.parent (the storage root) for relative path to ensure subpath matches
+                    stored_files.append(str(file_path.relative_to(self.file_manager.base_path.parent)))
                     current_chunk = []
                     chunk_index += 1
 
@@ -647,14 +658,15 @@ class FilesystemStorageManager:
         except Exception as e:
             logger.warning(f"Failed to update next chunk reference in {file_path}: {e}")
 
-    def retrieve_results(self, job_id: str, page: int = 1, page_size: int = 50,
+    def retrieve_results(self, job_id: str, owner_id: str, page: int = 1, page_size: int = 50,
                         min_confidence: Optional[float] = None,
                         category_filter: Optional[str] = None) -> Tuple[List[Dict[str, Any]], bool, int]:
         """
-        Retrieve extraction results for a job with pagination and filtering.
+        Retrieve extraction results for a job with pagination and filtering for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
             page: Page number (1-based)
             page_size: Number of results per page
             min_confidence: Minimum confidence threshold
@@ -668,7 +680,7 @@ class FilesystemStorageManager:
         paginated_results = []
 
         try:
-            job_files = self.file_manager.list_job_files(job_id)
+            job_files = self.file_manager.list_job_files(job_id, owner_id)
             if not job_files:
                 success = True
                 return [], False, 0
@@ -721,17 +733,18 @@ class FilesystemStorageManager:
             get_logger().log_operation('retrieve_results', job_id, duration, success,
                                      {'page': page, 'page_size': page_size, 'results_returned': len(paginated_results) if 'paginated_results' in locals() else 0})
 
-    def get_job_metadata(self, job_id: str) -> Optional[Dict[str, Any]]:
+    def get_job_metadata(self, job_id: str, owner_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get aggregated metadata for all files of a job.
+        Get aggregated metadata for all files of a job for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
 
         Returns:
             Aggregated metadata or None if no files found
         """
-        job_files = self.file_manager.list_job_files(job_id)
+        job_files = self.file_manager.list_job_files(job_id, owner_id)
         if not job_files:
             return None
 
@@ -782,17 +795,18 @@ class FilesystemStorageManager:
             'file_count': len(job_files)
         }
 
-    def delete_job_results(self, job_id: str) -> bool:
+    def delete_job_results(self, job_id: str, owner_id: str) -> bool:
         """
-        Delete all result files for a job.
+        Delete all result files for a job for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
 
         Returns:
             True if all files deleted successfully
         """
-        job_files = self.file_manager.list_job_files(job_id)
+        job_files = self.file_manager.list_job_files(job_id, owner_id)
         success = True
 
         for file_path in job_files:
@@ -801,10 +815,10 @@ class FilesystemStorageManager:
                 logger.error(f"Failed to delete file: {file_path}")
 
         # Try to clean up any empty project directories that might contain this job's files
-        # This is more aggressive cleanup for project-based storage
-        if self.file_manager.base_path.exists():
-            for project_dir in self.file_manager.base_path.iterdir():
-                if project_dir.is_dir() and project_dir.name.isdigit():
+        user_extract_path = self.file_manager.base_path.parent / owner_id / "extract"
+        if user_extract_path.exists():
+            for project_dir in user_extract_path.iterdir():
+                if project_dir.is_dir():
                     try:
                         # Check if this project directory has any files for this job
                         job_files_in_project = list(project_dir.glob(f"extraction_{job_id}_*.json"))
@@ -875,11 +889,12 @@ class FilesystemStorageManager:
 
         return completed_operations
 
-    def check_file_integrity(self, job_id: Optional[str] = None) -> Dict[str, Any]:
+    def check_file_integrity(self, owner_id: str, job_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Check integrity of stored files.
+        Check integrity of stored files for a specific user.
 
         Args:
+            owner_id: The owner ID
             job_id: Specific job ID to check, or None for all jobs
 
         Returns:
@@ -899,16 +914,14 @@ class FilesystemStorageManager:
 
         try:
             if job_id:
-                job_files = self.file_manager.list_job_files(job_id)
+                job_files = self.file_manager.list_job_files(job_id, owner_id)
             else:
-                # Check all directories (legacy job_ and new project dirs)
                 job_files = []
-                if self.file_manager.base_path.exists():
-                    for directory in self.file_manager.base_path.iterdir():
+                user_extract_path = self.file_manager.base_path.parent / owner_id / "extract"
+                if user_extract_path.exists():
+                    for directory in user_extract_path.iterdir():
                         if directory.is_dir():
-                            # Check if it's a project dir
-                            if directory.name.isdigit():
-                                job_files.extend(directory.glob("extraction_*.json"))
+                            job_files.extend(directory.glob("extraction_*.json"))
 
             for file_path in job_files:
                 results['total_files'] += 1
@@ -966,17 +979,18 @@ class HybridStorageManager:
         self.database_repo = database_repo
         self.enable_filesystem = enable_filesystem
 
-    def store_results(self, job_id: str, project_id: int, taxonomy_id: int,
-                      results: List[Dict[str, Any]], chunk_size: Optional[int] = None,
+    def store_results(self, job_id: str, project_id: Union[int, str], taxonomy_id: Union[int, str],
+                      results: List[Dict[str, Any]], owner_id: str, chunk_size: Optional[int] = None,
                       storage_preference: str = "filesystem") -> Dict[str, Any]:
         """
-        Store extraction results using hybrid approach.
+        Store extraction results using hybrid approach for a specific user.
 
         Args:
             job_id: The extraction job ID
             project_id: The project ID
             taxonomy_id: The taxonomy ID
             results: List of result dictionaries
+            owner_id: The owner ID
             chunk_size: Optional chunk size for splitting large result sets
             storage_preference: Preferred storage method ('filesystem', 'database', 'hybrid')
 
@@ -990,7 +1004,7 @@ class HybridStorageManager:
         if self.enable_filesystem and storage_preference in ['filesystem', 'hybrid']:
             try:
                 stored_files = self.filesystem_manager.store_results(
-                    job_id, project_id, taxonomy_id, results, chunk_size
+                    job_id, project_id, taxonomy_id, results, owner_id, chunk_size
                 )
                 if results:
                     logger.info(f"Stored {len(results)} results in filesystem for job {job_id}")
@@ -1004,21 +1018,24 @@ class HybridStorageManager:
         # Store metadata in database if available (only for hybrid mode)
         if self.database_repo and storage_preference == 'hybrid':
             try:
+                import uuid
                 # Store only metadata in database for indexing/querying
-                # Calculate file path based on job files - this is an approximation as results may span multiple files
-                # For exact mapping we would need to know which file each result went into, but stored_files helps
+                # The file_path points to where the actual extraction data is stored
                 primary_file_path = stored_files[0] if stored_files else None
                 
                 for result in results:
-                    self.database_repo.create_result(
-                        job_id=job_id,
-                        chunk_id=result.get('chunk_id', ''),
-                        categories=result.get('categories_matched', []),
-                        confidence=result.get('confidence_score', 0.0),
-                        project_id=project_id,
-                        extracted_data={}, # Empty dict to avoid redundancy with filesystem data
-                        file_path=primary_file_path
-                    )
+                    self.database_repo.create_result({
+                        "id": str(uuid.uuid4()),
+                        "owner_id": owner_id,
+                        "project_id": project_id,
+                        "job_id": job_id,
+                        "chunk_id": result.get('chunk_id', ''),
+                        "categories": result.get('categories_matched', []),
+                        "confidence": result.get('confidence_score', 0.0),
+                        "extracted_data": {}, # Empty dict to avoid redundancy with filesystem data
+                        "file_path": primary_file_path,  # Store path to filesystem data
+                        "created_at": datetime.utcnow()
+                    })
                 db_success = True
                 if results:
                     logger.info(f"Stored {len(results)} result metadata in database for job {job_id}")
@@ -1037,15 +1054,16 @@ class HybridStorageManager:
             'storage_preference': storage_preference
         }
 
-    def retrieve_results(self, job_id: str, page: int = 1, page_size: int = 50,
+    def retrieve_results(self, job_id: str, owner_id: str, page: int = 1, page_size: int = 50,
                         min_confidence: Optional[float] = None,
                         category_filter: Optional[str] = None,
                         storage_preference: str = "filesystem") -> Tuple[List[Dict[str, Any]], bool, int]:
         """
-        Retrieve extraction results using hybrid approach.
+        Retrieve extraction results using hybrid approach for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
             page: Page number (1-based)
             page_size: Number of results per page
             min_confidence: Minimum confidence threshold
@@ -1059,7 +1077,7 @@ class HybridStorageManager:
         if self.enable_filesystem and storage_preference in ['filesystem', 'hybrid']:
             try:
                 results, has_more, total = self.filesystem_manager.retrieve_results(
-                    job_id, page, page_size, min_confidence, category_filter
+                    job_id, owner_id, page, page_size, min_confidence, category_filter
                 )
                 if results or storage_preference == 'filesystem':
                     return results, has_more, total
@@ -1101,12 +1119,13 @@ class HybridStorageManager:
 
         return [], False, 0
 
-    def get_job_metadata(self, job_id: str, storage_preference: str = "filesystem") -> Optional[Dict[str, Any]]:
+    def get_job_metadata(self, job_id: str, owner_id: str, storage_preference: str = "filesystem") -> Optional[Dict[str, Any]]:
         """
-        Get job metadata using hybrid approach.
+        Get job metadata using hybrid approach for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
             storage_preference: Preferred metadata source
 
         Returns:
@@ -1115,7 +1134,7 @@ class HybridStorageManager:
         # Try filesystem first if enabled
         if self.enable_filesystem and storage_preference in ['filesystem', 'hybrid']:
             try:
-                metadata = self.filesystem_manager.get_job_metadata(job_id)
+                metadata = self.filesystem_manager.get_job_metadata(job_id, owner_id)
                 if metadata or storage_preference == 'filesystem':
                     return metadata
             except Exception as e:
@@ -1134,12 +1153,13 @@ class HybridStorageManager:
 
         return None
 
-    def delete_job_results(self, job_id: str, storage_preference: str = "filesystem") -> Dict[str, Any]:
+    def delete_job_results(self, job_id: str, owner_id: str, storage_preference: str = "filesystem") -> Dict[str, Any]:
         """
-        Delete job results using hybrid approach.
+        Delete job results using hybrid approach for a specific user.
 
         Args:
             job_id: The extraction job ID
+            owner_id: The owner ID
             storage_preference: What to delete
 
         Returns:
@@ -1151,7 +1171,7 @@ class HybridStorageManager:
         # Delete from filesystem if enabled
         if self.enable_filesystem and storage_preference in ['filesystem', 'hybrid']:
             try:
-                filesystem_success = self.filesystem_manager.delete_job_results(job_id)
+                filesystem_success = self.filesystem_manager.delete_job_results(job_id, owner_id)
                 logger.info(f"Deleted filesystem results for job {job_id}: {filesystem_success}")
             except Exception as e:
                 logger.error(f"Filesystem deletion failed for job {job_id}: {e}")

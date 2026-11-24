@@ -1,11 +1,9 @@
+import logging
 import requests
 from typing import List, Optional
 import json
 import time
 import re
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 def _sanitize_json_response(text: str) -> str:
     """
@@ -118,8 +116,9 @@ Text:
         "options": options
     }
 
-    # Log AI interaction
-    logger.debug(f"[AI_INTERACTION] - Request Data: {json.dumps(request_data, indent=2)}")
+    # DEBUG: Log AI interaction
+    logger = logging.getLogger(__name__)
+    logger.debug(f"DEBUG: [AI_INTERACTION] - Request Data: {json.dumps(request_data, indent=2)}")
 
     response = None
     for i in range(retries):
@@ -128,8 +127,8 @@ Text:
             response.raise_for_status()
 
             response_text = response.json().get("response", "[]")
-            # Log AI response
-            logger.debug(f"[AI_INTERACTION] - Response Text: {response_text}")
+            # DEBUG: Log AI response
+            logger.debug(f"DEBUG: [AI_INTERACTION] - Response Text: {response_text}")
 
             if not response_text:
                 raise ValueError("Empty response from Ollama API")

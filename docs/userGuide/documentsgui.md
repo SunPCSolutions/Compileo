@@ -33,6 +33,10 @@ Before working with documents, select a project from the dropdown at the top of 
 2. **PDF Splitting Configuration** (appears after file selection):
     - **Pages per Split**: Number of pages per PDF chunk (default: 5, recommended: 5-10)
     - **Overlap Pages**: Overlapping pages between chunks for context continuity (default: 0)
+    - **Page Selection** (optional): Define specific pages to process instead of the entire document
+      - Supports single pages (`1`), ranges (`1-20`), and batches (`1, 1-20, 30-120`)
+      - Leave empty to process all pages
+      - Only applies to PDF documents
     - **Purpose**: Automatically splits large PDFs to optimize AI parsing performance
     - **Automatic**: PDFs are split when `total_pages > pages_per_split`
 
@@ -65,10 +69,10 @@ Choose from available AI parsers:
 
 ### Parsing Action
 
-1. **Parse Button**: Shows count of documents to be processed.
-2. **Synchronous Monitoring**: The interface stays in the current view and provides smooth, in-place status updates until the parsing job completes.
-3. **Progress**: Real-time stage-based updates (e.g., "Splitting PDF", "Extracting Markdown") ensure visibility into the AI's work.
-4. **Results**: Instant success/failure notifications once the job reaches a terminal state.
+1. **Parse Button**: Shows count of documents to be processed
+2. **Progress**: Real-time status updates during parsing
+3. **Results**: Success/failure notifications with job IDs
+4. **Background Processing**: Long operations run asynchronously
 
 ---
 
@@ -179,9 +183,10 @@ Choose the AI model for intelligent chunking:
 ### Processing Status Display
 
 **Active Jobs**:
-- **Synchronous Monitoring**: Jobs started from the processing tabs are monitored in-place, preventing page flickering and preserving your UI state.
-- **Stage-based Updates**: Status messages follow the backend processing stages for maximum accuracy.
-- **Error Feedback**: Immediate, detailed error reporting if a job fails or times out.
+- Real-time progress bars
+- Current operation status
+- Estimated completion time
+- Error notifications
 
 **Job History**:
 - Previous processing jobs

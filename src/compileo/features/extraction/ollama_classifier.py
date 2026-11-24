@@ -3,15 +3,13 @@ This module provides a function to classify a text chunk based on a hierarchical
 using an Ollama model.
 """
 
+import logging
 import json
 import re
 import requests
 from typing import Dict, List, Any, Optional
 from .aigen_classifier import generate_categories
 from .context_models import DocumentContext, ChunkContext, HierarchicalCategory, ClassificationResult
-from ...core.logging import get_logger
-
-logger = get_logger(__name__)
 
 def _sanitize_json(text: str) -> str:
     """
@@ -39,6 +37,7 @@ def _classify_with_categories(
     taxonomy: Optional[HierarchicalCategory] = None,
     options: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
+    logger = logging.getLogger(__name__)
     from ...core.settings import backend_settings
     api_url = f"{backend_settings.get_ollama_base_url()}/api/generate"
 

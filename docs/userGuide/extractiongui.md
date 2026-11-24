@@ -4,11 +4,6 @@
 
 The Compileo GUI provides a sophisticated, unified interface for advanced entity extraction, relationship inference, and automated Q&A dataset generation. The extraction system transforms unstructured text into structured datasets through AI-powered entity recognition and intelligent relationship discovery.
 
-<div align="center">
-  <a href="../../img/Extraction_main.png"><img src="../../img/Extraction_main.png" width="400" alt="Multi-Stage Entity Extraction"></a>
-  <p><i>Multi-Stage Entity Extraction Interface</i></p>
-</div>
-
 ## Key Capabilities
 
 ### Entity Extraction
@@ -73,8 +68,8 @@ The extraction interface is organized into three main tabs:
 - **Max Chunks**: Maximum chunks to process (1-10,000)
 
 ##### Job Initiation
-- **Start Extraction**: Launch extraction job with configured parameters. The interface will provide in-view synchronous monitoring, allowing you to follow the job's progress through various stages without leaving the page.
-- **Progress Feedback**: Real-time stage-based updates (e.g., "Initializing", "Analyzing Chunks", "Storing Results") ensure you know exactly what the system is doing.
+- **Start Extraction**: Launch extraction job with configured parameters
+- **Progress Feedback**: Real-time status updates and success notifications
 
 #### 📊 **Monitor Jobs Tab**
 
@@ -426,11 +421,11 @@ The GUI provides intelligent error handling with user-friendly messages:
 
 ### Real-time Updates
 
-The Job Management dashboard provides comprehensive visibility into all active and completed jobs across the platform.
+The GUI automatically refreshes job status, but for the most current information:
 
-- **Manual Refresh**: Use the "Refresh Dashboard" button for a clean, non-flickering update of all job metrics and lists.
-- **In-Place Monitoring**: Jobs started from the extraction tabs are monitored synchronously, keeping you informed of their specific status in real-time.
-- **Accurate Progress**: Monitoring focuses on stage-based status messages from the backend, providing a more reliable indicator of work completed than simple percentage bars.
+- Use browser refresh for immediate updates
+- Monitor progress bars for live completion tracking
+- Check timestamps to verify data freshness
 
 ### Bulk Operations
 

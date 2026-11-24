@@ -6,19 +6,21 @@ integrating with the enhanced job queue manager.
 """
 
 import time
+import logging
 from typing import Dict, Any, Optional, Union, List
-from ....core.logging import get_logger
 from datetime import datetime, timedelta
 import streamlit as st
 
+import uuid
 from ...jobhandle.enhanced_job_queue import initialize_job_queue_manager, EnhancedJobQueueManager
-from ...jobhandle.models import JobType, JobStatus, JobPriority
+from ...jobhandle.models import JobType, JobStatus, JobPriority, JobSchedule
 from ..state.session_state import session_state
 from ..services.api_client import APIError
 from ...extraction.error_logging import gui_logger
 from ....api.core.config import settings
+from ....storage.src.project.database_repositories import ExtractionJobRepository
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class JobSubmissionError(Exception):
@@ -99,7 +101,7 @@ class AsyncJobSubmissionService:
         }
         logger.debug(json.dumps(debug_context))
 
-        logger.debug(f"[DEBUG_20251003_RQ_FLOW] - GUI service `submit_job` called for job_type: {job_type}")
+        logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - GUI service `submit_job` called for job_type: {job_type}")
         try:
             try:
                 priority_value = priority.value
@@ -113,19 +115,27 @@ class AsyncJobSubmissionService:
             })
 
             # Get user ID from session if not provided
+            # NOTE: This fallback is kept for backward compatibility, but callers should
+            # always pass user_id explicitly. The wizard and non-wizard pipelines now
+            # pass user_id directly to ensure proper job attribution.
             if user_id is None:
                 try:
                     user_id = session_state.user_id
-                    # Ensure we have a valid user_id
-                    if not user_id:
-                        user_id = "default_user"
                 except:
-                    # Fallback for when session state is not initialized
-                    user_id = "default_user"
+                    # Session state not available - this is expected in some contexts
+                    pass
 
-            # Final safety check
+            # Final safety check - require user_id for proper multi-tenant isolation
             if not user_id or user_id == "":
-                user_id = "default_user"
+                # This should not happen in normal operation - either the caller should
+                # pass user_id explicitly, or session_state should have it set
+                error_msg = (
+                    "user_id is required for job submission. "
+                    "Please ensure session_state.user_id is set or pass user_id explicitly. "
+                    "This is a bug in the calling code if you see this error."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
             # DEBUG: [DEBUG_20251003_PDF_PARSE] - User ID resolved
             debug_context = {
@@ -139,7 +149,43 @@ class AsyncJobSubmissionService:
             }
             logger.debug(json.dumps(debug_context))
 
-            logger.debug(f"[DEBUG_20251003_RQ_FLOW] - Submitting job with user_id: {user_id}")
+            logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Submitting job with user_id: {user_id}")
+
+            # Generate job_id upfront to create DB record first
+            job_id = str(uuid.uuid4())
+
+            # Create DB record if this is an extraction job
+            # This is critical because the worker will try to update this record
+            if str(job_type) in [str(JobType.EXTRACTION), str(JobType.BATCH_EXTRACTION)]:
+                try:
+                    logger.info(f"Creating database record for job {job_id} (type: {job_type})")
+                    repo = ExtractionJobRepository(user_id)
+                    
+                    # Extract necessary fields from parameters
+                    project_id = parameters.get('project_id')
+                    document_id = parameters.get('document_id')
+                    
+                    job_data = {
+                        'id': job_id,
+                        'owner_id': user_id,
+                        'project_id': project_id,
+                        'document_id': document_id,
+                        'status': 'pending',
+                        'parameters': parameters,
+                        'progress': 0.0,
+                        'created_at': datetime.utcnow(),
+                        'updated_at': datetime.utcnow(),
+                        'started_at': None,
+                        'completed_at': None,
+                        'error_message': None
+                    }
+                    
+                    repo.create_job(job_data)
+                    logger.info(f"Successfully created database record for job {job_id}")
+                except Exception as db_error:
+                    logger.error(f"Failed to create database record for job {job_id}: {db_error}")
+                    # We continue to submit to queue, but warn about DB issue
+                    # Alternatively, we could raise here to fail fast
 
             # DEBUG: [DEBUG_20251003_PDF_PARSE] - Calling job queue manager submit_job
             debug_context = {
@@ -149,17 +195,25 @@ class AsyncJobSubmissionService:
                 "message": "Calling job queue manager submit_job",
                 "context": {
                     "job_type": str(job_type),
-                    "user_id": user_id
+                    "user_id": user_id,
+                    "job_id": job_id
                 }
             }
             logger.debug(json.dumps(debug_context))
 
+            # Add owner_id and project_id to parameters for job executor
+            enhanced_parameters = parameters.copy()
+            enhanced_parameters['owner_id'] = user_id
+            if 'project_id' not in enhanced_parameters and parameters.get('project_id'):
+                enhanced_parameters['project_id'] = parameters['project_id']
+
             # Submit the job
             job_id = self.job_queue_manager.submit_job(
                 job_type=job_type,
-                parameters=parameters,
+                parameters=enhanced_parameters,
                 priority=priority,
                 user_id=user_id,
+                job_id=job_id,  # Pass the pre-generated ID
                 **kwargs
             )
 
@@ -177,7 +231,7 @@ class AsyncJobSubmissionService:
             }
             logger.debug(json.dumps(debug_context))
 
-            logger.debug(f"[DEBUG_20251003_RQ_FLOW] - Job submitted to manager. Received job_id: {job_id}")
+            logger.info(f"DEBUG: [DEBUG_20251003_RQ_FLOW] - Job submitted to manager. Received job_id: {job_id}")
 
             # Cache the job status immediately
             self._cache_job_status(job_id)
@@ -282,7 +336,7 @@ class AsyncJobSubmissionService:
                 user_id = session_state.user_id
             except:
                 # Fallback for when session state is not initialized
-                user_id = "default_user"
+                pass
 
         if not user_id:
             return []
@@ -507,6 +561,9 @@ class AsyncJobSubmissionService:
 
     def _add_to_user_jobs(self, job_id: str, job_type: Union[str, JobType], user_id: str) -> None:
         """Add job to user's active jobs in session state."""
+        if not user_id:
+            return
+
         try:
             job_type_str = job_type.value
         except AttributeError:
@@ -636,6 +693,12 @@ def submit_document_processing_job(
     Returns:
         Job ID
     """
+    # Safety default: bound parse-job runtime to avoid long-lived RUNNING jobs
+    # blocking subsequent document processing for the same user.
+    operation = parameters.get("operation") if isinstance(parameters, dict) else None
+    if operation == "parse_documents" and "schedule" not in kwargs:
+        kwargs["schedule"] = JobSchedule(timeout_seconds=21600)  # 6 hours
+
     return async_job_service.submit_job(
         JobType.DOCUMENT_PROCESSING,
         parameters,

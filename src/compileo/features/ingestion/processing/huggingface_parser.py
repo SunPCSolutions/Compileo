@@ -1,18 +1,18 @@
 import torch
 from PIL import Image
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 from transformers import AutoModelForImageTextToText, AutoProcessor, AutoTokenizer, AutoConfig, PretrainedConfig, BitsAndBytesConfig
 import os
 from typing import Optional, List
+import io
 from .image_utils import convert_pdf_to_optimized_images
+from ....core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Define the model name from HuggingFace Hub
 MODEL_NAME = "nanonets/Nanonets-OCR2-3B"
 
 # Determine base path for the cache directory
-# In Docker, use absolute path to ensure reliability regardless of working directory
 if os.path.exists("/app"):
     CACHE_DIR = "/app/src/compileo/features/ingestion/hf_models"
 else:
@@ -25,68 +25,135 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 def load_model():
     """
     Loads the Hugging Face model, processor, and tokenizer with GPU optimization when available.
-    Based on official Nanonets-OCR-s documentation.
     """
     logger.debug(f"Loading HuggingFace model: {MODEL_NAME}")
     logger.debug(f"Cache directory: {os.path.abspath(CACHE_DIR)}")
 
-    # ALWAYS fetch HUGGING_FACE_HUB_TOKEN from database via BackendSettings
-    logger.debug("Attempting to load HUGGING_FACE_HUB_TOKEN exclusively from database...")
+    # DIAGNOSTIC: Check CUDA availability before loading
+    logger.debug("=== GPU DIAGNOSTIC START ===")
+    logger.debug(f"torch.cuda.is_available() = {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        logger.debug(f"torch.cuda.device_count() = {torch.cuda.device_count()}")
+        logger.debug(f"torch.cuda.get_device_name(0) = {torch.cuda.get_device_name(0)}")
+        logger.debug(f"CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES', 'NOT SET')}")
+    else:
+        logger.debug("CUDA is NOT available! Model will use CPU.")
+    logger.debug("=== GPU DIAGNOSTIC END ===")
+
+    # Fetch HUGGING_FACE_HUB_TOKEN from environment (set by job executor)
+    logger.debug("Checking for HUGGING_FACE_HUB_TOKEN in environment...")
+    token = os.environ.get('HUGGING_FACE_HUB_TOKEN')
+    if token:
+        logger.debug(f"SUCCESS: HUGGING_FACE_HUB_TOKEN found in environment")
+    else:
+        logger.debug("HUGGING_FACE_HUB_TOKEN not found in environment - HuggingFace downloads may fail if token is required")
+
     try:
-        # Clear any existing environment variable to ensure DB is the only source
-        if 'HUGGING_FACE_HUB_TOKEN' in os.environ:
-            del os.environ['HUGGING_FACE_HUB_TOKEN']
-            
-        from src.compileo.core.settings import BackendSettings
-        token = BackendSettings.get_huggingface_hub_token()
-        if token:
-            os.environ['HUGGING_FACE_HUB_TOKEN'] = token
-            logger.debug(f"SUCCESS: HUGGING_FACE_HUB_TOKEN loaded from database (length: {len(token)})")
+        logger.debug(f"Attempting to load model with GPU optimization...")
+        
+        # Determine the best device mapping based on CUDA availability
+        if torch.cuda.is_available():
+            # Use explicit CUDA device mapping instead of "auto" which can fail silently
+            device_map = "cuda"
+            logger.debug(f"Using explicit device_map='cuda' for GPU acceleration")
         else:
-            logger.warning("WARNING: HUGGING_FACE_HUB_TOKEN not found in database settings table")
-    except Exception as e:
-        logger.error(f"CRITICAL ERROR: Failed to load HUGGING_FACE_HUB_TOKEN from database: {e}", exc_info=True)
+            device_map = "auto"
+            logger.debug("CUDA not available, using device_map='auto'")
 
-    # Final verification log
-    final_token_status = bool(os.environ.get('HUGGING_FACE_HUB_TOKEN'))
-    logger.debug(f"FINAL HUB TOKEN STATUS: {'SET' if final_token_status else 'MISSING'}")
-
-    try:
-        logger.debug(f"Attempting to load model from HuggingFace Hub...")
-
-        # Load model with performance optimizations
-        # Re-enabling flash_attention_2 after manual model copy
-        logger.debug(f"Calling AutoModelForImageTextToText.from_pretrained for {MODEL_NAME}...")
-        model = AutoModelForImageTextToText.from_pretrained(
-            MODEL_NAME,
-            cache_dir=CACHE_DIR,
-            device_map="auto",  # Let transformers auto-manage GPU distribution
-            torch_dtype=torch.float16,  # Force float16 for stability
-            attn_implementation="flash_attention_2",
-            trust_remote_code=True
-        )
-        logger.debug("from_pretrained() call returned successfully")
-        logger.debug(f"Model loaded with flash attention 2 and float16 precision (optimal for this model)")
+        # Try different attention implementations in order of preference
+        # flash_attention_2 requires specific GPU hardware (Ampere, Ada, newer)
+        attention_options = ["flash_attention_2", "sdpa", "eager"]
+        
+        model = None
+        last_error = None
+        successful_attn = None
+        
+        for attn_impl in attention_options:
+            try:
+                logger.debug(f"Trying attn_implementation='{attn_impl}'...")
+                
+                # Load model with performance optimizations
+                model = AutoModelForImageTextToText.from_pretrained(
+                    MODEL_NAME,
+                    cache_dir=CACHE_DIR,
+                    device_map=device_map,
+                    dtype="float16",  # Use string to avoid deprecation warning
+                    attn_implementation=attn_impl,
+                    trust_remote_code=True
+                )
+                logger.debug(f"Successfully loaded with attn_implementation='{attn_impl}'")
+                successful_attn = attn_impl
+                break
+            except Exception as attn_error:
+                logger.debug(f"attn_implementation='{attn_impl}' failed: {attn_error}")
+                last_error = attn_error
+                continue
+        
+        if model is None:
+            raise Exception(f"All attention implementations failed. Last error: {last_error}")
+        logger.debug(f"Model loaded with {successful_attn} and float16 precision")
         model.eval()  # Set to evaluation mode
-        logger.debug(f"Model loaded successfully with fixed config on device: {next(model.parameters()).device}")
+        
+        # DIAGNOSTIC: Verify actual device after loading
+        actual_device = next(model.parameters()).device
+        logger.debug(f"Model loaded successfully on device: {actual_device}")
+        
+        # DIAGNOSTIC: Log warning if model is on CPU despite GPU being available
+        if actual_device.type == 'cpu' and torch.cuda.is_available():
+            logger.warning(f"Model loaded on CPU despite GPU being available! This is a performance issue.")
+            logger.debug(f"Possible cause: device_map='auto' failed to detect GPU. Try setting device_map='cuda' explicitly.")
 
     except Exception as e:
-        logger.warning(f"Failed to load model with basic config: {e}")
-        logger.debug(f"Falling back to CPU loading...")
-        try:
-            # Fallback to CPU-only loading
-            model = AutoModelForImageTextToText.from_pretrained(
-                MODEL_NAME,
-                cache_dir=CACHE_DIR,
-                device_map=None,
-                dtype=torch.float32,
-                trust_remote_code=True
-            )
-            model.eval()
-            logger.debug(f"Model loaded successfully on CPU")
-        except Exception as fallback_e:
-            logger.error(f"CPU loading also failed: {fallback_e}")
-            raise
+        logger.debug(f"Failed to load model with GPU config: {e}")
+        
+        # Try fallback with explicit CUDA device mapping
+        if torch.cuda.is_available():
+            logger.debug("Attempting fallback with explicit device_map='cuda'...")
+            try:
+                model = AutoModelForImageTextToText.from_pretrained(
+                    MODEL_NAME,
+                    cache_dir=CACHE_DIR,
+                    device_map="cuda",  # Explicit CUDA device
+                    dtype="float16",  # Use string to avoid deprecation warning
+                    attn_implementation="flash_attention_2",
+                    trust_remote_code=True
+                )
+                model.eval()
+                actual_device = next(model.parameters()).device
+                logger.debug(f"Fallback GPU load succeeded on device: {actual_device}")
+            except Exception as cuda_fallback_e:
+                logger.debug(f"Explicit CUDA fallback failed: {cuda_fallback_e}")
+                logger.debug("Falling back to CPU...")
+                try:
+                    # Final fallback to CPU-only loading
+                    model = AutoModelForImageTextToText.from_pretrained(
+                        MODEL_NAME,
+                        cache_dir=CACHE_DIR,
+                        device_map=None,
+                        dtype="float32",  # Use string to avoid deprecation warning
+                        trust_remote_code=True
+                    )
+                    model.eval()
+                    logger.debug(f"Model loaded successfully on CPU (final fallback)")
+                except Exception as fallback_e:
+                    logger.error(f"CPU loading also failed: {fallback_e}")
+                    raise
+        else:
+            # No CUDA available, fall back to CPU
+            logger.debug("No CUDA available, falling back to CPU...")
+            try:
+                model = AutoModelForImageTextToText.from_pretrained(
+                    MODEL_NAME,
+                    cache_dir=CACHE_DIR,
+                    device_map=None,
+                    dtype="float32",  # Use string to avoid deprecation warning
+                    trust_remote_code=True
+                )
+                model.eval()
+                logger.debug(f"Model loaded successfully on CPU")
+            except Exception as fallback_e:
+                logger.error(f"CPU loading also failed: {fallback_e}")
+                raise
 
     try:
         processor = AutoProcessor.from_pretrained(MODEL_NAME, cache_dir=CACHE_DIR, use_fast=True)
@@ -96,13 +163,12 @@ def load_model():
         logger.error(f"Failed to load processor/tokenizer: {e}")
         raise
 
-    logger.debug("HuggingFace model, processor, and tokenizer loaded successfully")
+    logger.info("HuggingFace model, processor, and tokenizer loaded successfully")
     return model, processor, tokenizer
 
 def parse_image_with_hf_vlm(image: Image.Image, model, processor, style_guide: Optional[str] = None):
     """
-    Parses an image with the Hugging Face VLM using the official Nanonets-OCR-s API.
-    Based on the official HuggingFace documentation.
+    Parses an image with the Hugging Face VLM.
     """
     try:
         # Inject style guide
@@ -152,7 +218,6 @@ def parse_image_with_hf_vlm(image: Image.Image, model, processor, style_guide: O
     Output ONLY the converted markdown - nothing else, no additions, no modifications."""
 
         # Create messages in the format expected by the model
-        # Prepend instruction marker to prompt
         final_prompt = f"{prompt}\n\n[End of Instruction] Start processing document:"
 
         messages = [
@@ -168,17 +233,16 @@ def parse_image_with_hf_vlm(image: Image.Image, model, processor, style_guide: O
         inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt")
         inputs = inputs.to(model.device)
 
-        # Generate response with optimized parameters for better GPU utilization
-        # Note: temperature parameter not supported by this model, using do_sample=False for deterministic output
+        # Generate response
         output_ids = model.generate(
             **inputs,
-            max_new_tokens=64000,  # official example is (15000)
-            do_sample=False,  # Deterministic generation (temperature not supported by this model)
-            repetition_penalty=1.2,  # Better results for complex tables
-            use_cache=True  # Enable KV cache for better performance
+            max_new_tokens=64000,
+            do_sample=False,
+            repetition_penalty=1.2,
+            use_cache=True
         )
 
-        # Extract generated tokens (excluding input)
+        # Extract generated tokens
         generated_ids = [output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, output_ids)]
 
         # Decode the response
@@ -187,9 +251,8 @@ def parse_image_with_hf_vlm(image: Image.Image, model, processor, style_guide: O
         return output_text[0] if output_text else ""
 
     except Exception as e:
-        error_msg = f"Error processing image: {e}"
-        logger.error(f"[DEBUG_20251005_HuggingFaceParserBug] - {error_msg}", exc_info=True)
-        return error_msg
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        return f"Error processing image: {e}"
 
 def analyze_document_structure(pdf_path: str, api_key: Optional[str] = None, preloaded_model=None, preloaded_processor=None) -> str:
     """
@@ -198,10 +261,6 @@ def analyze_document_structure(pdf_path: str, api_key: Optional[str] = None, pre
     if not os.path.exists(pdf_path):
         return ""
 
-    # Set API key if provided (needed for model loading if not preloaded)
-    if api_key:
-        os.environ["HUGGING_FACE_HUB_TOKEN"] = api_key
-
     try:
         # Load model if needed
         if preloaded_model is not None and preloaded_processor is not None:
@@ -209,8 +268,7 @@ def analyze_document_structure(pdf_path: str, api_key: Optional[str] = None, pre
         else:
             try:
                 model, processor, _ = load_model()
-            except Exception as e:
-                logger.error(f"Failed to load model during structure analysis: {e}")
+            except Exception:
                 return ""
 
         # Convert all pages with higher DPI for structure analysis
@@ -251,7 +309,7 @@ Do not extract content."""
         return output_text[0] if output_text else ""
 
     except Exception as e:
-        logger.error(f"HuggingFace structure analysis failed: {e}")
+        logger.warning(f"HuggingFace structure analysis failed: {e}")
         return ""
 
 def parse_pdf_with_vlm(
@@ -264,86 +322,42 @@ def parse_pdf_with_vlm(
 ) -> str:
     """
     Parses a PDF using the Hugging Face VLM.
-
-    Args:
-        pdf_path: Path to the PDF file
-        api_key: HuggingFace API key (optional, will use environment variable if not provided)
-        preloaded_model: Pre-loaded model to reuse (optional)
-        preloaded_processor: Pre-loaded processor to reuse (optional)
-        style_guide: Optional style guide for context-aware parsing
     """
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Starting HuggingFace PDF parsing for: {pdf_path}")
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - API key provided: {bool(api_key)}")
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - HUGGING_FACE_HUB_TOKEN in env: {bool(os.environ.get('HUGGING_FACE_HUB_TOKEN'))}")
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Preloaded model provided: {preloaded_model is not None}")
+    logger.info(f"Starting HuggingFace PDF parsing for: {pdf_path}")
 
     if not os.path.exists(pdf_path):
-        error_msg = f"Error: File not found at: {pdf_path}"
-        logger.error(error_msg)
-        return error_msg
-
-    # Set API key if provided
-    if api_key:
-        os.environ["HUGGING_FACE_HUB_TOKEN"] = api_key
-        logger.debug("Set HUGGING_FACE_HUB_TOKEN from parameter")
-    elif not os.environ.get("HUGGING_FACE_HUB_TOKEN"):
-        error_msg = "Error: HuggingFace API key not found. Please set HUGGING_FACE_HUB_TOKEN environment variable or provide api_key parameter."
-        logger.error(error_msg)
-        return error_msg
-
-    logger.debug(f"API key configured, token present: {bool(os.environ.get('HUGGING_FACE_HUB_TOKEN'))}")
+        return f"Error: File not found at: {pdf_path}"
 
     try:
-        # Use optimized image conversion for VLM processing (300dpi for better OCR quality)
+        # Use optimized image conversion
         images = convert_pdf_to_optimized_images(pdf_path, dpi=300)
     except Exception as e:
-        error_msg = f"Error converting PDF to optimized images: {e}"
-        logger.error(f"[DEBUG_20251005_HuggingFaceParserBug] - {error_msg}")
-        return error_msg
+        return f"Error converting PDF to optimized images: {e}"
 
     full_markdown = ""
 
     # Use preloaded model if provided, otherwise load new one
     if preloaded_model is not None and preloaded_processor is not None:
-        logger.debug("[DEBUG_20251005_HuggingFaceParserBug] - Using preloaded model and processor")
         model, processor = preloaded_model, preloaded_processor
     else:
         try:
-            logger.debug("[DEBUG_20251005_HuggingFaceParserBug] - About to load model")
             model, processor, tokenizer = load_model()
-            logger.debug("[DEBUG_20251005_HuggingFaceParserBug] - load_model() returned successfully")
-            logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Model type: {type(model)}, Processor type: {type(processor)}, Tokenizer type: {type(tokenizer)}")
         except Exception as e:
-            error_msg = f"Error loading model: {e}"
-            logger.error(f"[DEBUG_20251005_HuggingFaceParserBug] - {error_msg}", exc_info=True)
-            return error_msg
+            logger.error(f"Error loading model: {e}", exc_info=True)
+            return f"Error loading model: {e}"
 
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Model ready, processing {len(images)} pages...")
-
-    # Inject style guide into prompt logic inside parse_image_with_hf_vlm
-    # We need to pass style_guide to parse_image_with_hf_vlm or modify the function
-    # Since parse_image_with_hf_vlm is defined above, let's redefine it or pass it as an argument
-    # To avoid changing the signature of parse_image_with_hf_vlm globally if used elsewhere,
-    # we can modify the prompt construction here if we inline the logic, or update parse_image_with_hf_vlm
-    
-    # Updating parse_image_with_hf_vlm signature would require updating all calls.
-    # Let's check where it's used. It's only used in this function loop.
+    logger.info(f"Model ready, processing {len(images)} pages...")
     
     for i, image in enumerate(images):
-        logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Processing page {i+1}/{len(images)}...")
+        logger.debug(f"Processing page {i+1}/{len(images)}...")
         try:
-            # We will call a modified version or update the prompt before calling
-            # Wait, parse_image_with_hf_vlm has hardcoded prompt. We need to update it to accept prompt or style_guide.
-            # I will modify parse_image_with_hf_vlm signature in a separate edit block below.
             markdown = parse_image_with_hf_vlm(image, model, processor, style_guide)
-            logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - Page {i+1} processed, markdown length: {len(markdown)}")
             full_markdown += markdown + "\n\n"
         except Exception as e:
-            error_msg = f"Error processing page {i+1}: {e}"
-            logger.error(f"[DEBUG_20251005_HuggingFaceParserBug] - {error_msg}", exc_info=True)
-            full_markdown += error_msg + "\n\n"
+            logger.error(f"Error processing page {i+1}: {e}", exc_info=True)
+            full_markdown += f"Error processing page {i+1}: {e}\n\n"
 
-    logger.debug(f"[DEBUG_20251005_HuggingFaceParserBug] - HuggingFace parsing complete, total markdown length: {len(full_markdown)}")
+    logger.info(f"HuggingFace parsing complete, total markdown length: {len(full_markdown)}")
     return full_markdown
 
 if __name__ == '__main__':

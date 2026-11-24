@@ -5,20 +5,17 @@ Wizard-specific state management for dataset creation workflow.
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import streamlit as st
-from ....core.logging import get_logger
-
-logger = get_logger(__name__)
 
 class WizardState:
     """Manages state for the dataset creation wizard."""
 
     STEPS = [
         "project_selection",
-        "combined_processing",  # Parse & Chunk & Taxonomy
-        "edit_taxonomy",        # Manual/Hybrid editing
+        "document_upload",
+        "processing_config",
+        "taxonomy_selection",
         "generation_params",
-        "review_generate",
-        "refinement"
+        "review_generate"
     ]
 
     def __init__(self):
@@ -33,7 +30,6 @@ class WizardState:
                 'completed_steps': [],
                 'data': {},
                 'errors': {},
-                'needs_refresh': False,
                 'last_updated': datetime.utcnow()
             }
 
@@ -137,16 +133,6 @@ class WizardState:
         """Get all wizard data."""
         return st.session_state.wizard.get('data', {})
 
-    @property
-    def needs_refresh(self) -> bool:
-        """Check if wizard needs refresh."""
-        return st.session_state.wizard.get('needs_refresh', False)
-
-    @needs_refresh.setter
-    def needs_refresh(self, value: bool):
-        """Set refresh flag."""
-        st.session_state.wizard['needs_refresh'] = value
-
     def validate_current_step(self) -> bool:
         """Validate current step data."""
         step_name = self.current_step_name
@@ -155,101 +141,27 @@ class WizardState:
         if step_name == "project_selection":
             step_data = self.get_step_data(step_name)
             return 'project_id' in step_data
-        elif step_name == "combined_processing":  # Parse & Chunk & Taxonomy
-            # Check if chunks have been generated for selected documents
-            processing_data = self.get_step_data("processing_config")
-            selected_document_ids = processing_data.get("selected_document_ids", [])
-            chunk_job_id = processing_data.get("chunk_job_id")
-
-            # If we have selected documents, check for chunks
-            if selected_document_ids:
-                try:
-                    from ..services.api_client import api_client
-
-                    # Check if chunks exist for selected documents
-                    chunks_found = False
-                    total_chunks = 0
-
-                    for doc_id in selected_document_ids:
-                        try:
-                            chunks_response = api_client.get(f"/api/v1/chunks/document/{doc_id}")
-                            if chunks_response and isinstance(chunks_response, dict):
-                                doc_chunks = chunks_response.get("chunks", [])
-                                if doc_chunks and len(doc_chunks) > 0:
-                                    chunks_found = True
-                                    total_chunks += len(doc_chunks)
-                        except Exception as e:
-                            # Log API failure but continue checking other documents
-                            logger.debug(f"Failed to check chunks for document {doc_id}: {e}")
-                            pass
-
-                    # Allow progression if we found any chunks
-                    # This handles cases where chunking completed successfully
-                    if chunks_found:
-                        logger.debug(f"Found {total_chunks} chunks across {len(selected_document_ids)} documents - allowing progression")
-                        return True
-
-                    # If chunking job was started but no chunks found yet, allow progression anyway
-                    # This handles timing issues where chunks might be created after validation
-                    if chunk_job_id:
-                        logger.debug(f"Chunking job {chunk_job_id} was started - allowing progression despite no chunks found yet")
-                        return True
-
-                    # No chunks found and no chunking job - don't allow progression
-                    logger.debug(f"No chunks found for {len(selected_document_ids)} documents and no chunking job started")
-                    return False
-
-                except Exception as e:
-                    # If we can't check chunks at all, allow progression (fail open)
-                    logger.debug(f"Exception during chunk validation: {e} - allowing progression")
-                    return True
-            else:
-                # No documents selected - allow progression (user can go back if needed)
-                return True
-        elif step_name == "processing_config":  # Skip - now combined
+        elif step_name == "document_upload":
+            step_data = self.get_step_data(step_name)
+            # Allow progression if either uploaded files exist OR existing documents exist
+            has_uploaded = len(step_data.get('uploaded_files', [])) > 0
+            has_existing = len(step_data.get('existing_documents', [])) > 0
+            return has_uploaded or has_existing
+        elif step_name == "processing_config":
             # Check session state for processing config data since it's stored there
             # until Next is pressed
             import streamlit as st
             step_data = st.session_state.get('processing_config', {})
             # Check for all required AI model selections and chunk strategy
             required_fields = ['parsing_model', 'chunking_model', 'classification_model', 'chunk_strategy']
-            config_valid = all(field in step_data for field in required_fields)
-
-            if not config_valid:
-                return False
-
-            # Additionally check if chunks are available for selected documents
-            # This ensures users have generated chunks before proceeding
-            project_data = self.get_step_data("project_selection")
-            project_id = project_data.get("project_id")
-            selected_document_ids = step_data.get("selected_document_ids", [])
-
-            if project_id and selected_document_ids:
-                try:
-                    from ..services.api_client import api_client
-
-                    # Check if chunks exist for selected documents
-                    all_have_chunks = True
-                    for doc_id in selected_document_ids:
-                        chunks_response = api_client.get(f"/api/v1/chunks/document/{doc_id}")
-                        if chunks_response:
-                            chunks = chunks_response.get("chunks", [])
-                            if not chunks:  # No chunks found for this document
-                                all_have_chunks = False
-                                break
-                        else:
-                            all_have_chunks = False
-                            break
-
-                    return all_have_chunks
-                except Exception:
-                    # If we can't check chunks, allow progression (fail open)
-                    return True
-            else:
-                return False
-        elif step_name == "edit_taxonomy":
-            taxonomy_data = self.get_step_data("taxonomy_selection")
-            return 'selected_taxonomy' in taxonomy_data
+            has_config = all(field in step_data for field in required_fields)
+            # Also check that chunking is completed
+            wizard_data = self.get_step_data("processing_config")
+            chunking_status = wizard_data.get("chunking_status", "not_started") if wizard_data else "not_started"
+            return has_config and chunking_status == "completed"
+        elif step_name == "taxonomy_selection":
+            step_data = self.get_step_data(step_name)
+            return 'selected_taxonomy' in step_data
         elif step_name == "generation_params":
             # Check session state for generation params data since it's stored there
             # until Next is pressed

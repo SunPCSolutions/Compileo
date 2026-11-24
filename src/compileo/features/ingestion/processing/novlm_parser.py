@@ -1,9 +1,9 @@
+import logging
 from .pdf_analyzer import is_text_based
 from .pypdf_parser import parse_pdf_with_pypdf
 from .unstructured_parser import parse_document_with_unstructured
-from ....core.logging import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 def parse_pdf_novlm(file_path: str) -> str:
     """

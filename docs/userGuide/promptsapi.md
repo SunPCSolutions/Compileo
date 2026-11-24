@@ -114,9 +114,15 @@ The Compileo Prompts API provides comprehensive management capabilities for AI p
 **Endpoint:** `GET /by-name/{name}`
 
 **Description:** Retrieves a specific prompt by its name identifier.
+It implements a hierarchy lookup:
+1.  **Project Override**: Checks for a prompt with the same name owned by the specific project/user.
+2.  **System Default**: Fallbacks to the global system prompt (`owner_id='system'`).
 
 **Path Parameters:**
 - `name` (string, required): Prompt name identifier
+
+**Query Parameters:**
+- `project_id` (string, optional): Project ID context for override lookup.
 
 **Success Response (200 OK):** Same as Get Prompt by ID
 

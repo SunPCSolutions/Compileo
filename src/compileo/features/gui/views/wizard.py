@@ -6,27 +6,27 @@ import streamlit as st
 from typing import Dict, Any
 
 from src.compileo.features.gui.state.wizard_state import wizard_state
-from ....core.logging import get_logger
+from src.compileo.features.gui.services.api_client import api_client, APIError
 from src.compileo.features.gui.components.wizard.project_selection import render_project_selection
 from src.compileo.features.gui.components.wizard_steps import (
-    render_combined_setup,
-    render_edit_taxonomy_step,
+    render_document_upload,
+    render_processing_config,
+    render_taxonomy_selection,
     render_generation_params,
     render_review_generate
 )
 
-logger = get_logger(__name__)
-
 STEP_NAMES = [
     "Project Selection",
-    "Parse & Chunk & Taxonomy",
-    "Edit Taxonomy",
+    "Document Upload",
+    "Processing Configuration",
+    "Taxonomy Selection",
     "Generation Parameters",
     "Review & Generate"
 ]
 
 STEP_ICONS = [
-    "📁", "⚙️", "🏗️", "🔧", "✅"
+    "📁", "📤", "⚙️", "🏷️", "🔧", "✅"
 ]
 
 def render_step_indicator():
@@ -38,7 +38,7 @@ def render_step_indicator():
         with cols[i]:
             if i < wizard_state.current_step:
                 # Completed step - clickable
-                if st.button(f"{icon} {name}", key=f"nav_step_{i}", help=f"Go to {name}", width='stretch'):
+                if st.button(f"{icon} {name}", key=f"nav_step_{i}", help=f"Go to {name}", use_container_width=True):
                     wizard_state.current_step = i
                     st.rerun()
             elif i == wizard_state.current_step:
@@ -46,7 +46,7 @@ def render_step_indicator():
                 st.info(f"{icon} **{name}**")
             else:
                 # Future step - all clickable, validation happens within the step
-                if st.button(f"{icon} {name}", key=f"nav_step_{i}", help=f"Go to {name}", width='stretch'):
+                if st.button(f"{icon} {name}", key=f"nav_step_{i}", help=f"Go to {name}", use_container_width=True):
                     wizard_state.current_step = i
                     st.rerun()
 
@@ -75,57 +75,17 @@ def render_navigation_buttons():
                 if st.button("Next ➡️", width='stretch'):
                     # Auto-save current step data before proceeding
                     current_step_name = wizard_state.current_step_name
-                    if current_step_name == "combined_processing" and "processing_config" in st.session_state:
-                        # Save processing config from combined step
+                    if current_step_name == "processing_config" and "processing_config" in st.session_state:
                         wizard_state.set_step_data("processing_config", st.session_state.processing_config)
-                    elif current_step_name == "edit_taxonomy" and "unified_taxonomy" in st.session_state:
-                        # Save taxonomy from unified builder
-                        wizard_state.update_step_data("taxonomy_selection", "selected_taxonomy", st.session_state.unified_taxonomy)
                     elif current_step_name == "generation_params" and "generation_params" in st.session_state:
-                        params = st.session_state.generation_params
-                        wizard_state.set_step_data("generation_params", params)
-                        
-                        # Auto-save parameters to database for persistence
-                        try:
-                            project_id = wizard_state.get_step_data("project_selection").get("project_id")
-                            if project_id:
-                                from src.compileo.features.gui.services.api_client import api_client
-                                dataset_params_request = {
-                                    "project_id": str(project_id),
-                                    "purpose": params.get("custom_purpose") or params.get("purpose") or "Wizard Generation",
-                                    "audience": params.get("custom_audience") or params.get("audience") or "General",
-                                    "extraction_rules": "default",
-                                    "dataset_format": params.get("output_format", "jsonl"),
-                                    "question_style": "factual",
-                                    "answer_style": "comprehensive",
-                                    "negativity_ratio": 0.1,
-                                    "data_augmentation": "none",
-                                    "custom_audience": params.get("custom_audience", ""),
-                                    "custom_purpose": params.get("custom_purpose", ""),
-                                    "complexity_level": params.get("complexity_level", "intermediate"),
-                                    "domain": params.get("domain", "general")
-                                }
-                                api_client.post("/api/v1/datasets/parameters", data=dataset_params_request)
-                                logger.debug(f"Auto-saved parameters for project {project_id}")
-                        except Exception as e:
-                            logger.debug(f"Failed to auto-save parameters: {e}")
+                        wizard_state.set_step_data("generation_params", st.session_state.generation_params)
 
                     wizard_state.mark_step_completed(wizard_state.current_step)
                     wizard_state.next_step()
                     st.rerun()
             else:
                 st.button("Next ➡️", disabled=True, width='stretch')
-                # Provide specific guidance based on current step
-                current_step_name = wizard_state.current_step_name
-                if current_step_name == "combined_processing":  # Combined setup
-                    st.warning("⚙️ Please complete the setup by uploading documents and generating chunks before proceeding.")
-                    st.info("💡 Use the 'Start Processing' button above to parse and chunk your documents.")
-                elif current_step_name == "edit_taxonomy":
-                    st.warning("🏷️ Please select or generate a taxonomy before proceeding.")
-                elif current_step_name == "generation_params":
-                    st.warning("🔧 Please configure dataset generation parameters before proceeding.")
-                else:
-                    st.warning("Please complete the current step before proceeding.")
+                st.warning("Please complete the current step before proceeding.")
 
 def render_current_step():
     """Render the current step content."""
@@ -133,10 +93,12 @@ def render_current_step():
 
     if step_name == "project_selection":
         render_project_selection()
-    elif step_name == "combined_processing":  # Now combined setup
-        render_combined_setup()
-    elif step_name == "edit_taxonomy":
-        render_edit_taxonomy_step()
+    elif step_name == "document_upload":
+        render_document_upload()
+    elif step_name == "processing_config":
+        render_processing_config()
+    elif step_name == "taxonomy_selection":
+        render_taxonomy_selection()
     elif step_name == "generation_params":
         render_generation_params()
     elif step_name == "review_generate":
@@ -144,15 +106,48 @@ def render_current_step():
     else:
         st.error(f"Unknown step: {step_name}")
 
+def _validate_selected_project():
+    """Validate that the selected project still exists. Returns True if valid, False if reset was needed."""
+    project_data = wizard_state.get_step_data("project_selection")
+    project_id = project_data.get("project_id")
+    
+    if not project_id:
+        return True  # No project selected yet, that's fine
+    
+    try:
+        import requests
+        headers = {}
+        if api_client.jwt_token:
+            headers["Authorization"] = f"Bearer {api_client.jwt_token}"
+            
+        # Try to fetch the project directly with requests to handle 404 without showing st.error
+        res = requests.get(f"{api_client.base_url}/api/v1/projects/{project_id}", headers=headers)
+        
+        if res.status_code == 404:
+            # Project was deleted - reset wizard
+            st.warning("⚠️ The previously selected project has been deleted. Starting fresh...")
+            wizard_state.reset()
+            # Clear any session state related to old project
+            for key in list(st.session_state.keys()):
+                if key.startswith('selected_document_ids') or key.startswith('uploaded_file_names') or key.startswith('wizard_'):
+                    del st.session_state[key]
+            st.rerun()
+            return False
+            
+    except Exception:
+        # Network errors - let it proceed and handle in the steps
+        pass
+    
+    return True
+
 def render_wizard():
     """Render the dataset creation wizard page."""
-    # Check for refresh flag
-    if wizard_state.needs_refresh:
-        wizard_state.needs_refresh = False
-        st.rerun()
-
     st.title("🧙 Dataset Creation Wizard")
     st.markdown("Create high-quality datasets through our guided workflow")
+
+    # Validate selected project still exists
+    if not _validate_selected_project():
+        return  # Reset was triggered, stop rendering
 
     # Step indicator
     render_step_indicator()

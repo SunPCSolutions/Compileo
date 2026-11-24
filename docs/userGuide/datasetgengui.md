@@ -4,22 +4,15 @@
 
 The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step interface for generating high-quality datasets from documents. The wizard features flexible navigation, automatic file upload, complete AI model selection, and intelligent data source handling for optimal dataset creation.
 
-<div align="center">
-  <a href="../../img/datasetgen.png"><img src="../../img/datasetgen.png" width="400" alt="Dataset Generation Pipeline"></a>
-  <p><i>Dataset Generation Pipeline</i></p>
-</div>
-
 ## Key Features
 
-- **5-Step Guided Wizard**: Intuitive workflow with database-mediated state recovery
+- **6-Step Guided Wizard**: Intuitive workflow with flexible step navigation
 - **Automatic File Upload**: Drag-and-drop with immediate processing
 - **Complete AI Model Selection**: 4-model configuration (parsing, chunking, classification, generation)
 - **Full Chunking Strategy Parity**: All Document Processing tab strategies available
-- **Database-Mediated Resilience**: Progress is synchronized with the database, allowing workflows to survive session loss or browser refreshes.
 - **Smart Data Source Selection**: Automatic taxonomy/chunks fallback
 - **Document Management**: Upload and delete capabilities with error correction
 - **Real-time Progress Monitoring**: Live job tracking with detailed status updates
-- **Interactive Refinement**: Post-generation editing and quality improvement
 - **Multi-format Support**: JSONL, Parquet, and extensible plugin formats
 
 ## GUI Workflow
@@ -40,72 +33,148 @@ The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step inte
 - Click "Create New Project" for new projects
 - Click "Next" or use step tabs to navigate
 
-### Step 2: Parse & Chunk & Taxonomy
+### Step 2: Document Upload
 
 **Location:** Dataset Creation Wizard → Step 2
-**Purpose:** Automated end-to-end processing of project documents.
+**Purpose:** Upload documents for processing with automatic upload and management
 
 **Features:**
-- **Unified Pipeline**: Combined Upload → Parse → Chunk → Auto Taxonomy generation.
-- **AI Model Selection**: Configure models for parsing, chunking, classification, and generation in one place.
-- **Smart Chunking**: Full parity with standalone Document Processing strategies.
-- **Existing Chunk Detection**: Proactively checks the database to see if documents already have processed chunks.
-- **Automatic Taxonomy Generation**: Automatically triggers AI taxonomy creation after chunking completes.
+- **Drag-and-Drop Upload**: Support for PDF, DOCX, TXT, MD, CSV, JSON, XML files
+- **Automatic Upload**: Files upload immediately upon selection (no manual button)
+- **Document Management**: Delete uploaded documents if wrong files were selected
+- **Existing Document Detection**: Automatically shows previously uploaded project documents
+- **Progress Feedback**: Real-time upload status with success/error notifications
 
-### Step 3: Edit Taxonomy
+**File Support:**
+- **PDF**: Automatic splitting for large documents (200+ pages)
+- **Office Documents**: DOCX, DOC with full formatting preservation
+- **Text Files**: TXT, MD, CSV, JSON, XML
+- **Batch Upload**: Multiple files simultaneously
+
+**Document Management:**
+- **View Uploaded Files**: See all successfully uploaded documents
+- **Delete Files**: Remove incorrect uploads with confirmation
+- **File Validation**: Automatic format checking and error reporting
+
+### Step 3: Processing Configuration
 
 **Location:** Dataset Creation Wizard → Step 3
-**Purpose:** Pick and refine the hierarchical structure for your dataset.
+**Purpose:** Configure AI models, chunking strategies, and document selection
 
-**Features:**
-- **Taxonomy Selection**: Choose from existing taxonomies or the one just auto-generated.
-- **Reactive Editor**: A simplified version of the Hybrid Taxonomy Editor.
-- **Real-time Sync**: Changes (adding/removing categories, renaming) are instantly persisted to the project database.
-- **Management Tools**: Regenerate or delete taxonomies directly from the wizard.
+**AI Model Selection (4 Models Side-by-Side):**
+- **Document Parsing**: grok, gemini, ollama, huggingface, unstructured, pypdf, novlm
+- **Text Chunking**: grok, gemini, ollama
+- **Document Classification**: grok, gemini, ollama
+- **Dataset Generation**: grok, gemini, ollama
 
-### Step 4: Generation Parameters
+**Complete Chunking Strategies (Full Parity with Document Processing Tab):**
+- **Character**: Chunk size (100-4000), Overlap (0-500)
+- **Token**: Chunk size (100-2000), Overlap (0-200)
+- **Semantic**: Similarity threshold (0.1-0.9), Min chunk size (50-500), Custom prompt (text area)
+- **Delimiter**: Quick select common delimiters + custom delimiter input
+- **Schema**: JSON schema definition (text area)
+
+**Document Selection:**
+- **Multiselect Interface**: Choose which documents to include in processing
+- **Document Status**: View processing status for each document
+- **Batch Selection**: Select all, none, or individual documents
+
+**Prerequisites:**
+- Project must be selected (Step 1)
+- Documents must be uploaded/available (Step 2)
+
+### Step 4: Taxonomy Selection
 
 **Location:** Dataset Creation Wizard → Step 4
-**Purpose:** Configure dataset generation mode, format, and high-level prompt parameters.
+**Purpose:** Choose or generate taxonomy for enhanced dataset generation
 
 **Features:**
-- **High-Level Prompts**: Tailor content by specifying **Target Audience**, **Purpose**, and **Domain**.
-- **Complexity Control**: Select difficulty levels (beginner to expert) or let AI decide.
-- **Auto-Persistence**: Parameters are automatically saved to the database when clicking "Next", allowing you to resume later.
-- **Dataset Generation Modes**: Instruction Following, Q&A, Questions Only, Answers Only, and Summarization.
-- **Plugin Support**: Support for specialized formats like Anki via the plugin system.
+- **Browse Taxonomies**: View existing project taxonomies with confidence scores
+- **Auto-Generation**: Generate new taxonomy from processed documents
+- **Taxonomy Preview**: View hierarchical structure and category counts
+- **Optional Step**: Can proceed without taxonomy (automatic chunks-only fallback)
 
-### Step 5: Review & Generate
+**Taxonomy Generation:**
+- **AI-Powered**: Uses selected classification model for intelligent categorization
+- **Document Analysis**: Analyzes processed documents to extract categories
+- **Depth Control**: Configurable hierarchy levels (default: 3)
+- **Domain Adaptation**: General or domain-specific taxonomy generation
+
+**Selection Options:**
+- Choose from existing taxonomies
+- Generate new taxonomy automatically
+- Skip taxonomy (uses chunks-only data source)
+
+**Prerequisites:**
+- Project selected (Step 1)
+- Documents processed (Step 3)
+
+### Step 5: Generation Parameters
 
 **Location:** Dataset Creation Wizard → Step 5
-**Purpose:** Final review, execution, and download.
+**Purpose:** Configure dataset generation mode, format, and quality settings
 
-**Features:**
-- **Comprehensive Summary**: Review all settings, including AI models and high-level prompts.
-- **Database Fallbacks**: Automatically retrieves missing configuration (like chunking strategy) from the database if session state is lost.
-- **Real-time Monitoring**: Follow the generation progress in detail, from category aggregation to final formatting.
-- **Instant Download**: Upon successful completion, a "Download Generated Dataset" link appears. This system is database-mediated, ensuring the correct version and file format are provided.
-**Purpose:** Review and improve generated datasets
+**Dataset Generation Mode:**
+- **Instruction Following**: Modern instruction-response pairs (Alpaca/Dolly format)
+- **Question and Answer**: Traditional Q&A pairs from content
+- **Questions Only**: Generate questions without answers
+- **Answers Only**: Generate answers without questions
+- **Summarization**: Create content summaries
 
-<div align="center">
-  <a href="../../img/dataset_example.png"><img src="../../img/dataset_example.png" width="400" alt="Generated Dataset Preview"></a>
-  <p><i>Generated Dataset Preview</i></p>
-</div>
+**Output Configuration:**
+- **Format**: JSONL, Parquet, or plugin-provided formats (e.g., "anki" for Anki flashcard export)
+- **Plugin Formats**: Dynamically loaded from installed plugins - formats appear/disappear automatically with plugin installation/uninstallation
+- **Entries per Chunk**: Number of dataset entries per document chunk (0-50). Set to `0` for "Let AI Decide" mode where the AI determines the appropriate number based on content richness.
+- **Quality Threshold**: Minimum quality score (0.0-1.0)
+- **Validated Results Only**: Filter extraction results to only include data that has passed the strict validation stage.
 
-**Features:**
-- **Dataset Review**: Paginated view of generated entries
-- **Inline Editing**: Modify questions, answers, and metadata
-- **Quality Filtering**: Filter by quality scores and categories
-- **Bulk Operations**: Apply changes to multiple entries
-- **Feedback System**: Provide feedback for AI improvement
-- **Regeneration**: Regenerate specific entries with modifications
+**"Let AI Decide" Mode (Entries per Chunk = 0):**
 
-**Refinement Capabilities:**
-- **Entry Modification**: Edit content and metadata
-- **Category Updates**: Reassign categorization
-- **Quality Assessment**: Rate and filter entries
-- **Batch Processing**: Apply changes across multiple entries
-- **Export Options**: Download refined datasets
+When set to `0`, the AI analyzes content richness and dynamically determines the optimal number of entries:
+- **Sparse/simple content** → 1-3 entries
+- **Moderate content** → 3-7 entries
+- **Rich/comprehensive content** → 7-15+ entries
+
+This mode is recommended when you have varied content density across chunks and want the AI to optimize entry count rather than using a fixed number for all chunks.
+
+**Advanced Options:**
+- **Custom Prompt**: Optional custom prompt template with {chunk} placeholder
+- **Evaluation Sets**: Generate train/validation/test splits
+- **Versioning**: Enable dataset versioning
+- **Benchmarking**: Run AI model performance tests
+
+**Prerequisites:**
+- Project selected (Step 1)
+- Documents processed (Step 3)
+
+### Step 6: Review & Generate
+
+**Location:** Dataset Creation Wizard → Step 6
+**Purpose:** Review configuration and execute dataset generation
+
+**Configuration Summary:**
+- **Project & Documents**: Selected project and document count
+- **AI Models**: All 4 selected models (parsing, chunking, classification, generation)
+- **Processing Config**: Chunking strategy and parameters
+- **Taxonomy**: Selected taxonomy or "Chunks Only" fallback
+- **Generation Settings**: Mode, format, quality parameters
+
+**Smart Data Source Selection:**
+- **Taxonomy**: Used when taxonomy is available (Step 4)
+- **Chunks Only**: Automatic fallback when no taxonomy exists
+- **Display**: Shows which data source will be used
+
+**Dataset Generation:**
+- **Background Processing**: Real-time job execution with granular progress monitoring (especially during long category-aggregation phases).
+- **Status Updates**: Live progress bar and step-by-step status updates.
+- **Job Management**: View job details and handle errors
+- **Completion Notification**: Success/failure alerts with results summary
+- **Instant Download**: Upon success, a "Prepare Download" button is shown to immediately download the generated dataset locally.
+
+**Prerequisites:**
+- Project selected (Step 1)
+- Documents processed (Step 3)
+- Generation parameters configured (Step 5)
 
 ## Interactive Dataset Refinement
 
@@ -201,11 +270,11 @@ The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step inte
 **Purpose:** Monitor active and completed dataset generation jobs
 
 **Job Queue Features:**
-- **Unified Visibility**: Dataset generation jobs now use the same enhanced job queue as extraction and processing jobs, ensuring full visibility in the Job Management dashboard.
-- **Active Jobs**: Monitor currently running generation jobs with stage-based status messages.
-- **Synchronous Monitoring**: The GUI remains in the current view during generation, providing in-place updates without disruptive page refreshes.
-- **Queue Statistics**: Pending, running, and completed job counts are accurately reflected in system metrics.
-- **Job Controls**: Cancel or restart generation jobs directly from the dashboard or sidebar.
+- **Active Jobs**: Currently running generation jobs
+- **Job Progress**: Real-time progress bars and status
+- **Queue Statistics**: Pending, running, completed job counts
+- **Job Controls**: Cancel or restart jobs directly from sidebar
+- **Persistent Jobs**: Dataset generation jobs are stored in database and survive GUI/browser refreshes and server restarts
 
 ### Job History and Details
 
@@ -274,8 +343,8 @@ The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step inte
 - Alternative: Disable quality analysis for initial dataset generation
 
 **"Job stuck in pending"**
-- Solution: Dataset generation jobs are now managed by the enhanced job queue and persist in Redis. If a job appears stuck, check the "System Status" in the Job Management dashboard for worker health and resource usage.
-- Check: Ensure an RQ worker process is running and that global/per-user job limits haven't been exceeded.
+- Solution: Dataset generation jobs are now database-backed and persist across server restarts. If a job appears stuck, it may be processing or waiting for resources.
+- Check: Use Job Management page to view detailed status and error logs
 
 ### Performance Issues
 
@@ -296,7 +365,23 @@ The Compileo Dataset Creation Wizard provides a comprehensive, step-by-step inte
 
 ## Integration with CLI
 
-The GUI provides seamless integration with CLI tools for advanced workflows:
+The GUI provides seamless integration with CLI tools for advanced workflows. For instance, if you generated a dataset in the GUI, you can instantly download or list it via the CLI:
+
+```bash
+# List datasets
+compileo datasets list --project-id 1
+
+# Download dataset
+compileo datasets download my_dataset.jsonl --project-id 1
+
+# View dataset details
+compileo datasets details my_dataset.jsonl --project-id 1
+
+# Delete dataset
+compileo datasets delete my_dataset.jsonl --project-id 1
+```
+
+Other integration examples:
 
 ```bash
 # Generate dataset via GUI, then analyze quality via CLI

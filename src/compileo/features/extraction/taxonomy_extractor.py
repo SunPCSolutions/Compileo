@@ -19,7 +19,7 @@ from src.compileo.features.extraction.context_models import HierarchicalCategory
 from src.compileo.features.taxonomy.loader import TaxonomyLoader
 from src.compileo.storage.src.project.database_repositories import TaxonomyRepository, ChunkRepository
 from src.compileo.storage.src.project.file_manager import FileManager
-from src.compileo.core.settings import backend_settings
+from src.compileo.core.settings import backend_settings, BackendSettings
 from src.compileo.features.extraction.exceptions import (
     TaxonomyNotFoundError,
     TaxonomyValidationError,
@@ -41,17 +41,22 @@ from .chunk_loader import ChunkLoader
 
 
 class TaxonomyExtractor:
-    """Service for selective content extraction using taxonomy-based classification."""
+    """
+    Service for selective content extraction using taxonomy-based classification.
+    """
 
     def __init__(self,
                  taxonomy_repo: TaxonomyRepository,
                  chunk_repo: ChunkRepository,
                  file_manager: FileManager,
-                 processed_output_repo=None,
+                 processed_output_repo=None,  # For backward compatibility with extraction result storage
                  grok_api_key: Optional[str] = None,
                  gemini_api_key: Optional[str] = None,
                  openai_api_key: Optional[str] = None,
                  ollama_available: bool = True):
+        """
+        Initialize TaxonomyExtractor.
+        """
         try:
             # Validate inputs
             if not taxonomy_repo:
@@ -70,15 +75,15 @@ class TaxonomyExtractor:
             self.openai_api_key = openai_api_key
             self.ollama_available = ollama_available
 
-            # Test database connection
-            try:
-                # Simple query to test connection
-                self.taxonomy_repo.db.cursor().execute("SELECT 1")
-            except Exception as e:
-                raise DatabaseConnectionError(f"Failed to connect to database: {e}")
+            # Database connection is managed per-request in multi-tenant mode
+            # Repositories now use owner_id to get connections on demand
 
             from src.compileo.storage.src.project.database_repositories import ProjectRepository
-            self.taxonomy_loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(taxonomy_repo.db))
+            # Get owner_id from taxonomy_repo for ProjectRepository
+            owner_id = getattr(taxonomy_repo, 'owner_id', None)
+            self.user_settings = BackendSettings(owner_id=owner_id)
+            
+            self.taxonomy_loader = TaxonomyLoader(taxonomy_repo, ProjectRepository(owner_id))
             self.category_resolver = CategoryResolver()
             self.chunk_loader = ChunkLoader(chunk_repo)
             self.logger = logging.getLogger(__name__)
@@ -129,13 +134,6 @@ class TaxonomyExtractor:
     def _expand_categories_with_parents(self, taxonomy: HierarchicalCategory, selected_categories: List[str]) -> Set[str]:
         """
         Expand selected category IDs to include all parent categories.
-
-        Args:
-            taxonomy: The taxonomy hierarchy
-            selected_categories: List of originally selected category IDs
-
-        Returns:
-            Set of expanded category IDs including parents
         """
         expanded_ids = set(selected_categories)
 
@@ -154,10 +152,7 @@ class TaxonomyExtractor:
         for cat_id in selected_categories:
             if cat_id in category_map:
                 category = category_map[cat_id]
-                # Use parent_path to find parent IDs
-                # parent_path contains the path from root to parent, so we need to find the IDs
                 for parent_name in category.parent_path:
-                    # Find the category with this name in the map
                     for cat_id_in_map, cat_obj in category_map.items():
                         if cat_obj.name == parent_name and cat_id_in_map not in expanded_ids:
                             expanded_ids.add(cat_id_in_map)
@@ -169,12 +164,6 @@ class TaxonomyExtractor:
     def _traverse_taxonomy(self, taxonomy: HierarchicalCategory):
         """
         Traverse the taxonomy tree and yield all nodes.
-
-        Args:
-            taxonomy: Root taxonomy node
-
-        Yields:
-            HierarchicalCategory: Each node in the taxonomy tree
         """
         yield taxonomy
         if hasattr(taxonomy, 'children') and taxonomy.children:
@@ -195,7 +184,9 @@ class TaxonomyExtractor:
                            enable_validation_stage: bool = False,
                            validation_classifier: Optional[str] = None,
                            extraction_mode: str = "contextual") -> Tuple[List[ExtractionResult], ExtractionSummary]:
-        """Extract content from chunks using taxonomy-based classification."""
+        """
+        Extract content from chunks using taxonomy-based classification with selective filtering.
+        """
         start_time = time.time()
 
         # Type safe logging wrapper
@@ -260,7 +251,7 @@ class TaxonomyExtractor:
                 taxonomy = taxonomy_data
             else:
                 try:
-                    taxonomy = self.taxonomy_loader.load_taxonomy_by_project(taxonomy_project, taxonomy_name)
+                    taxonomy = self.taxonomy_loader.load_taxonomy_by_project(taxonomy_project, "")
                     if not taxonomy:
                         raise TaxonomyNotFoundError(taxonomy_project, taxonomy_name)
                 except Exception as e:
@@ -337,9 +328,6 @@ class TaxonomyExtractor:
                 project_id
             )
 
-            # Pre-process: Group target categories by their parent contexts
-            # Removed redundant context_map logic - will be handled per chunk or per extraction pass
-
             for i, chunk_data in enumerate(chunks_data):
                 chunk_start_time = time.time()
 
@@ -361,7 +349,7 @@ class TaxonomyExtractor:
                     if not chunk_text:
                         continue
 
-                    # Log progress periodically (every 10 chunks) instead of per-chunk logging
+                    # Log progress periodically
                     if i > 0 and i % 10 == 0:
                         safe_log_start(
                             "entity_extraction_progress",
@@ -392,18 +380,17 @@ class TaxonomyExtractor:
                                 if hasattr(node, 'name') and node.name == immediate_parent_name:
                                     node_id_str = str(node.id) if hasattr(node, 'id') else None
                                     
-                                    # LOGGING: Check if we are about to skip a parent context because it is also a target
+                                    # LOGGING
                                     if node_id_str and node_id_str in target_category_ids:
                                         extraction_logger.log_warning(
-                                            f"Category {cat_id} ('{current_category.name}') has a parent '{node.name}' (ID: {node_id_str}) that is also in target_category_ids. "
-                                            "Previously, this would cause the child to be OMITTED from the prompt context.",
+                                            f"Category {cat_id} ('{current_category.name}') has a parent '{node.name}' (ID: {node_id_str}) that is also in target_category_ids.",
                                             "parent_context_debug",
                                             context={"child_id": cat_id, "parent_id": node_id_str, "in_targets": True},
                                             project_id=int(project_id) if isinstance(project_id, (str, int)) and str(project_id).isdigit() else None
                                         )
 
                                     if node_id_str:
-                                        parent_cat_info = self.category_resolver.get_category_info_by_id(taxonomy, node_id_str)
+                                        parent_cat_info = self.category_resolver.get_category_info_by_id(taxonomy, str(node.id) if hasattr(node, 'id') else "")
                                         if parent_cat_info and parent_cat_info.get('name'):
                                             if node_id_str not in parent_child_structure:
                                                 parent_child_structure[node_id_str] = {
@@ -429,7 +416,7 @@ class TaxonomyExtractor:
                                     project_id=int(project_id) if isinstance(project_id, (str, int)) and str(project_id).isdigit() else None
                                 )
                         else:
-                            # Root level category - treat as its own parent
+                            # Root level category
                             cat_info = self.category_resolver.get_category_info_by_id(taxonomy, cat_id)
                             if cat_info and cat_info.get('name'):
                                 parent_id = str(cat_id)
@@ -442,12 +429,6 @@ class TaxonomyExtractor:
                                         'description': cat_info.get('description', '')
                                     }]
                                 }
-
-                    # All selected categories will be processed - context relevance handled in prompt
-                    active_target_ids = list(target_category_ids)
-
-                    extracted_entities = {}
-                    entity_confidences = {}
 
                     # Build category information for the prompt
                     category_info = []
@@ -462,9 +443,7 @@ class TaxonomyExtractor:
                                 'is_selected': True
                             })
 
-                            # For contextual mode, include immediate parent categories for context
                             if extraction_mode == "contextual":
-                                # Find immediate parent category for context
                                 current_category = None
                                 for node in self._traverse_taxonomy(taxonomy):
                                     if hasattr(node, 'id') and node.id == cat_id:
@@ -472,15 +451,13 @@ class TaxonomyExtractor:
                                         break
 
                                 if current_category and hasattr(current_category, 'parent_path') and current_category.parent_path:
-                                    # Only include the immediate parent (last item in parent_path)
                                     immediate_parent_name = current_category.parent_path[-1]
                                     for node in self._traverse_taxonomy(taxonomy):
-                                        if (hasattr(node, 'name') and node.name == immediate_parent_name and
-                                            hasattr(node, 'id') and node.id and node.id not in target_category_ids):
-                                            parent_cat_info = self.category_resolver.get_category_info_by_id(taxonomy, node.id)
+                                        if (hasattr(node, 'name') and node.name == immediate_parent_name):
+                                            parent_cat_info = self.category_resolver.get_category_info_by_id(taxonomy, str(node.id) if hasattr(node, 'id') else "")
                                             if parent_cat_info and parent_cat_info.get('name'):
                                                 category_info.append({
-                                                    'id': node.id,
+                                                    'id': str(node.id) if hasattr(node, 'id') else "",
                                                     'name': parent_cat_info['name'],
                                                     'is_selected': False,
                                                     'is_parent': True
@@ -488,101 +465,36 @@ class TaxonomyExtractor:
                                                 break
 
                     if not category_info:
-                        safe_log_warning(
-                            "No valid categories found for extraction",
-                            "entity_extraction_no_categories",
-                            {"chunk_id": chunk_id, "target_category_ids": list(target_category_ids)},
-                            project_id
-                        )
                         continue
 
-                    # Create parent-child structured prompt for contextual extraction
-                    # For document_wide mode, skip parent-child structure filtering
+                    # Create parent-child structured prompt
                     parent_child_text = ""
                     if extraction_mode == "contextual":
+                        parent_child_text = "CONTEXTUAL HIERARCHY (Extract only if child matches parent context):\n"
                         for parent_id, parent_data in parent_child_structure.items():
-                            parent_child_text += f"\nParent: {parent_data['name']} (ID: {parent_id})\n"
+                            parent_child_text += f"\nParent Context: {parent_data['name']} (ID: {parent_id})\n"
                             if parent_data.get('description'):
-                                parent_child_text += f"  Description: {parent_data['description']}\n"
-                            parent_child_text += "  Children:\n"
+                                parent_child_text += f"  Context Description: {parent_data['description']}\n"
+                            parent_child_text += f"  Target Categories under this context:\n"
                             for child in parent_data['children']:
                                 parent_child_text += f"    - {child['name']} (ID: {child['id']})\n"
                                 if child.get('description'):
-                                    parent_child_text += f"      Description: {child['description']}\n"
+                                    parent_child_text += f"      Category Description: {child['description']}\n"
                     else:
-                        # For document_wide, create a focused list of selected categories only
                         parent_child_text = "Selected categories to extract from (independent of parent relationships):\n"
                         for cat_info in category_info:
                             if cat_info.get('is_selected', False):
                                 parent_child_text += f"ID: {cat_info['id']} - Name: {cat_info['name']}\n"
                                 if cat_info.get('description'):
                                     parent_child_text += f"      Description: {cat_info['description']}\n"
-                    # Enhanced prompt with role-playing and chain-of-thought for Ollama
-                    # Ensure we use the same effective classifier as context check
-                    effective_classifier = initial_classifier or backend_settings.get_classification_model() or 'grok'
 
-                    # Initialize entity_prompt to avoid scoping issues
+                    effective_classifier = initial_classifier or self.user_settings.get_classification_model() or 'grok'
                     entity_prompt = ""
 
                     if extraction_type == "whole_text":
                         if extraction_mode == "document_wide":
-                            # Document-wide extraction: process all chunks for selected categories without contextual filtering
-                            if effective_classifier == 'ollama':
-                                entity_prompt = f"""You are an expert content analyst with extensive experience in document analysis and information extraction. Your task is to identify and extract complete text portions from the provided content that discuss each of the specified categories.
-
-CRITICAL DOCUMENT-WIDE RULES:
-- Process ALL specified categories regardless of content context or topic relevance
-- Do not filter or skip categories based on whether their parent topics are discussed
-- Extract text portions for every category in the list, even if the text doesn't seem related
-- If no text portions are found for a category, return an empty array (don't skip the category)
-
-Now, follow this step-by-step reasoning process:
-
-1. **Read and Understand**: Carefully read the entire text to understand its context and content.
-
-2. **Category Extraction**: For EACH AND EVERY specified category, search for complete text portions that discuss it.
-
-3. **Text Portion Validation**: For each potential text portion found:
-    - Verify it contains meaningful information about the category
-    - Ensure it forms a complete, coherent unit of text
-
-4. **Confidence Assessment**: Rate your confidence in each extraction based on:
-    - How directly the text portion addresses the category
-    - The completeness and coherence of the extracted text
-
-5. **Final Review**: Double-check that all specified categories are included in the response, even if they have empty text arrays.
-
-IMPORTANT RULES:
-- Process ALL categories in the list - do not skip any
-- Extract COMPLETE text portions (paragraphs, sentences, or coherent sections) - not just keywords
-- Preserve the original text exactly as written - no summarization or modification
-- Only extract text that is EXPLICITLY present in the provided content
-- Focus on substantial, informative text portions rather than brief mentions
-- Keep in mind that the content can be from any domain, so adapt your analysis accordingly
-
-Text to analyze:
-{chunk_text}
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "texts": array of strings (the complete text portions found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "category_id_1": {{
-    "texts": ["Complete text portion discussing category 1 in detail..."],
-    "confidence": 0.85
-  }},
-  "category_id_2": {{
-    "texts": [],
-    "confidence": 0.0
-  }}
-}}
-
-JSON Response:"""
-                            else:
-                                # Document-wide prompt for other classifiers (Grok, Gemini)
-                                entity_prompt = f"""Extract complete text portions from the following content for each of the specified categories.
+                            # Document-wide prompt
+                            entity_prompt = f"""Extract complete text portions from the following content for each of the specified categories.
 
 {parent_child_text}
 
@@ -590,158 +502,59 @@ CRITICAL DOCUMENT-WIDE RULES:
 - Process ALL specified categories regardless of content context or topic relevance.
 - Do not filter or skip categories based on whether their parent topics are discussed.
 - Extract text portions for every category in the list, even if the text doesn't seem related.
+- **CLEAN TEXT**: Remove all formatting artifacts like bullet points (*, -, •), numbering (1., 2.), and extra whitespace. Return only the clean sentence/paragraph.
 - If no text portions are found for a category, return an empty array (don't skip the category).
 - YOU MUST USE THE EXACT CATEGORY ID AS THE KEY IN THE JSON RESPONSE. DO NOT USE THE CATEGORY NAME.
 - DO NOT INCLUDE PARENT IDs IN THE JSON RESPONSE UNLESS THEY ARE ALSO LISTED AS TARGET CATEGORIES.
 
 Return your response as a JSON object where each key is the exact category ID provided above, and each value is an object with:
-- "texts": array of strings (the complete text portions found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "1100": {{
-    "texts": ["Complete text portion discussing category..."],
-    "confidence": 0.85
-  }},
-  "1120": {{
-    "texts": [],
-    "confidence": 0.0
-  }}
-}}
-
-Rules:
-- USE CATEGORY IDs AS KEYS (e.g., "1100", "1120"), NOT NAMES.
-- Process ALL categories - do not skip any based on context.
-- Extract complete, coherent text portions (not just keywords).
-- Preserve original text exactly as written.
-- Only include text that is explicitly present in the content.
-- Focus on substantial, informative text portions.
+- "texts": array of strings (the CLEANED text portions found for this category)
+- "confidence": number between 0.0 and 1.0 (REQUIRED field, e.g. 0.95). DO NOT use strings like "High" or "Low".
 
 Text to analyze:
 {chunk_text}
 
 JSON Response:"""
                         else:
-                            # Contextual extraction: filter by parent-child relationships
-                            if effective_classifier == 'ollama':
-                                entity_prompt = f"""You are an expert content analyst with extensive experience in document analysis and information extraction. Your task is to identify and extract complete text portions from the provided content that discuss each of the specified child categories, but ONLY if the text is relevant to their parent category.
+                            # Contextual prompt
+                            entity_prompt = f"""You are a meticulous Data Categorization Auditor. Your goal is to extract text segments that strictly match a specific hierarchical context.
 
 {parent_child_text}
 
-CRITICAL CONTEXTUAL RULES:
-- For each child category, first determine if the text discusses the parent category (explicitly or implied through related concepts)
-- Only extract text portions for child categories if the parent context is present in the text
-- If the parent category is not discussed in the text, return empty arrays for all its children
-- Consider implied context (e.g., symptoms described in a section about Metabolic Syndrome imply the parent topic)
+**YOUR THOUGHT PROCESS:**
+For each target category ID, you must iterate through the text and perform the following check for every potential match:
+1.  **Identify Content**: Does this sentence discuss the target category?
+2.  **Identify Context**: Does this sentence discuss it specifically in the context of its ASSIGNED PARENT?
+3.  **Strict Filtering**: Only if BOTH the category AND the parent context match the text exactly should you extract it.
 
-Now, follow this step-by-step reasoning process:
+**CRITICAL RULES:**
+- **Zero Tolerance for Context Mismatch**: If a text segment belongs to the target category concept but falls under a different parent domain, you MUST exclude it. Return an empty array [] for that ID.
+- **Explicit Evidence**: Do not infer context. The text must explicitly or strongly imply the specific parent context.
+- **Content over Headers**: Focus on the *content* of the text, not just section headers. Relevant information may appear in sections with different titles.
+- **CLEAN TEXT**: Remove all formatting artifacts like bullet points (*, -, •), numbering (1., 2.), and extra whitespace. Return only the clean sentence/paragraph.
+- **JSON Keys**: Use ONLY the provided category IDs. Do not use names.
 
-1. **Read and Understand**: Carefully read the entire text to understand its context and content.
-
-2. **Parent Context Analysis**: For each parent category, determine if the text discusses it (explicitly or implied).
-
-3. **Child Category Extraction**: For parents that are relevant, extract complete text portions for their child categories.
-
-4. **Text Portion Validation**: For each potential text portion found:
-    - Verify it contains meaningful information about the child category
-    - Ensure it forms a complete, coherent unit of text
-    - Confirm the parent context is present in the text
-
-5. **Confidence Assessment**: Rate your confidence in each extraction based on:
-    - How directly the text portion addresses the child category
-    - The completeness and coherence of the extracted text
-    - Whether the parent context is clearly present
-
-6. **Final Review**: Double-check that all extracted text portions are actually present in the text and that their parent contexts are relevant.
-
-IMPORTANT RULES:
-- Extract COMPLETE text portions (paragraphs, sentences, or coherent sections) - not just keywords
-- Preserve the original text exactly as written - no summarization or modification
-- Only extract text that is EXPLICITLY present in the provided content
-- If a parent category is not relevant to the text, use empty arrays for all its children
-- Focus on substantial, informative text portions rather than brief mentions
-- Keep in mind that the content can be from any domain, so adapt your analysis accordingly
-
-Text to analyze:
-{chunk_text}
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "texts": array of strings (the complete text portions found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
+**Output Format:**
+Return a JSON object with a single key "results" containing a list of extraction objects.
+Example:
 {{
-  "category_id_1": {{
-    "texts": ["Complete text portion discussing category 1 in detail..."],
-    "confidence": 0.85
-  }},
-  "category_id_2": {{
-    "texts": [],
-    "confidence": 0.0
-  }}
+  "results": [
+    {{
+      "category_id": "110100",
+      "texts": ["extracted text 1", "extracted text 2"],
+      "confidence": 0.95
+    }}
+  ]
 }}
-
-JSON Response:"""
-                            else:
-                                # Whole text prompt for other classifiers (Grok, Gemini) with contextual structure
-                                entity_prompt = f"""Extract complete text portions from the following content for each of the specified child categories, but ONLY if the text is relevant to their parent category.
-
-{parent_child_text}
-
-Contextual Rules:
-- Only extract for child categories if their parent category is discussed in the text (explicitly or implied).
-- If parent category is not present, return empty arrays for children.
-- Consider implied context (e.g., symptoms implying Metabolic Syndrome discussion).
-- YOU MUST USE THE EXACT CATEGORY ID AS THE KEY IN THE JSON RESPONSE. DO NOT USE THE CATEGORY NAME.
-- DO NOT INCLUDE PARENT IDs IN THE JSON RESPONSE UNLESS THEY ARE ALSO LISTED AS CHILD CATEGORIES.
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "texts": array of strings (the complete text portions found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "11001": {{
-    "texts": ["Complete text portion discussing category 1..."],
-    "confidence": 0.85
-  }},
-  "11002": {{
-    "texts": [],
-    "confidence": 0.0
-  }}
-}}
-
-Rules:
-- USE CATEGORY IDs AS KEYS (e.g., "11001", "11002"), NOT NAMES.
-- Extract complete, coherent text portions (not just keywords).
-- Preserve original text exactly as written.
-- Only include text that is explicitly present in the content.
-- If parent context missing, use empty array for "texts".
-- Focus on substantial, informative text portions.
 
 Text to analyze:
 {chunk_text}
 
 JSON Response:"""
-                                # DEBUG: Log the actual prompt being sent for document_wide whole_text
-                                safe_log_start(
-                                    "document_wide_prompt_debug",
-                                    {
-                                        "extraction_mode": extraction_mode,
-                                        "extraction_type": extraction_type,
-                                        "effective_classifier": effective_classifier,
-                                        "parent_child_text_preview": parent_child_text[:200] if parent_child_text else "EMPTY",
-                                        "chunk_id": chunk_id
-                                    },
-                                    project_id
-                                )
                     else:
                         # NER extraction prompts
                         if extraction_mode == "document_wide":
-                            # Document-wide NER extraction: process all chunks for selected categories without contextual filtering
-                            if effective_classifier == 'ollama':
-                                entity_prompt = f"""You are an expert information extraction specialist with years of experience in content analysis and taxonomy classification. Your task is to carefully analyze the provided text and extract specific entities that belong to each of the given categories.
+                            entity_prompt = f"""Extract entities from the following content for each of the specified categories.
 
 {parent_child_text}
 
@@ -749,201 +562,48 @@ CRITICAL DOCUMENT-WIDE RULES:
 - Process ALL specified categories regardless of content context or topic relevance
 - Do not filter or skip categories based on whether their parent topics are discussed
 - Extract entities for every category in the list, even if the text doesn't seem related
+- **CLEAN ENTITIES**: Remove bullet points (*, -), numbering, and extra whitespace from extracted entities.
 - If no entities are found for a category, return an empty array (don't skip the category)
+- YOU MUST USE THE EXACT CATEGORY ID AS THE KEY IN THE JSON RESPONSE. DO NOT USE THE CATEGORY NAME.
 
-Now, follow this step-by-step reasoning process:
-
-1. **Read and Understand**: Carefully read the entire text to understand its context and content.
-
-2. **Category Extraction**: For EACH AND EVERY specified category, search for entities that belong to it.
-
-3. **Entity Validation**: For each potential entity found:
-    - Verify it is explicitly mentioned in the text
-    - Ensure it logically belongs to the category
-
-4. **Confidence Assessment**: Rate your confidence in each extraction based on:
-    - How clearly the entity is mentioned
-    - How well it fits the category
-
-5. **Final Review**: Double-check that all specified categories are included in the response, even if they have empty entity arrays.
-
-IMPORTANT RULES:
-- Process ALL categories in the list - do not skip any
-- Only extract entities that are EXPLICITLY MENTIONED in the text
-- Do not infer, assume, or add entities that aren't directly stated
-- Do not use generic terms - only specific, named entities
-- Be precise and avoid over-extraction
-- Keep in mind that the text can be from any domain (e.g., legal, financial, technical, general knowledge), so adapt your analysis accordingly.
+Return your response as a JSON object where each key is the exact category ID provided above, and each value is an object with:
+- "entities": array of strings (the CLEANED entities found for this category)
+- "confidence": floating point number between 0.0 and 1.0 representing certainty (e.g. 0.95). MUST BE A NUMBER.
 
 Text to analyze:
 {chunk_text}
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "entities": array of strings (the specific entities found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "category_id_1": {{
-    "entities": ["entity1", "entity2"],
-    "confidence": 0.8
-  }},
-  "category_id_2": {{
-    "entities": [],
-    "confidence": 0.0
-  }}
-}}
-
-JSON Response:"""
-                            else:
-                                # Document-wide NER prompt for other classifiers (Grok, Gemini) with examples
-                                entity_prompt = f"""Extract entities from the following text for each of the specified categories.
-
-{parent_child_text}
-
-CRITICAL DOCUMENT-WIDE RULES:
-- Process ALL specified categories regardless of content context or topic relevance
-- Do not filter or skip categories based on whether their parent topics are discussed
-- Extract entities for every category in the list, even if the text doesn't seem related
-- If no entities are found for a category, return an empty array (don't skip the category)
-
-Step-by-step reasoning:
-1. Read the entire text carefully
-2. For EACH category independently:
-   - Search for specific entities that match the category (e.g., for "Surgical & Procedural Treatments", extract names of surgeries, procedures, or treatments mentioned)
-   - Validate they are explicitly mentioned
-   - Assess confidence
-3. Include ALL categories in response, even with empty arrays
-
-Rules:
-- Process ALL categories - do not skip any based on context
-- Only include entities that are explicitly mentioned in the text
-- Be specific and accurate in your extractions
-- Do not include any explanations or additional text outside the JSON
-- Examples of entities:
-  - For "Surgical & Procedural Treatments": "Hysterectomy", "Uterine artery embolization", "Radiofrequency ablation"
-  - For "Clinical Conditions": "Adenomyosis", "Leiomyomas", "Endometriosis"
-
-Text to analyze:
-{chunk_text}
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "entities": array of strings (the specific entities found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "11000": {{
-    "entities": ["Ischemic Heart Disease", "Acute Coronary Syndrome"],
-    "confidence": 0.9
-  }},
-  "11111": {{
-    "entities": ["Hysterectomy", "Uterine Artery Embolization"],
-    "confidence": 0.85
-  }},
-  "11201": {{
-    "entities": [],
-    "confidence": 0.0
-  }}
-}}
 
 JSON Response:"""
                         else:
-                            # Contextual NER extraction: filter by parent-child relationships
-                            if effective_classifier == 'ollama':
-                                entity_prompt = f"""You are an expert information extraction specialist with years of experience in content analysis and taxonomy classification. Your task is to carefully analyze the provided text and extract specific entities that belong to each of the given child categories, but ONLY if the text is relevant to their parent category.
+                            # Contextual NER
+                            entity_prompt = f"""You are a meticulous Data Categorization Auditor. Your goal is to extract specific entities that strictly match a hierarchical context.
 
 {parent_child_text}
 
-CRITICAL CONTEXTUAL RULES:
-- For each child category, first determine if the text discusses the parent category (explicitly or implied through related concepts)
-- Only extract entities for child categories if the parent context is present in the text
-- If the parent category is not discussed in the text, return empty arrays for all its children
-- Consider implied context (e.g., symptoms described in a section about Metabolic Syndrome imply the parent topic)
+**YOUR THOUGHT PROCESS:**
+For each target category ID, analyze potential entities:
+1.  **Entity Match**: Is this entity an instance of the target category?
+2.  **Context Match**: Is this entity mentioned in the context of the ASSIGNED PARENT?
+3.  **Strict Filtering**: REJECT entities if they appear in a different context.
 
-Now, follow this step-by-step reasoning process:
+**CRITICAL RULES:**
+- **Zero Tolerance**: If the context doesn't match the assigned parent, return an empty array [] for that ID.
+- **Content over Headers**: Focus on the *content* of the text, not just section headers. Relevant information may appear in sections with different titles.
+- **CLEAN ENTITIES**: Remove bullet points (*, -), numbering, and extra whitespace.
+- **JSON Keys**: Use ONLY the provided category IDs.
 
-1. **Read and Understand**: Carefully read the entire text to understand its context and content.
-
-2. **Parent Context Analysis**: For each parent category, determine if the text discusses it (explicitly or implied).
-
-3. **Child Category Extraction**: For parents that are relevant, extract entities for their child categories.
-
-4. **Entity Validation**: For each potential entity found:
-    - Verify it is explicitly mentioned in the text
-    - Ensure it logically belongs to the child category
-    - Confirm the parent context is present in the text
-
-5. **Confidence Assessment**: Rate your confidence in each extraction based on:
-    - How clearly the entity is mentioned
-    - How well it fits the child category
-    - Whether the parent context is clearly present
-
-6. **Final Review**: Double-check that all extracted entities are actually present in the text and that their parent contexts are relevant.
-
-IMPORTANT RULES:
-- Only extract entities that are EXPLICITLY MENTIONED in the text
-- Do not infer, assume, or add entities that aren't directly stated
-- Do not use generic terms - only specific, named entities
-- If a parent category is not relevant to the text, use empty arrays for all its children
-- Be precise and avoid over-extraction
-- Keep in mind that the text can be from any domain (e.g., legal, financial, technical, general knowledge), so adapt your analysis accordingly.
-
-Text to analyze:
-{chunk_text}
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "entities": array of strings (the specific entities found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
+**Output Format:**
+Return a JSON object with a single key "results" containing a list of extraction objects.
+Example:
 {{
-  "category_id_1": {{
-    "entities": ["entity1", "entity2"],
-    "confidence": 0.8
-  }},
-  "category_id_2": {{
-    "entities": [],
-    "confidence": 0.0
-  }}
+  "results": [
+    {{
+      "category_id": "110100",
+      "entities": ["entity 1", "entity 2"],
+      "confidence": 0.95
+    }}
+  ]
 }}
-
-JSON Response:"""
-                            else:
-                                # Original NER prompt for other classifiers (Grok, Gemini) with contextual structure
-                                entity_prompt = f"""Extract entities from the following text for each of the specified child categories, but ONLY if the text is relevant to their parent category.
-
-{parent_child_text}
-
-Contextual Rules:
-- Only extract for child categories if their parent category is discussed in the text (explicitly or implied).
-- If parent category is not present, return empty arrays for children.
-- Consider implied context (e.g., symptoms implying Metabolic Syndrome discussion).
-- YOU MUST USE THE EXACT CATEGORY ID AS THE KEY IN THE JSON RESPONSE. DO NOT USE THE CATEGORY NAME.
-- DO NOT INCLUDE PARENT IDs IN THE JSON RESPONSE UNLESS THEY ARE ALSO LISTED AS CHILD CATEGORIES.
-
-Return your response as a JSON object where each key is a category ID and each value is an object with:
-- "entities": array of strings (the specific entities found for this category)
-- "confidence": number between 0 and 1 (your confidence in the extraction)
-
-Example response format:
-{{
-  "11001": {{
-    "entities": ["entity1", "entity2"],
-    "confidence": 0.8
-  }},
-  "11002": {{
-    "entities": [],
-    "confidence": 0.0
-  }}
-}}
-
-Rules:
-- USE CATEGORY IDs AS KEYS (e.g., "11001", "11002"), NOT NAMES.
-- Only include entities that are explicitly mentioned in the text.
-- If parent context missing, use empty array for "entities".
-- Be specific and accurate in your extractions.
-- Do not include any explanations or additional text outside the JSON.
 
 Text to analyze:
 {chunk_text}
@@ -951,37 +611,32 @@ Text to analyze:
 JSON Response:"""
 
                     # Extract entities for all categories in a single API call
-                    # Access backend_settings before defining the nested function to avoid scoping issues
-                    grok_model = backend_settings.get_classification_grok_model() if effective_classifier == 'grok' else None
-                    gemini_model = backend_settings.get_classification_gemini_model() if effective_classifier == 'gemini' else None
-                    openai_model = backend_settings.get_classification_openai_model() if effective_classifier == 'openai' else None
-                    ollama_model = backend_settings.get_classification_ollama_model() if effective_classifier == 'ollama' else None
-                    ollama_base_url = backend_settings.get_ollama_base_url() if effective_classifier == 'ollama' else None
-                    ollama_num_ctx = backend_settings.get_classification_ollama_num_ctx() if effective_classifier == 'ollama' else None
-                    ollama_temperature = backend_settings.get_classification_ollama_temperature() if effective_classifier == 'ollama' else None
-                    ollama_repeat_penalty = backend_settings.get_classification_ollama_repeat_penalty() if effective_classifier == 'ollama' else None
-                    ollama_top_p = backend_settings.get_classification_ollama_top_p() if effective_classifier == 'ollama' else None
-                    ollama_top_k = backend_settings.get_classification_ollama_top_k() if effective_classifier == 'ollama' else None
-                    ollama_num_predict = backend_settings.get_classification_ollama_num_predict() if effective_classifier == 'ollama' else None
-                    ollama_seed = backend_settings.get_classification_ollama_seed() if effective_classifier == 'ollama' else None
+                    grok_model = self.user_settings.get_classification_grok_model() if effective_classifier == 'grok' else None
+                    gemini_model = self.user_settings.get_classification_gemini_model() if effective_classifier == 'gemini' else None
+                    openai_model = self.user_settings.get_classification_openai_model() if effective_classifier == 'openai' else None
+                    ollama_model = self.user_settings.get_classification_ollama_model() if effective_classifier == 'ollama' else None
+                    ollama_base_url = self.user_settings.get_ollama_base_url() if effective_classifier == 'ollama' else None
+                    ollama_num_ctx = self.user_settings.get_classification_ollama_num_ctx() if effective_classifier == 'ollama' else None
+                    ollama_temperature = self.user_settings.get_classification_ollama_temperature() if effective_classifier == 'ollama' else None
+                    ollama_repeat_penalty = self.user_settings.get_classification_ollama_repeat_penalty() if effective_classifier == 'ollama' else None
+                    ollama_top_p = self.user_settings.get_classification_ollama_top_p() if effective_classifier == 'ollama' else None
+                    ollama_top_k = self.user_settings.get_classification_ollama_top_k() if effective_classifier == 'ollama' else None
+                    ollama_num_predict = self.user_settings.get_classification_ollama_num_predict() if effective_classifier == 'ollama' else None
+                    ollama_seed = self.user_settings.get_classification_ollama_seed() if effective_classifier == 'ollama' else None
 
                     @retry_classification(logger=extraction_logger.logger)
                     def extract_all_entities_with_retry():
                         try:
-                            # Move import outside the function if not already available
                             try:
                                 from google import genai # type: ignore
                             except ImportError:
-                                pass # Handled inside the function logic
+                                pass
 
-                            # Use direct API call for batch entity extraction
                             try:
                                 from ...features.extraction.grok_classifier import _sanitize_json
 
                                 if effective_classifier == 'grok':
                                     api_key = self.grok_api_key or ""
-                                    # Use pre-fetched grok_model from outer scope
-
                                     api_url = "https://api.x.ai/v1/chat/completions"
                                     request_data = {
                                         "model": grok_model,
@@ -996,93 +651,44 @@ JSON Response:"""
                                         "Content-Type": "application/json"
                                     }
 
-                                    response = requests.post(api_url, json=request_data, headers=headers, timeout=180)  # Increased timeout to 180s
+                                    response = requests.post(api_url, json=request_data, headers=headers, timeout=180)
                                     response.raise_for_status()
 
                                     response_json = response.json()
-                                    response_text = response_json.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+                                    response_text = response_json.get("choices", [{}])[0].get("message", {}).get("content") or "{}"
 
-                                    # Reduced debug logging - only log API errors, not every response
-
-                                    # Try to extract JSON from response
                                     sanitized_text = ""
                                     try:
                                         sanitized_text = _sanitize_json(response_text)
-                                        batch_result = json.loads(sanitized_text)
+                                        parsed_json = json.loads(sanitized_text)
                                         
-                                        # DEBUG: Log the batch result keys to see what we got
-                                        if isinstance(batch_result, dict):
-                                            # Check if our target category IDs are in the keys
-                                            target_ids = [c['id'] for c in category_info if c.get('is_selected')]
-                                            missing = [tid for tid in target_ids if tid not in batch_result]
+                                        # Transform "results" list format back to dictionary format: {cat_id: {texts/entities: [], confidence: float}}
+                                        if isinstance(parsed_json, dict) and "results" in parsed_json and isinstance(parsed_json["results"], list):
+                                            batch_result = {}
+                                            for item in parsed_json["results"]:
+                                                cat_id = item.get("category_id")
+                                                if cat_id:
+                                                    batch_result[cat_id] = item
                                             return batch_result
-                                        else:
-                                            pass
+                                        
+                                        # Fallback for legacy format
+                                        if isinstance(parsed_json, dict):
+                                            return parsed_json
+                                            
                                     except Exception as parse_error:
-                                        # Log the raw response causing the error
                                         extraction_logger.log_error(
                                             parse_error,
                                             "batch_grok_json_parse_debug",
-                                            context={
-                                                "response_text_length": len(response_text),
-                                                "response_preview": response_text[:1000]
-                                            }
-                                        )
-                                        # Log the raw response causing the error
-                                        extraction_logger.log_error(
-                                            parse_error,
-                                            "batch_grok_json_parse_debug",
-                                            context={
-                                                "response_text_length": len(response_text),
-                                                "response_preview": response_text[:1000]
-                                            }
-                                        )
-                                        extraction_logger.log_warning(
-                                            f"Batch JSON parsing failed: {parse_error}",
-                                            "batch_grok_json_parse_error",
-                                            context={
-                                                "response_text": response_text,
-                                                "sanitized_text": sanitized_text if sanitized_text else "N/A"
-                                            }
+                                            context={"response_text_length": len(response_text)}
                                         )
                                         return {}
 
                                 elif effective_classifier == 'gemini':
                                     api_key = self.gemini_api_key
                                     if api_key:
-                                        sanitized_text = "N/A"  # Initialize for error logging
-                                        genai_module = None
+                                        sanitized_text = "N/A"
                                         try:
-                                            # DEBUG: Log Gemini API call details
-                                            safe_log_start(
-                                                "gemini_api_call_debug",
-                                                {
-                                                    "gemini_model": gemini_model,
-                                                    "api_key_available": bool(api_key),
-                                                    "prompt_length": len(entity_prompt),
-                                                    "chunk_id": chunk_id
-                                                },
-                                                project_id
-                                            )
-
-                                            # Use pre-fetched gemini_model from outer scope
-
                                             from google import genai  # type: ignore
-                                            genai_module = genai
-
-                                            # DEBUG: Check if Client exists (new API)
-                                            if not hasattr(genai, 'Client'):
-                                                extraction_logger.log_error(
-                                                    Exception("Client not found in google.genai - library may be outdated"),
-                                                    "gemini_api_compatibility_error",
-                                                    context={
-                                                        "available_attrs": [attr for attr in dir(genai) if not attr.startswith('_')],
-                                                        "genai_version": getattr(genai, '__version__', 'unknown')
-                                                    }
-                                                )
-                                                return {}
-
-                                            # Use new Google GenAI API (Client-based)
                                             client = genai.Client(api_key=api_key)
 
                                             response = client.models.generate_content(
@@ -1090,83 +696,32 @@ JSON Response:"""
                                                 contents=entity_prompt,
                                                 config={"response_mime_type": "application/json"},
                                             )
-                                            response_text = response.text if response else "{}"
-
-                                            # DEBUG: Log response details
-                                            safe_log_start(
-                                                "gemini_response_debug",
-                                                {
-                                                    "response_length": len(response_text),
-                                                    "response_preview": response_text[:200] if response_text else "EMPTY",
-                                                    "chunk_id": chunk_id
-                                                },
-                                                project_id
-                                            )
+                                            response_text = response.text if response and hasattr(response, 'text') and response.text else "{}"
 
                                             try:
                                                 sanitized_text = _sanitize_json(response_text)
-                                                batch_result = json.loads(sanitized_text)
-
-                                                # DEBUG: Log the batch result keys for Gemini
-                                                if isinstance(batch_result, dict):
-                                                    safe_log_start(
-                                                        "gemini_batch_result_debug",
-                                                        {
-                                                            "result_keys": list(batch_result.keys()),
-                                                            "expected_categories": [str(c['id']) for c in category_info if c.get('is_selected')],
-                                                            "chunk_id": chunk_id
-                                                        },
-                                                        project_id
-                                                    )
+                                                parsed_json = json.loads(sanitized_text)
+                                                
+                                                # Transform "results" list format back to dictionary format
+                                                if isinstance(parsed_json, dict) and "results" in parsed_json and isinstance(parsed_json["results"], list):
+                                                    batch_result = {}
+                                                    for item in parsed_json["results"]:
+                                                        cat_id = item.get("category_id")
+                                                        if cat_id:
+                                                            batch_result[cat_id] = item
                                                     return batch_result
-                                                else:
-                                                    extraction_logger.log_warning(
-                                                        f"Gemini returned non-dict result: {type(batch_result)}",
-                                                        "gemini_invalid_result_type",
-                                                        context={"chunk_id": chunk_id, "result_type": str(type(batch_result))}
-                                                    )
+
+                                                # Fallback for legacy format
+                                                if isinstance(parsed_json, dict):
+                                                    return parsed_json
                                             except Exception as e:
-                                                extraction_logger.log_error(
-                                                    e,
-                                                    "gemini_json_parsing_error",
-                                                    context={
-                                                        "response_text": response_text[:500],
-                                                        "sanitized_text": sanitized_text,
-                                                        "chunk_id": chunk_id
-                                                    }
-                                                )
-                                        except ImportError as ie:
-                                            extraction_logger.log_error(
-                                                ie,
-                                                "gemini_import_error",
-                                                context={"import_error": str(ie)}
-                                            )
-                                        except AttributeError as ae:
-                                            available_attrs = [attr for attr in dir(genai_module) if not attr.startswith('_')] if genai_module else []
-                                            extraction_logger.log_error(
-                                                ae,
-                                                "gemini_attribute_error",
-                                                context={
-                                                    "attribute_error": str(ae),
-                                                    "available_genai_attrs": available_attrs
-                                                }
-                                            )
+                                                extraction_logger.log_error(e, "gemini_json_parsing_error")
                                         except Exception as e:
-                                            extraction_logger.log_error(
-                                                e,
-                                                "gemini_api_call_error",
-                                                context={
-                                                    "error_type": type(e).__name__,
-                                                    "error_message": str(e),
-                                                    "chunk_id": chunk_id
-                                                }
-                                            )
+                                            extraction_logger.log_error(e, "gemini_api_call_error")
 
                                 elif effective_classifier == 'ollama':
                                     try:
-                                        # Use pre-fetched values from outer scope
                                         api_url = f"{ollama_base_url}/api/generate"
-                                        # Prepare Ollama options
                                         options = {
                                             "num_ctx": ollama_num_ctx,
                                             "temperature": ollama_temperature,
@@ -1178,7 +733,6 @@ JSON Response:"""
                                         if ollama_seed is not None:
                                             options["seed"] = ollama_seed
 
-                                        # Prepare Ollama request
                                         request_data = {
                                             "model": ollama_model,
                                             "prompt": entity_prompt,
@@ -1187,120 +741,45 @@ JSON Response:"""
                                             "options": options
                                         }
 
-                                        # Add detailed debugging for Ollama calls
-                                        safe_log_start(
-                                            "ollama_entity_extraction_request",
-                                            {
-                                                "model": ollama_model,
-                                                "api_url": api_url,
-                                                "categories_count": len(category_info),
-                                                "chunk_id": chunk_id,
-                                                "prompt_length": len(entity_prompt),
-                                                "request_data_keys": list(request_data.keys())
-                                            },
-                                            project_id
-                                        )
-
-                                        try:
-                                            response = requests.post(api_url, json=request_data, timeout=120)
-                                        except requests.exceptions.Timeout:
-                                            raise
-                                        except requests.exceptions.ConnectionError as e:
-                                            raise
-                                        except Exception as e:
-                                            raise
-
+                                        response = requests.post(api_url, json=request_data, timeout=120)
                                         response.raise_for_status()
 
                                         response_json = response.json()
-                                        response_text = response_json.get("response", "{}")
-
-                                        # Log the raw response for debugging
-                                        safe_log_start(
-                                            "ollama_entity_extraction_response",
-                                            {
-                                                "response_length": len(response_text),
-                                                "response_preview": response_text[:500] if response_text else "EMPTY",
-                                                "chunk_id": chunk_id,
-                                                "status_code": response.status_code
-                                            },
-                                            project_id
-                                        )
+                                        response_text = response_json.get("response") or "{}"
 
                                         try:
                                             sanitized_text = _sanitize_json(response_text)
-                                            result = json.loads(sanitized_text)
-                                            if isinstance(result, dict) and "relevant_ids" in result:
-                                                relevant_ids = result["relevant_ids"]
-                                                return relevant_ids
-                                        except Exception as parse_error:
+                                            parsed_json = json.loads(sanitized_text)
+                                            
+                                            # Transform "results" list format back to dictionary format
+                                            if isinstance(parsed_json, dict) and "results" in parsed_json and isinstance(parsed_json["results"], list):
+                                                batch_result = {}
+                                                for item in parsed_json["results"]:
+                                                    cat_id = item.get("category_id")
+                                                    if cat_id:
+                                                        batch_result[cat_id] = item
+                                                return batch_result
+
+                                            # Fallback for legacy format
+                                            if isinstance(parsed_json, dict):
+                                                return parsed_json
+                                        except Exception:
                                             pass
 
-                                        # Try to parse JSON from response
-                                        sanitized_text = ""
-                                        try:
-                                            sanitized_text = _sanitize_json(response_text)
-                                            batch_result = json.loads(sanitized_text)
-                                            if isinstance(batch_result, dict):
-                                                safe_log_start(
-                                                    "ollama_entity_extraction_success",
-                                                    {
-                                                        "parsed_categories": list(batch_result.keys()),
-                                                        "chunk_id": chunk_id
-                                                    },
-                                                    project_id
-                                                )
-                                                return batch_result
-                                            else:
-                                                extraction_logger.log_warning(
-                                                    f"Ollama returned non-dict result: {type(batch_result)}",
-                                                    "ollama_entity_extraction_invalid_format",
-                                                    context={"chunk_id": chunk_id, "result_type": str(type(batch_result))}
-                                                )
-                                        except json.JSONDecodeError as parse_error:
-                                            extraction_logger.log_warning(
-                                                f"Ollama JSON parsing failed: {parse_error}",
-                                                "ollama_entity_extraction_json_error",
-                                                context={
-                                                    "response_text": response_text[:500],
-                                                    "chunk_id": chunk_id,
-                                                    "parse_error": str(parse_error)
-                                                }
-                                            )
-                                        except Exception as parse_error:
-                                            extraction_logger.log_warning(
-                                                f"Ollama response parsing failed: {parse_error}",
-                                                "ollama_entity_extraction_parse_error",
-                                                context={"chunk_id": chunk_id, "error": str(parse_error)}
-                                            )
-
-                                    except requests.exceptions.RequestException as e:
-                                        extraction_logger.log_warning(
-                                            f"Ollama API request failed: {e}",
-                                            "ollama_entity_extraction_api_error",
-                                            context={"chunk_id": chunk_id, "error": str(e)}
-                                        )
                                     except Exception as e:
-                                        extraction_logger.log_warning(
-                                            f"Ollama entity extraction failed: {e}",
-                                            "ollama_entity_extraction_error",
-                                            context={"chunk_id": chunk_id, "error": str(e)}
-                                        )
+                                        extraction_logger.log_warning(f"Ollama entity extraction failed: {e}", "ollama_error")
 
                                 elif effective_classifier == 'openai':
                                     api_key = self.openai_api_key
                                     if api_key:
                                         try:
-                                            # Use pre-fetched openai_model from outer scope
-                                            openai_model = backend_settings.get_classification_openai_model()
-
                                             import openai  # type: ignore
                                             client = openai.OpenAI(api_key=api_key)
 
                                             response = client.chat.completions.create(
                                                 model=openai_model,
                                                 messages=[
-                                                    {"role": "system", "content": "You are a precise data extraction assistant. You must output ONLY valid JSON. Do not include any conversational text, markdown formatting, or explanations."},
+                                                    {"role": "system", "content": "You are a precise data extraction assistant. You must output ONLY valid JSON."},
                                                     {"role": "user", "content": entity_prompt}
                                                 ],
                                                 response_format={"type": "json_object"},
@@ -1308,69 +787,46 @@ JSON Response:"""
                                             )
 
                                             response_text = response.choices[0].message.content
-                                            if not response_text:
-                                                return {}
-
-                                            # Try to parse JSON from response
-                                            sanitized_text = ""
-                                            try:
+                                            if response_text:
                                                 sanitized_text = _sanitize_json(response_text)
-                                                batch_result = json.loads(sanitized_text)
-
-                                                # DEBUG: Log the batch result keys for OpenAI
-                                                if isinstance(batch_result, dict):
+                                                parsed_json = json.loads(sanitized_text)
+                                                
+                                                # Transform "results" list format back to dictionary format
+                                                if isinstance(parsed_json, dict) and "results" in parsed_json and isinstance(parsed_json["results"], list):
+                                                    batch_result = {}
+                                                    for item in parsed_json["results"]:
+                                                        cat_id = item.get("category_id")
+                                                        if cat_id:
+                                                            batch_result[cat_id] = item
                                                     return batch_result
-                                                else:
-                                                    pass
-                                            except Exception as parse_error:
-                                                extraction_logger.log_warning(
-                                                    f"OpenAI batch JSON parsing failed: {parse_error}",
-                                                    "batch_openai_json_parse_error",
-                                                    context={
-                                                        "response_text": response_text,
-                                                        "sanitized_text": sanitized_text if 'sanitized_text' in locals() else "N/A"
-                                                    }
-                                                )
-                                                return {}
 
-                                        except ImportError:
-                                            extraction_logger.log_warning(
-                                                "OpenAI library not available",
-                                                "batch_entity_extraction_missing_dependency"
-                                            )
-                                        except Exception as e:
-                                            extraction_logger.log_warning(
-                                                f"OpenAI batch API call failed: {e}",
-                                                "batch_entity_extraction_openai_error"
-                                            )
+                                                return parsed_json
+                                        except Exception:
+                                            pass
 
-                                # For other classifiers, return empty
                                 return {}
 
-                            except Exception as e:
-                                extraction_logger.log_warning(
-                                    f"Batch entity extraction API call failed for {effective_classifier}: {e}",
-                                    "batch_entity_extraction_api_call",
-                                    context={"categories_count": len(category_info), "chunk_id": chunk_id}
-                                )
+                            except Exception:
                                 return {}
 
-                        except Exception as e:
-                            extraction_logger.log_warning(
-                                f"Batch entity extraction failed: {e}",
-                                "batch_entity_extraction",
-                                context={"chunk_id": chunk_id, "categories_count": len(category_info)}
-                            )
+                        except Exception:
                             return {}
 
                     batch_result = extract_all_entities_with_retry()
+                    
+                    # Robust check for batch_result - must be a dictionary
+                    if not isinstance(batch_result, dict):
+                        extraction_logger.log_warning(
+                            f"AI classifier returned {type(batch_result).__name__} instead of dict. Normalizing to empty dict.",
+                            "normalization",
+                            context={"chunk_id": str(chunk_id), "type": type(batch_result).__name__}
+                        )
+                        batch_result = {}
+                        
                     is_validated = False
 
-                    # Validation stage (optional second call)
                     if enable_validation_stage and batch_result:
-                        validation_classifier = validation_classifier or initial_classifier or backend_settings.get_classification_model() or 'grok'
-                        
-                        # Create validation prompt
+                        validation_classifier = validation_classifier or initial_classifier or self.user_settings.get_classification_model() or 'grok'
                         validation_prompt = f"""You are an expert data validator. Review the following extraction results and validate their accuracy and contextual relevance.
 
 Original extractions:
@@ -1389,32 +845,18 @@ CRITICAL VALIDATION RULES:
 Return ONLY the validated JSON object.
 JSON Response:"""
 
-                        # Perform validation call
                         try:
-                            # Log validation start
-                            initial_entity_count = sum(len(v.get('entities', v.get('texts', []))) for v in batch_result.values() if isinstance(v, dict))
-                            safe_log_start(
-                                "validation_stage_started",
-                                {
-                                    "chunk_id": chunk_id,
-                                    "initial_entity_count": initial_entity_count,
-                                    "validation_classifier": validation_classifier
-                                },
-                                project_id
-                            )
-
                             @retry_classification(logger=extraction_logger.logger)
                             def validate_extractions():
-                                # Use same API call logic as main extraction
                                 if validation_classifier == 'grok' and self.grok_api_key:
                                     api_key = self.grok_api_key
-                                    grok_model = backend_settings.get_classification_grok_model()
+                                    grok_model = self.user_settings.get_classification_grok_model()
 
                                     api_url = "https://api.x.ai/v1/chat/completions"
                                     request_data = {
                                         "model": grok_model,
                                         "messages": [
-                                            {"role": "system", "content": "You are a precise data validation assistant. You must output ONLY valid JSON. Do not add new data, only filter and refine existing data."},
+                                            {"role": "system", "content": "You are a precise data validation assistant. You must output ONLY valid JSON."},
                                             {"role": "user", "content": validation_prompt}
                                         ],
                                         "temperature": 0.1
@@ -1433,81 +875,117 @@ JSON Response:"""
                                     try:
                                         from ...features.extraction.grok_classifier import _sanitize_json
                                         sanitized_text = _sanitize_json(response_text)
-                                        validated_result = json.loads(sanitized_text)
-                                        if isinstance(validated_result, dict):
-                                            return validated_result
+                                        return json.loads(sanitized_text)
                                     except Exception:
                                         pass
-
-                                # Add similar logic for gemini and ollama if needed
-                                return batch_result  # Fall back to original if validation fails
+                                return batch_result
 
                             validated_batch = validate_extractions()
-                            
-                            # Programmatic Deduplication and Filtering
                             if isinstance(validated_batch, dict) and validated_batch:
-                                # Ensure we don't allow "discovery" of new categories during validation
-                                discovered_categories = [k for k in validated_batch.keys() if k not in batch_result]
-                                if discovered_categories:
-                                    safe_log_warning(
-                                        f"Validation stage tried to discover {len(discovered_categories)} new categories - dropping them.",
-                                        "validation_discovery_prevention",
-                                        {"discovered_categories": discovered_categories},
-                                        project_id
-                                    )
-
                                 filtered_batch = {k: v for k, v in validated_batch.items() if k in batch_result}
-                                
-                                # Log validation results
-                                validated_entity_count = sum(len(v.get('entities', v.get('texts', []))) for v in filtered_batch.values() if isinstance(v, dict))
-                                safe_log_start(
-                                    "validation_stage_complete",
-                                    {
-                                        "chunk_id": chunk_id,
-                                        "initial_count": initial_entity_count,
-                                        "validated_count": validated_entity_count,
-                                        "removed_count": initial_entity_count - validated_entity_count
-                                    },
-                                    project_id
-                                )
-                                
                                 batch_result = filtered_batch
                                 is_validated = True
 
-                        except Exception as e:
-                            extraction_logger.log_warning(
-                                f"Validation stage failed: {e}",
-                                "validation_stage_error",
-                                context={"chunk_id": chunk_id, "validation_classifier": validation_classifier}
-                            )
-                            # Continue with original results if validation fails
+                        except Exception:
+                            pass
 
-                    # Process the batch results for each selected category only
+                    # Process results
+                    extracted_entities = {}
+                    entity_confidences = {}
+
                     for cat_info in category_info:
                         cat_id = str(cat_info['id'])
                         category_name = cat_info['name']
                         is_selected = cat_info.get('is_selected', False)
 
-                        # Only extract entities for selected categories, not parent categories
                         if not is_selected:
                             continue
 
-                        # Extract results for this selected category from the batch response (trying both ID types)
-                        category_result = batch_result.get(cat_id) or batch_result.get(cat_info['id'], {})
+                        # batch_result is guaranteed to be a dict here due to normalization above
+                        category_result = batch_result.get(cat_id, {})
+
+                        # Robust normalization for AI output variations
+                        if isinstance(category_result, list):
+                            # AI returned a list directly instead of an object with 'texts'/'entities' key.
+                            # We use 0.0 as fallback confidence because the AI failed to provide an assessment.
+                            if extraction_type == "whole_text":
+                                category_result = {'texts': category_result, 'confidence': 0.0}
+                            else:
+                                category_result = {'entities': category_result, 'confidence': 0.0}
+                        elif not isinstance(category_result, dict):
+                            category_result = {}
 
                         if extraction_type == "whole_text":
-                            # Handle whole text extraction results
                             texts_found = category_result.get('texts', [])
-                            confidence = category_result.get('confidence', 0.0)
+                            confidence_val = category_result.get('confidence', 0.0)
+                            try:
+                                confidence = float(confidence_val)
+                            except (ValueError, TypeError):
+                                confidence = 0.0
+                            
+                            valid_texts = []
+                            for text in texts_found:
+                                if not text:
+                                    continue
+                                
+                                text_val = ""
+                                
+                                # Handle case where AI returns an object with a 'text' field instead of a string
+                                if isinstance(text, dict):
+                                    text_val = str(text.get('text', text)).strip()
+                                    # Attempt to recover confidence from item if overall confidence was missing
+                                    if confidence == 0.0:
+                                        try:
+                                            item_conf = text.get('confidence')
+                                            if item_conf is not None:
+                                                confidence = float(item_conf)
+                                        except (ValueError, TypeError):
+                                            pass
+                                elif isinstance(text, str):
+                                    # Try to parse stringified dict if it looks like one
+                                    text = text.strip()
+                                    if text.startswith("{") and "confidence" in text:
+                                        try:
+                                            # Try simple replace for common python dict string format
+                                            if "'" in text:
+                                                import ast
+                                                parsed = ast.literal_eval(text)
+                                                if isinstance(parsed, dict):
+                                                    text_val = str(parsed.get('text', text)).strip()
+                                                    if confidence == 0.0:
+                                                        item_conf = parsed.get('confidence')
+                                                        if item_conf is not None:
+                                                            confidence = float(item_conf)
+                                            else:
+                                                parsed = json.loads(text)
+                                                text_val = str(parsed.get('text', text)).strip()
+                                                if confidence == 0.0:
+                                                    item_conf = parsed.get('confidence')
+                                                    if item_conf is not None:
+                                                        confidence = float(item_conf)
+                                        except:
+                                            text_val = text
+                                    else:
+                                        text_val = text
+                                else:
+                                    text_val = str(text).strip()
+                                
+                                # Clean text formatting (remove bullets, etc.)
+                                if text_val:
+                                    import re
+                                    # Remove leading bullets (*, -, •, +)
+                                    text_val = re.sub(r'^[\*\-\•\+]\s*', '', text_val)
+                                    # Remove leading numbering (1., 1.1)
+                                    text_val = re.sub(r'^\d+(\.\d+)*\.?\s*', '', text_val)
+                                    # Remove leading "CategoryName:" patterns
+                                    text_val = re.sub(r'^[^:]+:\s*', '', text_val)
+                                    text_val = text_val.strip()
 
-                            # Filter out empty or invalid texts
-                            valid_texts = [str(text).strip() for text in texts_found
-                                          if text and str(text).strip() and len(str(text).strip()) > 10]  # Minimum length for meaningful text
+                                if len(text_val) > 10:
+                                    valid_texts.append(text_val)
 
                             if valid_texts:
-                                # Deduplicate texts
                                 unique_texts = list(dict.fromkeys(valid_texts))
-                                
                                 extracted_entities[cat_id] = {
                                     'category_name': category_name,
                                     'texts': unique_texts,
@@ -1515,18 +993,42 @@ JSON Response:"""
                                 }
                                 entity_confidences.update({f"text_{i}": confidence for i, _ in enumerate(unique_texts)})
                         else:
-                            # Handle NER extraction results (existing logic)
                             entities_found = category_result.get('entities', [])
-                            confidence = category_result.get('confidence', 0.0)
+                            confidence_val = category_result.get('confidence', 0.0)
+                            try:
+                                confidence = float(confidence_val)
+                            except (ValueError, TypeError):
+                                confidence = 0.0
+                            
+                            valid_entities = []
+                            for entity in entities_found:
+                                if not entity:
+                                    continue
+                                    
+                                # Handle case where AI returns an object with an 'entity' field instead of a string
+                                if isinstance(entity, dict) and 'entity' in entity:
+                                    entity_val = str(entity['entity']).strip()
+                                elif isinstance(entity, dict) and 'name' in entity:
+                                    entity_val = str(entity['name']).strip()
+                                else:
+                                    entity_val = str(entity).strip()
+                                
+                                # Clean text formatting
+                                if entity_val:
+                                    import re
+                                    # Remove leading bullets (*, -, •, +)
+                                    entity_val = re.sub(r'^[\*\-\•\+]\s*', '', entity_val)
+                                    # Remove leading numbering (1., 1.1)
+                                    entity_val = re.sub(r'^\d+(\.\d+)*\.?\s*', '', entity_val)
+                                    # Remove leading "CategoryName:" patterns
+                                    entity_val = re.sub(r'^[^:]+:\s*', '', entity_val)
+                                    entity_val = entity_val.strip()
 
-                            # Filter out empty or invalid entities
-                            valid_entities = [str(entity).strip() for entity in entities_found
-                                            if entity and str(entity).strip() and len(str(entity).strip()) > 1]
+                                if len(entity_val) > 1:
+                                    valid_entities.append(entity_val)
 
                             if valid_entities:
-                                # Deduplicate entities
                                 unique_entities = list(dict.fromkeys(valid_entities))
-                                
                                 extracted_entities[cat_id] = {
                                     'category_name': category_name,
                                     'entities': unique_entities,
@@ -1534,21 +1036,12 @@ JSON Response:"""
                                 }
                                 entity_confidences.update({entity: confidence for entity in unique_entities})
 
-                            # Skip verbose per-category success logging
-
-                    # Only include chunks that have extracted entities for at least one category
                     if not extracted_entities:
                         continue
                     
-                    # Note: Relationship inference has been removed from this implementation
-                    relationships = []
-
-                    # Calculate overall confidence for this chunk
                     overall_confidence = max(entity_confidences.values()) if entity_confidences else 0.0
-
-                    # Create extraction result with extraction data
                     result = ExtractionResult(
-                        job_id=0,  # TODO: Pass actual job_id when available
+                        job_id=0,
                         project_id=project_id,
                         chunk_id=str(chunk_id),
                         categories=list(extracted_entities.keys()),
@@ -1565,53 +1058,10 @@ JSON Response:"""
                     processed_count += 1
                 except Exception as e:
                     failed_chunks += 1
-                    chunk_id = chunk_data.get('id', 'unknown') if chunk_data else 'unknown'
-                    
-                    pid_int = None
-                    if isinstance(project_id, int):
-                        pid_int = project_id
-                    elif isinstance(project_id, str) and project_id.isdigit():
-                        pid_int = int(project_id)
-
-                    extraction_logger.log_error(
-                        e,
-                        "chunk_processing",
-                        context={
-                            "chunk_id": chunk_id,
-                            "chunk_length": len(chunk_data.get('text', '')) if chunk_data else 0,
-                            "processing_time": time.time() - chunk_start_time
-                        },
-                        project_id=pid_int
-                    )
+                    extraction_logger.log_error(e, "chunk_processing")
                     continue
 
-            # Log performance metrics
             total_time = time.time() - start_time
-            if processed_count > 0:
-                avg_chunk_time = total_time / len(chunks_data)
-                
-                pid_int = None
-                if isinstance(project_id, int):
-                    pid_int = project_id
-                elif isinstance(project_id, str) and project_id.isdigit():
-                    pid_int = int(project_id)
-
-                extraction_logger.log_operation_complete(
-                    "extract_content",
-                    total_time,
-                    result_count=processed_count,
-                    context={
-                        "chunks_processed": processed_count,
-                        "chunks_failed": failed_chunks,
-                        "avg_chunk_time": avg_chunk_time,
-                        "success_rate": processed_count / len(chunks_data) if chunks_data else 0
-                    },
-                    project_id=pid_int
-                )
-            else:
-                 pass
-
-            # Create summary
             summary = ExtractionSummary(
                 total_chunks=len(chunks_data),
                 processed_chunks=processed_count,
@@ -1623,85 +1073,28 @@ JSON Response:"""
 
             return results, summary
 
-        except (TaxonomyNotFoundError, TaxonomyValidationError, TaxonomyCategoryError,
-                ClassificationFailureError, ChunkProcessingError):
-            # Re-raise domain-specific exceptions
-            raise
         except Exception as e:
-            pid_int = None
-            if isinstance(project_id, int):
-                pid_int = project_id
-            elif isinstance(project_id, str) and project_id.isdigit():
-                pid_int = int(project_id)
-
-            extraction_logger.log_error(
-                e,
-                "extract_content",
-                context={
-                    "project_id": project_id,
-                    "taxonomy_project": taxonomy_project,
-                    "taxonomy_name": taxonomy_name,
-                    "duration": time.time() - start_time
-                },
-                project_id=pid_int
-            )
+            extraction_logger.log_error(e, "extract_content")
             raise ClassificationFailureError(f"Extraction failed: {e}") from e
 
 
     def _resolve_category_paths(self, taxonomy: HierarchicalCategory, category_paths: List[str]) -> List[HierarchicalCategory]:
         """
         Resolve category path strings to actual category objects.
-        Supports multiple path formats:
-        - Index-based: "cat_0_1_2" or "0_1_2"
-        - Name-based: "Technology.Software.Web Development"
-
-        Args:
-            taxonomy: Root taxonomy category
-            category_paths: List of path strings.
-
-        Returns:
-            List of resolved category objects.
-
-        Raises:
-            TaxonomyCategoryError: If category path resolution fails for all paths.
         """
         resolved_categories = self.category_resolver.resolve_category_paths(taxonomy, category_paths)
-
-        # If no categories were resolved and we had multiple paths, raise an error
         if not resolved_categories and len(category_paths) > 1:
             raise TaxonomyCategoryError(f"All category paths failed to resolve: {category_paths}", str(category_paths))
-
         return resolved_categories
 
     def _check_category_match(self, classifications: Dict[str, Any], target_categories: List[HierarchicalCategory]) -> List[str]:
         """
         Check if classifications match any of the target categories.
-
-        Args:
-            classifications: Classification results
-            target_categories: Target categories to match against
-
-        Returns:
-            List of matched category paths
-
-        Raises:
-            TaxonomyCategoryError: If category matching fails
         """
         return self.category_resolver.check_category_match(classifications, target_categories)
 
     def _load_project_chunks(self, project_id: int, max_chunks: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Load chunks for a project from processed outputs.
-
-        Args:
-            project_id: Project ID
-            max_chunks: Maximum number of chunks to load
-
-        Returns:
-            List of chunk data dictionaries
-
-        Raises:
-            DatabaseConnectionError: If database query fails
-            FileStorageError: If file reading fails
         """
         return self.chunk_loader.load_project_chunks(project_id, max_chunks)

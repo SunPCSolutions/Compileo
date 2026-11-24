@@ -50,53 +50,70 @@ class ResourceManager:
         self._health_monitor_thread.start()
 
     def check_resource_limits(self, limits: ResourceLimits, user_id: Optional[str] = None) -> bool:
-        """Check if resource limits allow job execution."""
+        """Check if resource limits allow job execution with two-tier enforcement."""
         try:
+            from ...core.settings import BackendSettings
+
             # Get current active job counts
             if self._get_active_job_counts:
                 active_counts = self._get_active_job_counts()
                 global_active = active_counts.get('global', 0)
                 user_active = active_counts.get('user', {}).get(user_id, 0) if user_id else 0
             else:
-                # Fallback to local counters (not reliable across processes)
                 global_active = self.active_jobs
                 user_active = self.user_job_counts.get(user_id, 0) if user_id else 0
 
-            # Check global limit
-            # Retrieve latest setting from DB if possible, fallback to init value
-            try:
-                from ...core.settings import backend_settings
-                current_global_limit = backend_settings.get_global_max_concurrent_jobs()
-            except ImportError:
-                current_global_limit = self.global_max_concurrent_jobs
+            # --- Tier 1: Read system hard ceilings (always from system.db) ---
+            system_settings = BackendSettings()  # No owner_id → system.db
+            system_global_ceiling = system_settings.get_system_max_concurrent_jobs()
+            system_per_user_ceiling = system_settings.get_system_max_concurrent_jobs_per_user()
 
-            if global_active >= current_global_limit:
-                logger.debug(f"Global job limit exceeded: {global_active}/{current_global_limit}")
+            # --- Tier 2: Read tenant-configured limits (from tenant.db if user_id provided) ---
+            if user_id:
+                tenant_settings = BackendSettings(owner_id=user_id)
+                tenant_global_limit = tenant_settings.get_global_max_concurrent_jobs()
+                tenant_per_user_limit = tenant_settings.get_per_user_max_concurrent_jobs()
+            else:
+                tenant_global_limit = self.global_max_concurrent_jobs
+                tenant_per_user_limit = self.per_user_max_concurrent_jobs
+
+            # --- Effective limits: min(tenant, system) ---
+            effective_global_limit = min(tenant_global_limit, system_global_ceiling)
+            effective_per_user_limit = min(tenant_per_user_limit, system_per_user_ceiling)
+
+            # --- Check global limit ---
+            if global_active >= effective_global_limit:
+                logger.debug(
+                    f"Global job limit exceeded: {global_active}/{effective_global_limit} "
+                    f"(tenant={tenant_global_limit}, system_ceiling={system_global_ceiling})"
+                )
                 return False
 
-            # Check per-user limit if user_id provided
-            # TODO: Uncomment when multi-user architecture is implemented
-            # if user_id and user_active >= self.per_user_max_concurrent_jobs:
-            #     logger.debug(f"Per-user job limit exceeded for {user_id}: {user_active}/{self.per_user_max_concurrent_jobs}")
-            #     return False
+            # --- Check per-user limit ---
+            if user_id and user_active >= effective_per_user_limit:
+                logger.debug(
+                    f"Per-user job limit exceeded for {user_id}: {user_active}/{effective_per_user_limit} "
+                    f"(tenant={tenant_per_user_limit}, system_ceiling={system_per_user_ceiling})"
+                )
+                return False
 
-            # Check resource limits if provided
+            # --- CPU/memory checks ---
             if limits:
-                # Check CPU limit
                 if limits.max_cpu_percent and self.current_cpu_percent >= limits.max_cpu_percent:
                     logger.info(f"System CPU limit exceeded: {self.current_cpu_percent}%/{limits.max_cpu_percent}%")
                     return False
 
-                # Check memory limit
                 # NOTE: Only enforce memory limit if system usage is very high (>90%)
-                # The default limit (4GB) is too low for modern desktops and causes blocking
                 mem_percent = psutil.virtual_memory().percent
                 if mem_percent > 90:
                     if limits.max_memory_mb and self.current_memory_mb >= limits.max_memory_mb:
                         logger.info(f"System memory limit exceeded: {self.current_memory_mb}MB/{limits.max_memory_mb}MB (Usage: {mem_percent}%)")
                         return False
 
-            logger.debug(f"Resource limits OK - Global: {global_active}/{self.global_max_concurrent_jobs}")
+            logger.debug(
+                f"Resource limits OK - Global: {global_active}/{effective_global_limit}, "
+                f"Per-user: {user_active}/{effective_per_user_limit}"
+            )
             return True
 
         except Exception as e:

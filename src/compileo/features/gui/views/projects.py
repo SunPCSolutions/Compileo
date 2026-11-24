@@ -224,31 +224,42 @@ def render_create_project():
     """Render the project creation form."""
     st.subheader("Create New Project")
 
+    # Display success message outside the form if project was just created
+    if st.session_state.get('project_created_success'):
+        project_name = st.session_state.pop('project_created_name', 'Project')
+        st.success(f"✅ Project '{project_name}' created successfully!")
+        st.rerun()
+
     with st.form("create_project_form"):
         name = st.text_input("Project Name", help="Enter a unique name for your project")
         description = st.text_area("Description (Optional)", help="Describe the purpose of this project")
 
-        submitted = st.form_submit_button("Create Project")
+        submitted = st.form_submit_button("🚀 Create Project", type="primary")
 
         if submitted:
             if not name.strip():
-                st.error("Project name is required")
+                st.error("❌ Project name is required")
                 return
 
             try:
-                with st.spinner("Creating project..."):
+                with st.spinner("🔄 Creating project..."):
                     response = api_client.post("/api/v1/projects", data={
                         "name": name.strip(),
                         "description": description.strip() if description else None
                     })
 
-                st.success(f"Project '{response['name']}' created successfully!")
+                # Store success state for display outside form
+                st.session_state.project_created_success = True
+                st.session_state.project_created_name = response.get('name', name.strip())
+                # Add a small delay to ensure the API has processed the creation before refresh
+                import time
+                time.sleep(0.5)
                 st.rerun()
 
             except APIError as e:
-                st.error(f"Failed to create project: {str(e)}")
+                st.error(f"❌ Failed to create project: {str(e)}")
             except Exception as e:
-                st.error(f"An unexpected error occurred: {str(e)}")
+                st.error(f"❌ An unexpected error occurred: {str(e)}")
 
 def render_project_details():
     """Render detailed view of a selected project."""
@@ -570,9 +581,9 @@ def render_projects():
         st.title("📁 Projects")
         st.markdown("Manage your Compileo projects")
 
-        # Check if API key is set
-        if not session_state.api_key:
-            st.warning("Please set your API key in the sidebar to access project management features.")
+        # Check if user is authenticated
+        if not session_state.authenticated:
+            st.warning("Please login to access project management features.")
             return
 
         # Create tabs for different views

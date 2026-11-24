@@ -81,10 +81,18 @@ COMPILEO_API_KEYS=your-api-key-1,your-api-key-2
 # Redis connection URL (required for job queuing)
 REDIS_URL=redis://redis:6379/0
 
+# API Base URL (for GUI to connect to API)
+API_BASE_URL=http://compileo-api:8000
+
+# AI Model API Keys (optional, for enhanced features)
+GEMINI_API_KEY=your-gemini-api-key
+GROK_API_KEY=your-grok-api-key
+HUGGINGFACE_API_KEY=your-huggingface-api-key
+OPENAI_API_KEY=your-openai-api-key
+
 # --- Optional Parameters (Uncomment to customize) ---
 
 # CORS_ORIGINS=http://localhost:3000,http://localhost:8080
-# API_BASE_URL=http://compileo-api:8000
 # RATE_LIMIT_REQUESTS=100
 # RATE_LIMIT_WINDOW=60
 # LOG_LEVEL=INFO
@@ -139,22 +147,76 @@ Compileo runs as three main services:
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `COMPILEO_API_KEYS` | API authentication keys (can be set via GUI) | - | No |
 | `REDIS_URL` | Redis connection URL for job queuing | `redis://redis:6379/0` | Yes |
-| `API_BASE_URL` | Internal API URL (Docker service name + port) | `http://compileo-api:8000` | No |
+| `API_BASE_URL` | API base URL for GUI | `http://compileo-api:8000` | Yes |
+| `COMPILEO_API_KEYS` | API authentication keys | - | No |
+| `GEMINI_API_KEY` | Google Gemini API key | - | No |
+| `GROK_API_KEY` | xAI Grok API key | - | No |
+| `HUGGINGFACE_API_KEY` | HuggingFace API key | - | No |
+| `OPENAI_API_KEY` | OpenAI API key | - | No |
+| `LICENSE_ENCRYPTION_KEY` | Encryption key for sensitive settings | auto-generated | No |
+| `LOG_LEVEL` | Logging level | `INFO` | No |
 | `RATE_LIMIT_REQUESTS` | API rate limiting requests per window | `100` | No |
 | `RATE_LIMIT_WINDOW` | API rate limiting time window (seconds) | `60` | No |
-| `LOG_LEVEL` | Application logging level | `INFO` | No |
 | `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost:3000,http://localhost:8080` | No |
+
+### API Keys Setup
+
+For enhanced features, configure AI model API keys in the `.env` file (these can also be configured via the GUI settings later):
+
+```bash
+# Google Gemini (for document classification)
+GEMINI_API_KEY=your-gemini-api-key
+
+# xAI Grok (for advanced reasoning)
+GROK_API_KEY=your-grok-api-key
+
+# HuggingFace (for model downloads)
+HUGGINGFACE_API_KEY=your-huggingface-api-key
+
+# OpenAI (for GPT models)
+OPENAI_API_KEY=your-openai-api-key
+```
 
 ### Volume Management
 
-Compileo uses Docker volumes for data persistence:
+Compileo uses Docker volumes for data persistence with a **multi-tenant database architecture**:
 
-- `compileo_storage`: Application data and SQLite database
+- `compileo_storage`: Application data including:
+  - `storage/system/system.db` - System database (users, sessions, licenses)
+  - `storage/{user_id}/tenant.db` - Per-user tenant databases
+  - `storage/{user_id}/uploads/` - User uploaded documents
+  - `storage/{user_id}/parsed/` - Parsed document files
+  - `storage/{user_id}/chunks/` - Generated chunks
+  - `storage/{user_id}/datasets/` - Generated datasets
 - `compileo_plugins`: Plugin storage
 - `compileo_hf_models`: HuggingFace model cache (Pre-population recommended for large models)
 - `redis_data`: Redis persistence
+
+#### Multi-Tenant Database Structure
+
+Compileo uses a **physically isolated multi-tenant architecture**:
+
+```
+storage/
+├── system/
+│   └── system.db              # Global auth data (users, sessions, licenses)
+├── {user_id_1}/
+│   ├── tenant.db              # User 1's isolated database
+│   ├── uploads/{project_id}/
+│   ├── parsed/{project_id}/
+│   ├── chunks/{project_id}/
+│   └── datasets/
+├── {user_id_2}/
+│   ├── tenant.db              # User 2's isolated database
+│   └── ...
+```
+
+**Benefits:**
+- True data isolation between users
+- Encrypted API keys at rest
+- Easier backup/restore per tenant
+- Compliance with data residency requirements
 
 #### Pre-populating HuggingFace Models
 If the HuggingFace parser hangs during model download in Docker, you can manually copy model weights from a local cache:
@@ -163,7 +225,6 @@ If the HuggingFace parser hangs during model download in Docker, you can manuall
 docker cp src/compileo/features/ingestion/hf_models/models--nanonets--Nanonets-OCR2-3B compileo-compileo-api-1:/app/src/compileo/features/ingestion/hf_models/
 docker exec -u 0 compileo-compileo-api-1 chown -R compileo:compileo /app/src/compileo/features/ingestion/hf_models/
 ```
-
 To view volume data:
 ```bash
 # List volumes
@@ -340,15 +401,46 @@ docker run --rm -v compileo_compileo_storage:/data -v $(pwd):/backup alpine tar 
 ```
 
 #### Reset Database
+
+**⚠️ WARNING: This deletes ALL user data including all tenant databases and uploaded files.**
+
 ```bash
 # Stop services
 docker compose down
 
-# Remove database volume
+# Remove storage volume (deletes all tenant databases and files)
 docker volume rm compileo_compileo_storage
 
-# Restart services (creates new database)
+# Restart services (creates fresh system database)
 docker compose up -d
+```
+
+#### Backup and Restore Individual Tenant
+
+To backup a specific user's data:
+
+```bash
+# Find the user ID from the system database
+docker compose exec compileo-api python -c "
+from src.compileo.storage.src.database import get_system_db_connection
+with get_system_db_connection() as conn:
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, email FROM users')
+    for row in cursor.fetchall():
+        print(f'{row[0]}: {row[1]}')
+"
+
+# Backup specific tenant database
+docker run --rm \
+  -v compileo_compileo_storage:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/tenant_backup.tar.gz -C /data {user_id}
+
+# Restore specific tenant
+docker run --rm \
+  -v compileo_compileo_storage:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/tenant_backup.tar.gz -C /data
 ```
 
 ## Advanced Configuration
@@ -396,11 +488,57 @@ services:
 
 ### Production Deployment
 
-For production deployments:
+For production deployments, use the dedicated production Docker Compose configuration:
+
+```bash
+# Production deployment with Cython compilation
+# This builds optimized, compiled Python modules for better performance
+
+docker-compose -f docker-compose.prod.yml up -d
+
+# With custom worker scaling
+docker-compose -f docker-compose.prod.yml up -d --scale compileo-worker=4
+```
+
+#### Production Configuration
+
+The `docker-compose.prod.yml` file provides:
+- **Cython Compilation**: Source code is compiled to C for performance and IP protection
+- **Worker Scaling**: Horizontal and vertical scaling of job workers
+- **Health Checks**: Built-in health monitoring for all services
+- **Resource Limits**: Configurable CPU and memory limits
+
+#### Worker Scaling
+
+Compileo supports horizontal worker scaling through the `WORKER_REPLICAS` environment variable:
+
+**Horizontal Scaling** (more worker containers):
+```bash
+# Deploy with 4 worker containers
+docker-compose -f docker-compose.prod.yml up -d --scale compileo-worker=4
+
+# Or set via environment variable
+export WORKER_REPLICAS=4
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+Each worker container processes one job at a time. The total concurrent job capacity equals the number of worker replicas.
+
+#### Production Environment Variables
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `WORKER_REPLICAS` | Number of worker containers | 2 | `4` |
+| `COMPILEO_JWT_SECRET_KEY` | JWT signing key | (required) | `your-secret-key` |
+| `COMPILEO_LICENSE_KEY` | License key for SaaS | (optional) | `XXXX-XXXX` |
+| `LICENSE_ENCRYPTION_KEY` | Encryption key for API keys | auto-generated | `base64-encoded-key` |
+
+**Important:** `LICENSE_ENCRYPTION_KEY` is used to encrypt sensitive settings (API keys) in the database. If you reset this key, existing encrypted settings will be lost.
+
+#### Production Resource Configuration
 
 ```yaml
-version: '3.8'
-
+# docker-compose.prod.yml (excerpt)
 services:
   compileo-api:
     environment:
@@ -409,21 +547,49 @@ services:
       resources:
         limits:
           memory: 8G
-          cpus: '2.0'
+          cpus: '4'
     restart: unless-stopped
 
-  compileo-gui:
-    environment:
-      - LOG_LEVEL=WARNING
+  compileo-worker:
     deploy:
+      replicas: 4
       resources:
         limits:
           memory: 4G
-          cpus: '1.0'
+          cpus: '2'
     restart: unless-stopped
 
   redis:
-    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+```
+
+#### Building Production Images
+
+```bash
+# Build with Cython compilation
+docker-compose -f docker-compose.prod.yml build
+
+# Build specific service
+docker-compose -f docker-compose.prod.yml build compileo-api
+
+# Build with no cache (clean build)
+docker-compose -f docker-compose.prod.yml build --no-cache
+```
+
+#### Monitoring Production Deployment
+
+```bash
+# Check service health
+docker-compose -f docker-compose.prod.yml ps
+
+# View worker logs
+docker-compose -f docker-compose.prod.yml logs -f compileo-worker
+
+# Check all service logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# View resource usage
+docker stats
 ```
 
 ## Getting Help

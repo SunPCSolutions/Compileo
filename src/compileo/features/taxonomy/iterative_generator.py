@@ -7,9 +7,9 @@ and final consolidation to ensure 100% chunk coverage.
 """
 
 from typing import List, Dict, Any, Optional, Callable
+import logging
 import math
 import copy
-from ...core.logging import get_logger
 
 from .smart_sampler import SmartChunkSampler
 from .merger import TaxonomyMerger
@@ -32,13 +32,13 @@ class IterativeTaxonomyGenerator:
         """
         self.generation_func = generation_func
         self.extension_func = extension_func
-        self.logger = get_logger(__name__)
+        self.logger = logging.getLogger(__name__)
 
     def generate(
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: int = 10,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
@@ -129,7 +129,7 @@ class IterativeTaxonomyGenerator:
             
             batch_msg = f"Processing refinement batch {i+1}/{total_batches} ({len(batch_chunks)} chunks)"
             self.logger.info(batch_msg)
-            self.logger.debug(batch_msg)
+            self.logger.debug(f"DEBUG: {batch_msg}") # Direct stdout for CLI/API logs capture
 
             # We use the extension function but conceptually we are "refining" the structure
             # The prompt for extension should handle "add missing categories" logic.
@@ -201,6 +201,7 @@ class IterativeTaxonomyGenerator:
 
             except Exception as e:
                 self.logger.error(f"Error in refinement batch {i+1}: {e}")
+                self.logger.debug(f"DEBUG: Error in refinement batch {i+1}: {e}")
                 
                 current_taxonomy_result['processing_steps'].append({
                     "stage": "refinement_batch_error",

@@ -10,11 +10,10 @@ from collections import Counter
 from pydantic import BaseModel, Field
 
 import ollama
-from ...core.logging import get_logger
+import logging
 
 from src.compileo.features.extraction.context_models import HierarchicalCategory
-
-logger = get_logger(__name__)
+from .prompt_builder import TaxonomyPromptBuilder
 
 
 class TaxonomyCategory(BaseModel):
@@ -38,6 +37,7 @@ class OllamaTaxonomyGenerator:
     """
 
     def __init__(self, model: Optional[str] = None):
+        self.logger = logging.getLogger(__name__)
         """
         Initialize the taxonomy generator.
 
@@ -55,7 +55,7 @@ class OllamaTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1,
@@ -87,7 +87,7 @@ class OllamaTaxonomyGenerator:
                 chunks=chunks,
                 domain=domain,
                 depth=depth,
-                batch_size=batch_size or 10,
+                batch_size=batch_size or 10,  # Default to 10 if None
                 category_limits=category_limits,
                 specificity_level=specificity_level
             )
@@ -106,7 +106,7 @@ class OllamaTaxonomyGenerator:
         self,
         chunks: List[str],
         domain: str = "general",
-        depth: Optional[int] = 3,
+        depth: int = 3,
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1,
@@ -154,7 +154,7 @@ class OllamaTaxonomyGenerator:
             "analytics": analytics
         }
 
-    def _call_ollama_for_taxonomy(self, chunks: List[str], domain: str, depth: Optional[int], category_limits: Optional[List[int]] = None, specificity_level: int = 1, options: Optional[Dict[str, Any]] = None) -> str:
+    def _call_ollama_for_taxonomy(self, chunks: List[str], domain: str, depth: int, category_limits: Optional[List[int]] = None, specificity_level: int = 1, options: Optional[Dict[str, Any]] = None) -> str:
         """
         Call Ollama API to generate taxonomy from chunks using chat API with structured output.
         Handles both thinking and non-thinking models.
@@ -194,31 +194,31 @@ class OllamaTaxonomyGenerator:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                logger.debug(f"Ollama chat API call attempt {attempt + 1}/{max_retries}")
-                logger.debug(f"Model: {self.model}")
-                logger.debug(f"Prompt length: {len(prompt)} characters")
+                self.logger.debug(f"DEBUG: Ollama chat API call attempt {attempt + 1}/{max_retries}")
+                self.logger.debug(f"DEBUG: Model: {self.model}")
+                self.logger.debug(f"DEBUG: Prompt length: {len(prompt)} characters")
 
                 # Try to get content using adaptive approach (handles both thinking and regular models)
                 try:
                     content = self._call_ollama_adaptive(prompt, merged_options)
-                    logger.debug(f"Ollama response content length: {len(content)}")
+                    self.logger.debug(f"DEBUG: Ollama response content length: {len(content)}")
 
                     if content:
-                        logger.debug("Ollama chat API call successful")
+                        self.logger.debug("DEBUG: Ollama chat API call successful")
                         return content
                     else:
-                        logger.debug("Empty response from Ollama chat API")
+                        self.logger.debug("DEBUG: Empty response from Ollama chat API")
                         raise ValueError("Empty response from Ollama chat API")
                 except Exception as ollama_error:
-                    logger.error(f"Ollama adaptive call failed: {ollama_error}")
+                    self.logger.debug(f"DEBUG: Ollama adaptive call failed: {ollama_error}")
                     raise Exception(f"Ollama taxonomy generation failed: {str(ollama_error)}")
 
             except Exception as e:
-                logger.error(f"Ollama chat API call failed on attempt {attempt + 1}: {e}")
+                self.logger.debug(f"DEBUG: Ollama chat API call failed on attempt {attempt + 1}: {e}")
                 if attempt == max_retries - 1:
-                    logger.error(f"All Ollama attempts failed, raising exception")
+                    self.logger.debug(f"DEBUG: All Ollama attempts failed, raising exception")
                     raise Exception(f"Failed to generate taxonomy after {max_retries} attempts: {e}")
-                logger.debug(f"Retrying Ollama call in {2 ** attempt} seconds")
+                self.logger.debug(f"DEBUG: Retrying Ollama call in {2 ** attempt} seconds")
                 time.sleep(2 ** attempt)  # Exponential backoff
 
         raise Exception("Unexpected error in taxonomy generation")
@@ -234,24 +234,24 @@ class OllamaTaxonomyGenerator:
         Returns:
             Final content from the model
         """
-        logger.debug(f"Trying adaptive Ollama call with model {self.model} - attempting thinking mode first")
+        self.logger.debug(f"DEBUG: Trying adaptive Ollama call with model {self.model} - attempting thinking mode first")
 
         try:
             # First try thinking mode (works for both thinking and regular models)
-            logger.debug("Attempting thinking mode...")
+            self.logger.debug("DEBUG: Attempting thinking mode...")
             content = self._call_with_thinking_mode(prompt, options)
             if content and self._is_valid_json(content):
-                logger.debug("Thinking mode successful")
+                self.logger.debug("DEBUG: Thinking mode successful")
                 return content
             else:
-                logger.debug(f"Thinking mode returned invalid content: {content[:200]}...")
+                self.logger.debug(f"DEBUG: Thinking mode returned invalid content: {content[:200]}...")
         except Exception as e:
-            logger.debug(f"Thinking mode failed: {e}")
+            self.logger.debug(f"DEBUG: Thinking mode failed: {e}")
 
-        logger.debug("Falling back to regular mode")
+        self.logger.debug("DEBUG: Falling back to regular mode")
         try:
             # Fall back to regular mode
-            logger.debug("Attempting regular mode...")
+            self.logger.debug("DEBUG: Attempting regular mode...")
             response = ollama.chat(
                 model=self.model,
                 messages=[{'role': 'user', 'content': prompt}],
@@ -260,14 +260,14 @@ class OllamaTaxonomyGenerator:
                 stream=False
             )
             content = response.get('message', {}).get('content', '')
-            logger.debug(f"Regular mode response content: {content[:200]}...")
+            self.logger.debug(f"DEBUG: Regular mode response content: {content[:200]}...")
             if content and self._is_valid_json(content):
-                logger.debug("Regular mode successful")
+                self.logger.debug("DEBUG: Regular mode successful")
                 return content
             else:
-                logger.debug(f"Regular mode returned invalid content: {content[:200]}...")
+                self.logger.debug(f"DEBUG: Regular mode returned invalid content: {content[:200]}...")
         except Exception as e:
-            logger.debug(f"Regular mode also failed: {e}")
+            self.logger.debug(f"DEBUG: Regular mode also failed: {e}")
 
         raise Exception("Both thinking and regular modes failed to produce valid content")
 
@@ -282,7 +282,7 @@ class OllamaTaxonomyGenerator:
         Returns:
             Final content (thinking tokens filtered out)
         """
-        logger.debug(f"Calling thinking mode with model {self.model}")
+        self.logger.debug(f"DEBUG: Calling thinking mode with model {self.model}")
         try:
             stream = ollama.chat(
                 model=self.model,
@@ -301,7 +301,7 @@ class OllamaTaxonomyGenerator:
                 chunk_count += 1
                 if chunk.message.thinking and not in_thinking:
                     in_thinking = True
-                    logger.debug(f"Thinking phase detected at chunk {chunk_count}")
+                    self.logger.debug(f"DEBUG: Thinking phase detected at chunk {chunk_count}")
 
                 if chunk.message.thinking:
                     # Skip thinking tokens
@@ -309,14 +309,14 @@ class OllamaTaxonomyGenerator:
                 elif chunk.message.content:
                     if in_thinking:
                         in_thinking = False
-                        logger.debug(f"Content phase started at chunk {chunk_count}")
+                        self.logger.debug(f"DEBUG: Content phase started at chunk {chunk_count}")
                     content += chunk.message.content
 
-            logger.debug(f"Thinking mode completed with {chunk_count} chunks, content length: {len(content)}")
+            self.logger.debug(f"DEBUG: Thinking mode completed with {chunk_count} chunks, content length: {len(content)}")
             return content
 
         except Exception as e:
-            logger.debug(f"Thinking mode stream failed: {e}")
+            self.logger.debug(f"DEBUG: Thinking mode stream failed: {e}")
             raise
 
     def _is_valid_json(self, content: str) -> bool:
@@ -364,7 +364,7 @@ class OllamaTaxonomyGenerator:
 
         return "\n\n---\n\n".join(sample_parts)
 
-    def _create_taxonomy_prompt(self, content: str, domain: str, depth: Optional[int], category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
+    def _create_taxonomy_prompt(self, content: str, domain: str, depth: int, category_limits: Optional[List[int]] = None, specificity_level: int = 1) -> str:
         """
         Create a domain-specific prompt for taxonomy generation.
 
@@ -439,23 +439,8 @@ Return a valid JSON object with this exact structure:
     def _get_domain_context(self, domain: str) -> str:
         """
         Get domain-specific context for taxonomy generation.
-
-        Args:
-            domain: Knowledge domain
-
-        Returns:
-            Domain-specific guidance text
         """
-        contexts = {
-            "medical": "Focus on clinical conditions, symptoms, treatments, diagnostics, anatomy, and medical specialties. Consider diseases, medications, procedures, and patient care aspects.",
-            "legal": "Focus on legal domains, case types, jurisdictions, legal procedures, contracts, regulations, and legal concepts. Consider civil law, criminal law, corporate law, etc.",
-            "technical": "Focus on technical domains, software development, hardware, processes, methodologies, and technical concepts. Consider programming, systems, infrastructure, etc.",
-            "business": "Focus on business domains, industries, departments, processes, strategies, and business concepts. Consider finance, marketing, operations, management, etc.",
-            "scientific": "Focus on scientific domains, research areas, methodologies, theories, and scientific concepts. Consider physics, chemistry, biology, mathematics, etc.",
-            "general": "Create a general-purpose taxonomy suitable for most content types. Focus on universal categories like people, places, events, concepts, etc."
-        }
-
-        return contexts.get(domain.lower(), contexts["general"])
+        return TaxonomyPromptBuilder._get_domain_context(domain)
 
     def _get_specificity_instruction(self, specificity_level: int) -> str:
         """
@@ -511,7 +496,7 @@ Return a valid JSON object with this exact structure:
 
             raise Exception(f"Failed to parse taxonomy response: {e}")
 
-    def _validate_taxonomy_structure(self, taxonomy: Dict[str, Any], max_depth: Optional[int] = 5) -> None:
+    def _validate_taxonomy_structure(self, taxonomy: Dict[str, Any], max_depth: int = 5) -> None:
         """
         Validate the structure of generated taxonomy.
 
@@ -535,7 +520,7 @@ Return a valid JSON object with this exact structure:
 
         # Validate depth
         def check_depth(node: Dict[str, Any], current_depth: int = 0):
-            if max_depth and current_depth > max_depth:
+            if current_depth > max_depth:
                 raise ValueError(f"Taxonomy exceeds maximum depth of {max_depth}")
             for child in node.get("children", []):
                 check_depth(child, current_depth + 1)
@@ -639,7 +624,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         chunks: List[str],
-        additional_depth: Optional[int] = 2,
+        additional_depth: int = 2,
         domain: str = "general",
         batch_size: Optional[int] = None,
         category_limits: Optional[List[int]] = None,
@@ -710,7 +695,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         chunks: List[str],
-        additional_depth: Optional[int],
+        additional_depth: int,
         domain: str,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1,
@@ -760,20 +745,20 @@ Return a valid JSON object with this exact structure:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                logger.debug(f"Ollama extension chat API call attempt {attempt + 1}/{max_retries}")
-                logger.debug(f"Model: {self.model}")
+                self.logger.debug(f"DEBUG: Ollama extension chat API call attempt {attempt + 1}/{max_retries}")
+                self.logger.debug(f"DEBUG: Model: {self.model}")
 
                 # Try to get content using adaptive approach
                 content = self._call_ollama_adaptive(prompt, merged_options)
 
                 if content:
-                    logger.debug("Ollama extension chat API call successful")
+                    self.logger.debug("DEBUG: Ollama extension chat API call successful")
                     return content
                 else:
                     raise ValueError("Empty response from Ollama extension chat API")
 
             except Exception as e:
-                logger.debug(f"Ollama extension chat API call failed on attempt {attempt + 1}: {e}")
+                self.logger.debug(f"DEBUG: Ollama extension chat API call failed on attempt {attempt + 1}: {e}")
                 if attempt == max_retries - 1:
                     raise Exception(f"Failed to extend taxonomy after {max_retries} attempts: {e}")
                 time.sleep(2 ** attempt)  # Exponential backoff
@@ -784,7 +769,7 @@ Return a valid JSON object with this exact structure:
         self,
         existing_taxonomy: Dict[str, Any],
         content: str,
-        additional_depth: Optional[int],
+        additional_depth: int,
         domain: str,
         category_limits: Optional[List[int]] = None,
         specificity_level: int = 1
