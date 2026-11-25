@@ -9,6 +9,8 @@ from google import genai
 from .schema import ChunkingStrategy, LLMPromptStrategy, DelimiterStrategy, CharacterStrategy, TokenStrategy, SchemaStrategy, ManifestData
 from typing import List, Optional, Dict, Any
 
+from ...core.openai_compat import openai_sampling_options
+
 # Import Grok API client for chunking
 try:
     from ..taxonomy.api_client import GrokAPIClient
@@ -79,7 +81,7 @@ def _call_ai_model(prompt: str, strategy: LLMPromptStrategy) -> str:
         response = client.chat.completions.create(
             model=strategy.model,
             messages=messages,
-            temperature=0.2  # Low temperature for consistent chunking
+            **openai_sampling_options(strategy.model, temperature=0.2),
         )
 
         return response.choices[0].message.content.strip()

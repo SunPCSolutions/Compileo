@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from collections import Counter
 
 from src.compileo.features.extraction.context_models import HierarchicalCategory
+from src.compileo.core.openai_compat import openai_sampling_options
 from .prompt_builder import TaxonomyPromptBuilder
 
 
@@ -170,8 +171,8 @@ class OpenAITaxonomyGenerator:
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.2,
-                    max_tokens=4000
+                    max_completion_tokens=4000,
+                    **openai_sampling_options(self.model, temperature=0.2),
                 )
                 content = response.choices[0].message.content
 
@@ -611,8 +612,8 @@ Return a valid JSON object with this exact structure:
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.2,
-                    max_tokens=4000
+                    max_completion_tokens=4000,
+                    **openai_sampling_options(self.model, temperature=0.2),
                 )
                 content = response.choices[0].message.content
 

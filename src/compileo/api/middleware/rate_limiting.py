@@ -4,7 +4,8 @@ import time
 from collections import defaultdict
 from typing import Callable
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..core.config import settings
@@ -32,9 +33,10 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         if len(self.requests[client_ip]) >= self.requests_per_window:
-            raise HTTPException(
+            # Exceptions raised here bypass FastAPI's route exception handler.
+            return JSONResponse(
                 status_code=429,
-                detail="Too many requests. Please try again later.",
+                content={"detail": "Too many requests. Please try again later."},
                 headers={"Retry-After": str(self.window_seconds)}
             )
 

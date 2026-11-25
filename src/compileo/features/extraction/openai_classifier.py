@@ -7,6 +7,7 @@ import logging
 import json
 from typing import Dict, List, Any, Optional
 from .context_models import DocumentContext, ChunkContext, HierarchicalCategory
+from ...core.openai_compat import openai_sampling_options
 from ...core.settings import backend_settings
 
 def _classify_with_categories(
@@ -82,7 +83,7 @@ You must return a valid JSON object where keys are the category names and values
                 {"role": "user", "content": f"Text to analyze:\n{text}"}
             ],
             response_format={"type": "json_object"},
-            temperature=0.2
+            **openai_sampling_options(openai_model, temperature=0.2),
         )
 
         response_content = response.choices[0].message.content
@@ -139,7 +140,7 @@ Return only a JSON object with a single key "categories" containing a list of st
                 {"role": "user", "content": chunk_text}
             ],
             response_format={"type": "json_object"},
-            temperature=0.2
+            **openai_sampling_options(openai_model, temperature=0.2),
         )
 
         response_content = response.choices[0].message.content

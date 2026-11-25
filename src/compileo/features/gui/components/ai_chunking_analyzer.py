@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
+from src.compileo.core.openai_compat import openai_sampling_options
+
 
 SUPPORTED_STRATEGIES = {"character", "token", "semantic", "delimiter", "schema"}
 
@@ -696,7 +698,7 @@ def _score_schema_candidate(
         return {
             "candidate_name": candidate_name,
             "strategy": "schema",
-            "parameters": {"json_schema": schema_json},
+            "parameters": {},
             "score": 0.0,
             "chunk_count": 0,
             "preview_start_lines": [],
@@ -1166,6 +1168,28 @@ def analyze_document_for_chunking(
         return None
 
 
+def _display_recommendation_parameters(strategy: Optional[str], parameters: Dict[str, Any]) -> bool:
+    """Render parameters and return whether the schema, if any, can be applied."""
+    if strategy == "schema":
+        from ...chunk.schema import parse_chunking_schema
+
+        schema_json = parameters.get("json_schema")
+        try:
+            parse_chunking_schema(schema_json)
+        except ValueError as exc:
+            st.error(f"Cannot use the recommended schema: {exc}")
+            return False
+        # Markdown can consume backslashes and other characters in regex JSON.
+        st.code(schema_json, language="json")
+
+    params_display = "\n".join(
+        f"- **{key}**: {value}" for key, value in parameters.items() if key != "json_schema"
+    )
+    if params_display or strategy != "schema":
+        st.markdown(params_display or "- *(none)*")
+    return True
+
+
 def display_ai_recommendations(recommendations: Dict[str, Any]) -> None:
     """Display AI recommendations and provide accept/adjust options."""
     st.markdown("### 🎯 AI Recommendations")
@@ -1207,10 +1231,7 @@ def display_ai_recommendations(recommendations: Dict[str, Any]) -> None:
         st.markdown(reasoning)
 
     st.markdown("**📊 Recommended Parameters:**")
-    params_display = "\n".join([f"- **{key}**: {value}" for key, value in parameters.items()]) or "- *(none)*"
-    st.markdown(params_display)
-    if strategy == "schema" and isinstance(parameters.get("json_schema"), str):
-        st.code(parameters["json_schema"], language="json")
+    recommendation_valid = _display_recommendation_parameters(strategy, parameters)
 
     if selected_candidate:
         st.markdown(f"**Selected Candidate:** {selected_candidate}")
@@ -1277,26 +1298,14 @@ def display_ai_recommendations(recommendations: Dict[str, Any]) -> None:
             selected_index = int(selected_label.split(":", 1)[0])
             selected_candidate_data = applicable[selected_index]
 
-            st.markdown(
-                f"**Candidate Parameters:** `{selected_candidate_data.get('strategy', 'unknown')}`"
-            )
+            candidate_strategy = selected_candidate_data.get("strategy", strategy)
             selected_params = selected_candidate_data.get("parameters", {})
-            selected_params_display = "\n".join(
-                [f"- **{key}**: {value}" for key, value in selected_params.items()]
-            ) or "- *(none)*"
-            st.markdown(selected_params_display)
+            st.markdown(f"**Candidate Parameters:** `{candidate_strategy}`")
+            candidate_valid = _display_recommendation_parameters(candidate_strategy, selected_params)
 
-            if (
-                selected_candidate_data.get("strategy") == "schema"
-                and isinstance(selected_params.get("json_schema"), str)
-            ):
-                st.code(selected_params["json_schema"], language="json")
-
-            if st.button("✅ Apply Selected Candidate", key="apply_selected_candidate"):
-                apply_ai_recommendations(
-                    selected_candidate_data.get("strategy", strategy),
-                    selected_candidate_data.get("parameters", {}),
-                )
+            if st.button(
+                "✅ Apply Selected Candidate", key="apply_selected_candidate", disabled=not candidate_valid
+            ) and apply_ai_recommendations(candidate_strategy, selected_params):
                 st.success("✅ Selected candidate applied to configuration!")
                 st.rerun()
 
@@ -1309,8 +1318,9 @@ def display_ai_recommendations(recommendations: Dict[str, Any]) -> None:
 
     col_accept, col_adjust, col_refine = st.columns([1, 1, 1])
     with col_accept:
-        if st.button("✅ Accept & Apply", type="primary"):
-            apply_ai_recommendations(strategy, parameters)
+        if st.button(
+            "✅ Accept & Apply", type="primary", disabled=not recommendation_valid
+        ) and apply_ai_recommendations(strategy, parameters):
             st.success("✅ Recommendations applied to configuration!")
             st.rerun()
 
@@ -1344,17 +1354,26 @@ def display_ai_recommendations(recommendations: Dict[str, Any]) -> None:
             else:
                 adjusted_params[param_name] = st.text_input(f"{param_name}", value=str(param_value))
 
-        if st.button("✅ Apply Adjusted Parameters"):
-            apply_ai_recommendations(strategy, adjusted_params)
+        if st.button("✅ Apply Adjusted Parameters") and apply_ai_recommendations(strategy, adjusted_params):
             st.success("✅ Adjusted parameters applied!")
             st.session_state.show_parameter_adjustment = False
             st.rerun()
 
 
-def apply_ai_recommendations(strategy: str, parameters: Dict[str, Any]) -> None:
-    """Apply AI recommendations to the session state for processing."""
+def apply_ai_recommendations(strategy: str, parameters: Dict[str, Any]) -> bool:
+    """Apply a recommendation only if its schema passes worker validation."""
+    if strategy == "schema":
+        from ...chunk.schema import parse_chunking_schema
+
+        try:
+            parse_chunking_schema(parameters.get("json_schema"))
+        except ValueError as exc:
+            st.error(f"Cannot apply the recommended schema: {exc}")
+            return False
+
     st.session_state.ai_recommended_strategy = strategy
-    st.session_state.ai_recommended_params = parameters
+    st.session_state.ai_recommended_params = parameters.copy()
+    return True
 
 
 def call_gemini_api(prompt: str, api_key: Optional[str], model_name: str) -> Optional[str]:
@@ -1414,7 +1433,7 @@ def call_grok_api(prompt: str, api_key: Optional[str], model_name: str) -> Optio
 
 
 def call_openai_api(prompt: str, api_key: Optional[str], model_name: str) -> Optional[str]:
-    """Call OpenAI API for analysis."""
+    """Return completed answer text, retrying once on token exhaustion."""
     try:
         if not api_key:
             st.error("❌ OpenAI API key not configured.")
@@ -1422,24 +1441,50 @@ def call_openai_api(prompt: str, api_key: Optional[str], model_name: str) -> Opt
 
         openai_module = importlib.import_module("openai")
         client = openai_module.OpenAI(api_key=api_key)
+        request = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+            **openai_sampling_options(model_name, temperature=0.1),
+        }
 
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=1000,
-                response_format={"type": "json_object"},
-            )
-        except Exception:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=1000,
-            )
+        initial_budget, retry_budget = 1000, 8000  # Includes reasoning and visible output.
+        for budget in (initial_budget, retry_budget):
+            request["max_completion_tokens"] = budget
+            try:
+                response = client.chat.completions.create(**request)
+            except openai_module.BadRequestError as error:
+                if (
+                    "response_format" not in request
+                    or error.param != "response_format"
+                    or error.code not in {"unsupported_parameter", "unsupported_value"}
+                ):
+                    raise
+                request.pop("response_format")
+                response = client.chat.completions.create(**request)
 
-        return response.choices[0].message.content.strip()
+            if not response.choices:
+                st.warning("OpenAI returned no completion choices for chunking analysis.")
+                return None
+
+            choice = response.choices[0]
+            if choice.message.refusal:
+                st.warning("OpenAI declined to answer the chunking analysis request.")
+                return None
+            if choice.finish_reason == "length":
+                continue  # Discard partial JSON; the next attempt starts fresh.
+            if choice.finish_reason != "stop":
+                st.warning(f"OpenAI did not return a completed chunking answer ({choice.finish_reason}).")
+                return None
+
+            text = (choice.message.content or "").strip()
+            if not text:
+                st.warning("OpenAI completed the chunking analysis but returned no answer text.")
+                return None
+            return text
+
+        st.warning(f"OpenAI reached the {retry_budget:,}-token retry limit without completing its answer.")
+        return None
     except Exception as e:
         st.error(f"❌ OpenAI API error: {str(e)}")
         return None

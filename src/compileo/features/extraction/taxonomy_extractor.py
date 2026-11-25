@@ -20,6 +20,7 @@ from src.compileo.features.taxonomy.loader import TaxonomyLoader
 from src.compileo.storage.src.project.database_repositories import TaxonomyRepository, ChunkRepository
 from src.compileo.storage.src.project.file_manager import FileManager
 from src.compileo.core.settings import backend_settings, BackendSettings
+from src.compileo.core.openai_compat import openai_sampling_options
 from src.compileo.features.extraction.exceptions import (
     TaxonomyNotFoundError,
     TaxonomyValidationError,
@@ -783,7 +784,7 @@ JSON Response:"""
                                                     {"role": "user", "content": entity_prompt}
                                                 ],
                                                 response_format={"type": "json_object"},
-                                                temperature=0.1
+                                                **openai_sampling_options(openai_model, temperature=0.1),
                                             )
 
                                             response_text = response.choices[0].message.content
